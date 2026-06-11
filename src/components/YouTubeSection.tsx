@@ -6,7 +6,6 @@ import { Play, ListVideo, AlertCircle } from "lucide-react";
 import { getPlaylists } from "@/lib/youtube.functions";
 
 const CHANNEL_ID = "UC7eDkZaMYbiURgdv042M2pg";
-const UPLOADS_PLAYLIST_ID = CHANNEL_ID.replace("UC", "UU");
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
