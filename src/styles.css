@@ -94,7 +94,7 @@
   }
   body {
     color: var(--color-foreground);
-    font-family: "Inter", system-uniform, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
     background: linear-gradient(45deg, #743eca 0%, #691de7 33%, #3a0e8e 66%, #300b7d 100%) fixed;
