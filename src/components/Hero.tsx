@@ -1,11 +1,10 @@
 import { motion } from "framer-motion";
-import { Headphones, Twitch, Menu, X } from "lucide-react";
+import { Headphones, Youtube, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const NAV = [
   { label: "Podcast", href: "#podcast" },
   { label: "YouTube", href: "#youtube" },
-  { label: "Twitch", href: "#twitch" },
 ];
 
 export function Hero() {
@@ -123,12 +122,18 @@ export function Hero() {
             Listen to the Podcast
           </a>
           <a
-            href="#twitch"
+            href="#youtube"
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .getElementById("youtube")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-full glass-strong px-7 py-3.5 text-sm font-semibold text-foreground transition-transform hover:scale-105"
             style={{ boxShadow: "var(--shadow-glow-cyan)" }}
           >
-            <Twitch className="size-4" style={{ color: "var(--twitch)" }} />
-            Watch Live on Twitch
+            <Youtube className="size-4 text-accent" />
+            Watch on YouTube
           </a>
         </motion.div>
 
