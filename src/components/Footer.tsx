@@ -66,7 +66,7 @@ export function Footer() {
               <a
                 href={s.href}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label={s.label}
                 className="group relative inline-flex size-12 items-center justify-center rounded-full glass-strong transition-all hover:scale-110"
                 style={{
