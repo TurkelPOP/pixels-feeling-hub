@@ -17,6 +17,7 @@ export function YouTubeSection() {
   });
 
   const [embedUrl, setEmbedUrl] = useState<string>(DEFAULT_EMBED);
+  const [activeId, setActiveId] = useState<string>(UPLOADS_PLAYLIST_ID);
 
   return (
     <section id="youtube" className="relative py-24 sm:py-32">
@@ -36,115 +37,140 @@ export function YouTubeSection() {
           </h2>
         </motion.div>
 
-        {/* Featured video */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.97 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
-          className="aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border mb-16 glass-strong"
-        >
-          <iframe
-            key={embedUrl}
-            title="YouTube playlist"
-            src={embedUrl}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="size-full"
-          />
-        </motion.div>
+        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
+          {/* LEFT: Player */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="lg:sticky lg:top-24 self-start aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border glass-strong"
+          >
+            <iframe
+              key={embedUrl}
+              title="YouTube playlist"
+              src={embedUrl}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="size-full"
+            />
+          </motion.div>
 
-        {/* Playlists */}
-        <div className="mb-6 flex items-center gap-3">
-          <ListVideo className="size-5 text-accent" />
-          <h3 className="text-xl font-semibold">Playlists</h3>
-          {data?.fallback && (
-            <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <AlertCircle className="size-3.5" /> Showing fallback collections
-            </span>
-          )}
-        </div>
+          {/* RIGHT: Playlist list */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="rounded-3xl glass overflow-hidden flex flex-col"
+          >
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
+              <ListVideo className="size-4 text-accent" />
+              <span className="text-sm font-medium">Playlists</span>
+              {data?.fallback && (
+                <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <AlertCircle className="size-3.5" /> Fallback
+                </span>
+              )}
+            </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {isLoading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-2xl glass overflow-hidden animate-pulse"
-                >
-                  <div className="aspect-video bg-muted/40" />
-                  <div className="p-5 space-y-3">
-                    <div className="h-4 bg-muted/40 rounded w-3/4" />
-                    <div className="h-3 bg-muted/30 rounded w-full" />
-                    <div className="h-3 bg-muted/30 rounded w-1/2" />
-                  </div>
-                </div>
-              ))
-            : data?.playlists.map((pl, i) => {
-                const isFallback = pl.id.startsWith("fallback");
-                const handleClick = (e: React.MouseEvent) => {
-                  if (isFallback) return;
-                  e.preventDefault();
-                  setEmbedUrl(
-                    `https://www.youtube.com/embed/videoseries?list=${pl.id}`,
-                  );
-                  document
-                    .getElementById("youtube")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                };
-                return (
-                  <motion.a
-                    key={pl.id}
-                    href={
-                      isFallback
-                        ? `https://www.youtube.com/channel/${CHANNEL_ID}/playlists`
-                        : `https://www.youtube.com/playlist?list=${pl.id}`
-                    }
-                    onClick={handleClick}
-                    target={isFallback ? "_blank" : undefined}
-                    rel={isFallback ? "noreferrer" : undefined}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: i * 0.05 }}
-                    className="group rounded-2xl glass overflow-hidden glow-hover cursor-pointer"
-                  >
+            <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, i) => (
                     <div
-                      className="aspect-video relative overflow-hidden flex items-center justify-center"
-                      style={{
-                        background: pl.thumbnail
-                          ? undefined
-                          : "var(--gradient-accent)",
-                      }}
+                      key={i}
+                      className="flex items-center gap-4 px-5 py-4 animate-pulse"
                     >
-                      {pl.thumbnail ? (
-                        <img
-                          src={pl.thumbnail}
-                          alt={pl.title}
-                          loading="lazy"
-                          className="size-full object-cover transition-transform group-hover:scale-105"
-                        />
-                      ) : (
-                        <Play
-                          className="size-12 text-white/90"
-                          strokeWidth={1.5}
-                        />
-                      )}
-                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md text-xs bg-black/70 backdrop-blur text-white">
-                        {pl.itemCount} videos
+                      <div className="w-28 aspect-video rounded-lg bg-muted/40 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-2/3 bg-muted/40 rounded" />
+                        <div className="h-3 w-1/3 bg-muted/30 rounded" />
                       </div>
                     </div>
-                    <div className="p-5">
-                      <h4 className="font-semibold mb-1 group-hover:text-primary transition-colors line-clamp-1">
-                        {pl.title}
-                      </h4>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {pl.description || "Curated collection of videos."}
-                      </p>
-                    </div>
-                  </motion.a>
-                );
-              })}
+                  ))
+                : data?.playlists.map((pl, i) => {
+                    const isFallback = pl.id.startsWith("fallback");
+                    const isActive = pl.id === activeId;
+                    const handleClick = (e: React.MouseEvent) => {
+                      if (isFallback) return;
+                      e.preventDefault();
+                      setEmbedUrl(
+                        `https://www.youtube.com/embed/videoseries?list=${pl.id}`,
+                      );
+                      setActiveId(pl.id);
+                    };
+                    return (
+                      <motion.a
+                        key={pl.id}
+                        href={
+                          isFallback
+                            ? `https://www.youtube.com/channel/${CHANNEL_ID}/playlists`
+                            : `https://www.youtube.com/playlist?list=${pl.id}`
+                        }
+                        onClick={handleClick}
+                        target={isFallback ? "_blank" : undefined}
+                        rel={isFallback ? "noreferrer" : undefined}
+                        initial={{ opacity: 0, x: -12 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{
+                          duration: 0.35,
+                          delay: Math.min(i * 0.04, 0.3),
+                        }}
+                        className={`w-full text-left flex items-center gap-4 px-5 py-4 transition-all duration-300 group cursor-pointer ${
+                          isActive ? "bg-accent/10" : "hover:bg-muted/20"
+                        }`}
+                        style={
+                          isActive
+                            ? {
+                                boxShadow:
+                                  "inset 3px 0 0 var(--accent), 0 0 24px -8px oklch(0.78 0.18 200 / 0.5)",
+                              }
+                            : undefined
+                        }
+                      >
+                        <span
+                          className="relative w-28 aspect-video shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                          style={{
+                            background: pl.thumbnail
+                              ? undefined
+                              : "var(--gradient-accent)",
+                          }}
+                        >
+                          {pl.thumbnail ? (
+                            <img
+                              src={pl.thumbnail}
+                              alt=""
+                              loading="lazy"
+                              className="size-full object-cover transition-transform group-hover:scale-105"
+                            />
+                          ) : (
+                            <Play
+                              className="size-7 text-white/90"
+                              strokeWidth={1.5}
+                            />
+                          )}
+                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/70 backdrop-blur text-white">
+                            {pl.itemCount}
+                          </span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`block text-sm font-medium line-clamp-2 transition-colors ${
+                              isActive ? "text-accent" : "group-hover:text-accent"
+                            }`}
+                          >
+                            {pl.title}
+                          </span>
+                          <span className="block text-xs text-muted-foreground mt-1 line-clamp-1">
+                            {pl.description || "Curated collection."}
+                          </span>
+                        </span>
+                      </motion.a>
+                    );
+                  })}
+            </div>
+          </motion.div>
         </div>
       </div>
     </section>
