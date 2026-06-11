@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -6,8 +6,6 @@ import { Play, ListVideo, AlertCircle } from "lucide-react";
 import { getPlaylists } from "@/lib/youtube.functions";
 
 const CHANNEL_ID = "UC7eDkZaMYbiURgdv042M2pg";
-const UPLOADS_PLAYLIST_ID = CHANNEL_ID.replace("UC", "UU");
-const DEFAULT_EMBED = `https://www.youtube.com/embed/videoseries?list=${UPLOADS_PLAYLIST_ID}`;
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
@@ -16,8 +14,32 @@ export function YouTubeSection() {
     queryFn: () => fetchPlaylists(),
   });
 
-  const [embedUrl, setEmbedUrl] = useState<string>(DEFAULT_EMBED);
-  const [activeId, setActiveId] = useState<string>(UPLOADS_PLAYLIST_ID);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string>("");
+  const [playerError, setPlayerError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined;
+    if (!apiKey) {
+      setPlayerError("YouTube API key missing. Add VITE_YOUTUBE_API_KEY to load the latest video.");
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${CHANNEL_ID}&order=date&type=video&maxResults=1&key=${apiKey}`,
+        );
+        if (!res.ok) throw new Error("YouTube API request failed");
+        const json = await res.json();
+        const videoId = json?.items?.[0]?.id?.videoId;
+        if (!videoId) throw new Error("No recent video found");
+        setEmbedUrl(`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`);
+        setActiveId(videoId);
+      } catch (e) {
+        setPlayerError("Unable to load the latest video right now. Please check back soon.");
+      }
+    })();
+  }, []);
 
   return (
     <section id="youtube" className="relative py-24 sm:py-32">
@@ -46,14 +68,27 @@ export function YouTubeSection() {
             transition={{ duration: 0.7 }}
             className="lg:sticky lg:top-24 self-start aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border glass-strong"
           >
-            <iframe
-              key={embedUrl}
-              title="YouTube playlist"
-              src={embedUrl}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="size-full"
-            />
+            {embedUrl ? (
+              <iframe
+                key={embedUrl}
+                title="Latest YouTube video"
+                src={embedUrl}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="size-full"
+              />
+            ) : (
+              <div className="size-full flex items-center justify-center p-8 text-center">
+                {playerError ? (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <AlertCircle className="size-8 text-accent" />
+                    <p className="text-sm max-w-xs">{playerError}</p>
+                  </div>
+                ) : (
+                  <div className="size-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* RIGHT: Playlist list */}
