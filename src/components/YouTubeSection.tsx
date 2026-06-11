@@ -69,14 +69,27 @@ export function YouTubeSection() {
             transition={{ duration: 0.7 }}
             className="lg:sticky lg:top-24 self-start aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border glass-strong"
           >
-            <iframe
-              key={embedUrl}
-              title="YouTube playlist"
-              src={embedUrl}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="size-full"
-            />
+            {embedUrl ? (
+              <iframe
+                key={embedUrl}
+                title="Latest YouTube video"
+                src={embedUrl}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="size-full"
+              />
+            ) : (
+              <div className="size-full flex items-center justify-center p-8 text-center">
+                {playerError ? (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <AlertCircle className="size-8 text-accent" />
+                    <p className="text-sm max-w-xs">{playerError}</p>
+                  </div>
+                ) : (
+                  <div className="size-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* RIGHT: Playlist list */}
