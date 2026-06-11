@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,7 +7,6 @@ import { getPlaylists } from "@/lib/youtube.functions";
 
 const CHANNEL_ID = "UC7eDkZaMYbiURgdv042M2pg";
 const UPLOADS_PLAYLIST_ID = CHANNEL_ID.replace("UC", "UU");
-const DEFAULT_EMBED = `https://www.youtube.com/embed/videoseries?list=${UPLOADS_PLAYLIST_ID}`;
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
@@ -16,8 +15,32 @@ export function YouTubeSection() {
     queryFn: () => fetchPlaylists(),
   });
 
-  const [embedUrl, setEmbedUrl] = useState<string>(DEFAULT_EMBED);
-  const [activeId, setActiveId] = useState<string>(UPLOADS_PLAYLIST_ID);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string>("");
+  const [playerError, setPlayerError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined;
+    if (!apiKey) {
+      setPlayerError("YouTube API key missing. Add VITE_YOUTUBE_API_KEY to load the latest video.");
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${CHANNEL_ID}&order=date&type=video&maxResults=1&key=${apiKey}`,
+        );
+        if (!res.ok) throw new Error("YouTube API request failed");
+        const json = await res.json();
+        const videoId = json?.items?.[0]?.id?.videoId;
+        if (!videoId) throw new Error("No recent video found");
+        setEmbedUrl(`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`);
+        setActiveId(videoId);
+      } catch (e) {
+        setPlayerError("Unable to load the latest video right now. Please check back soon.");
+      }
+    })();
+  }, []);
 
   return (
     <section id="youtube" className="relative py-24 sm:py-32">
