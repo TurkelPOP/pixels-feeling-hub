@@ -48,7 +48,21 @@ export function Footer() {
     <footer className="relative border-t border-border py-16 mt-10">
       <div className="mx-auto max-w-6xl px-6 flex flex-col items-center gap-8">
         <div className="flex items-center gap-2 font-bold text-xl">
-          <span className="text-gradient">Pixels Perspective</span>
+          <span className="text-gradient text-4xl font-['Homebase'] font-normal"
+            style={{
+    
+    transform: 'scaleX(0.75)',
+    width: '300px',
+    letterSpacing: '0.03em',
+    display: 'inline-block',
+    background: 'linear-gradient(90deg, #f9a8d4, #c084fc, #67e8f9)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    color: 'transparent',
+  }}
+          
+          >Pixels Perspective</span>
         </div>
 
         <p className="text-sm text-muted-foreground text-center max-w-md">

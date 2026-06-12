@@ -1,11 +1,12 @@
 @font-face {
   font-family: 'Homebase';
   src: url('/fonts/homebasesuper3dital.ttf') format('truetype');
-  font-weight: 900;
-  font-style: italic;
+  font-weight: 700;
+  font-style: normal;
   font-display: swap;
 }
 
+@import "tailwindcss";
 @source "../src";
 @import "tw-animate-css";
 
@@ -43,20 +44,19 @@
 :root {
   --radius: 0.875rem;
 
-  /* Dark-only immersive gaming palette */
   --background: oklch(0.13 0.025 290);
   --foreground: oklch(0.97 0.01 280);
   --card: oklch(0.18 0.03 285 / 0.6);
   --card-foreground: oklch(0.97 0.01 280);
   --popover: oklch(0.16 0.03 285);
   --popover-foreground: oklch(0.97 0.01 280);
-  --primary: oklch(0.72 0.22 330);            /* hot magenta */
+  --primary: oklch(0.72 0.22 330);
   --primary-foreground: oklch(0.1 0.02 290);
   --secondary: oklch(0.25 0.05 290);
   --secondary-foreground: oklch(0.97 0.01 280);
   --muted: oklch(0.22 0.03 290);
   --muted-foreground: oklch(0.72 0.03 285);
-  --accent: oklch(0.78 0.18 200);             /* cyan */
+  --accent: oklch(0.78 0.18 200);
   --accent-foreground: oklch(0.1 0.02 290);
   --destructive: oklch(0.65 0.24 25);
   --destructive-foreground: oklch(0.98 0.01 0);
@@ -107,10 +107,10 @@
     background: linear-gradient(45deg, #743eca 0%, #691de7 33%, #3a0e8e 66%, #300b7d 100%) fixed;
     background-attachment: fixed;
   }
-
   h1, h2, h3, h4 {
-  font-family: "Homebase", "Space Grotesk", "Inter", sans-serif;
-  letter-spacing: 0;
+    font-family: "Homebase", "Space Grotesk", "Inter", sans-serif;
+    letter-spacing: 0;
+  }
 }
 
 @utility glass {
@@ -161,5 +161,4 @@
   &::-webkit-scrollbar {
     display: none;
   }
-}
 }

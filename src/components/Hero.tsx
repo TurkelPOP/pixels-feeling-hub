@@ -24,38 +24,44 @@ export function Hero() {
         transition={{ duration: 0.6 }}
         className="fixed top-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 rounded-2xl glass-strong"
       >
-        <div className="flex items-center justify-between px-5 py-3">
-          <a href="#top" className="flex items-center gap-2 font-bold tracking-tight">
-            <span className="inline-block size-2.5 rounded-full bg-primary glow-magenta" />
-            <span className="text-gradient text-lg">Pixels Perspective</span>
-          </a>
-          <ul className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            {NAV.map((n) => (
-              <li key={n.href}>
-                <a
-                  href={n.href}
-                  className="transition-colors hover:text-foreground"
-                >
-                  {n.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <a
-            href="#podcast"
-            className="hidden md:inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground glow-hover"
-          >
-            <Headphones className="size-4" />
-            Listen
-          </a>
-          <button
-            className="md:hidden text-foreground"
-            onClick={() => setOpen((s) => !s)}
-            aria-label="Toggle menu"
-          >
-            {open ? <X /> : <Menu />}
-          </button>
-        </div>
+        <div className="grid grid-cols-3 items-center px-3 my-2">
+  <a href="#top" className="flex items-center overflow-hidden">
+    <span
+  className="text-3xl font-['Homebase'] font-normal"
+  style={{
+    
+    transform: 'scaleX(0.80)',
+    transformOrigin: 'left',
+    width: '400px',
+    letterSpacing: '0em',
+    display: 'inline-block',
+    background: 'linear-gradient(90deg, #f9a8d4, #c084fc, #67e8f9)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    color: 'transparent',
+  }}
+>
+  Pixels Perspective
+</span>
+  </a>
+          <ul className="hidden md:flex items-center justify-center gap-8 text-sm text-muted-foreground">
+    {NAV.map((n) => (
+      <li key={n.href}>
+        <a href={n.href} className="transition-colors hover:text-foreground">{n.label}</a>
+      </li>
+    ))}
+  </ul>
+          <div className="flex justify-end">
+    <a href="#podcast" className="hidden md:inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground glow-hover">
+      <Headphones className="size-4" />
+      Listen
+    </a>
+    <button className="md:hidden text-foreground" onClick={() => setOpen((s) => !s)} aria-label="Toggle menu">
+      {open ? <X /> : <Menu />}
+    </button>
+  </div>
+</div>
         {open && (
           <motion.ul
             initial={{ height: 0, opacity: 0 }}
@@ -89,8 +95,8 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8 }}
-          className="text-5xl sm:text-7xl md:text-8xl font-bold text-gradient leading-[0.95]"
-        >
+          className="text-5xl sm:text-7xl md:text-8xl font-bold leading-[0.95] bg-gradient-to-r from-white via-pink-300 to-cyan-300 bg-clip-text text-transparent w-full break-words"
+>
           Le podcast qui joue
           <br />
           avec vos émotions.
