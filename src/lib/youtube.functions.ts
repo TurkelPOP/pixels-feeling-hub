@@ -80,3 +80,30 @@ export const getPlaylists = createServerFn({ method: "GET" }).handler(
     }
   },
 );
+
+export const getLatestVideo = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ videoId: string | null; error: string | null }> => {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      return { videoId: null, error: "YouTube API key is not configured." };
+    }
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${CHANNEL_ID}&order=date&type=video&maxResults=1&key=${apiKey}`,
+      );
+      if (!res.ok) {
+        return { videoId: null, error: "Unable to reach YouTube right now." };
+      }
+      const json = (await res.json()) as {
+        items?: Array<{ id?: { videoId?: string } }>;
+      };
+      const videoId = json.items?.[0]?.id?.videoId ?? null;
+      if (!videoId) {
+        return { videoId: null, error: "No recent video found." };
+      }
+      return { videoId, error: null };
+    } catch {
+      return { videoId: null, error: "Unable to load the latest video." };
+    }
+  },
+);
