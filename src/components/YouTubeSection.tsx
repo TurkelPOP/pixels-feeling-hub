@@ -3,43 +3,35 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Play, ListVideo, AlertCircle } from "lucide-react";
-import { getPlaylists } from "@/lib/youtube.functions";
+import { getPlaylists, getLatestVideo } from "@/lib/youtube.functions";
 
 const CHANNEL_ID = "UC7eDkZaMYbiURgdv042M2pg";
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
+  const fetchLatest = useServerFn(getLatestVideo);
   const { data, isLoading } = useQuery({
     queryKey: ["youtube-playlists"],
     queryFn: () => fetchPlaylists(),
   });
+  const { data: latest } = useQuery({
+    queryKey: ["youtube-latest"],
+    queryFn: () => fetchLatest(),
+  });
 
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string>("");
-  const [playerError, setPlayerError] = useState<string | null>(null);
+  const [userPicked, setUserPicked] = useState(false);
+
+  const playerError = !embedUrl && latest?.error ? latest.error : null;
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined;
-    if (!apiKey) {
-      setPlayerError("YouTube API key missing. Add VITE_YOUTUBE_API_KEY to load the latest video.");
-      return;
-    }
-    (async () => {
-      try {
-        const res = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${CHANNEL_ID}&order=date&type=video&maxResults=1&key=${apiKey}`,
-        );
-        if (!res.ok) throw new Error("YouTube API request failed");
-        const json = await res.json();
-        const videoId = json?.items?.[0]?.id?.videoId;
-        if (!videoId) throw new Error("No recent video found");
-        setEmbedUrl(`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`);
-        setActiveId(videoId);
-      } catch (e) {
-        setPlayerError("Unable to load the latest video right now. Please check back soon.");
-      }
-    })();
-  }, []);
+    if (userPicked || !latest?.videoId) return;
+    setEmbedUrl(
+      `https://www.youtube.com/embed/${latest.videoId}?autoplay=0&rel=0`,
+    );
+    setActiveId(latest.videoId);
+  }, [latest, userPicked]);
 
   return (
     <section id="youtube" className="relative py-24 sm:py-32">
