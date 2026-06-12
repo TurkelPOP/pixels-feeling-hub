@@ -2,14 +2,15 @@
 import { motion } from "framer-motion";
 import { Headphones, Youtube, Menu, X } from "lucide-react";
 import { useState } from "react";
-
-const NAV = [
-  { label: "Podcast", href: "#podcast" },
-  { label: "YouTube", href: "#youtube" },
-];
+import ppLogo from "@/assets/pp-logo.png.asset.json";
 
 export function Hero() {
   const [open, setOpen] = useState(false);
+
+  const handleNavClick = (id: string) => {
+    setOpen(false);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <header
@@ -21,53 +22,43 @@ export function Hero() {
       <motion.nav
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="fixed top-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 rounded-2xl glass-strong"
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="fixed top-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 rounded-2xl glass-strong"
       >
-        <div className="grid grid-cols-3 items-center px-3 my-2">
-          <a href="#top" className="flex items-center overflow-hidden">
-            <span
-              className="text-3xl font-['Homebase']"
-              style={{
-                transformOrigin: 'left center',
-                paddingLeft: '2px',
-                width: '300px',
-                letterSpacing: '0.05em',
-                display: 'inline-block',
-                color: 'white',
-              }}
-            >
-              Pixels Perspective
-            </span>
+        <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center px-3 sm:px-4 py-2 gap-2">
+          {/* Logo */}
+          <a href="#top" className="flex items-center shrink-0">
+            <img
+              src={ppLogo.url}
+              alt="Pixels Perspective"
+              className="h-8 sm:h-10 w-auto"
+            />
           </a>
 
-          {/* Boutons desktop */}
+          {/* Center buttons — desktop only */}
           <div className="hidden md:flex items-center justify-center gap-3">
-            <a
-              href="#podcast"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white-foreground transition-transform hover:scale-102 whitespace-nowrap"
+            <button
+              onClick={() => handleNavClick("podcast")}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
               style={{ boxShadow: "var(--shadow-glow-cyan)" }}
             >
               <Headphones className="size-3" />
               Écouter le podcast
-            </a>
-            <a
-              href="#youtube"
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById("youtube")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white-foreground transition-transform hover:scale-102 whitespace-nowrap"
+            </button>
+            <button
+              onClick={() => handleNavClick("youtube")}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
               style={{ boxShadow: "var(--shadow-glow-cyan)" }}
-                          >
+            >
               <Youtube className="size-3 text-accent" />
               Regarder sur YouTube
-            </a>
+            </button>
           </div>
 
-          <div className="flex justify-end">
+          {/* Burger — mobile only */}
+          <div className="flex justify-end md:justify-end">
             <button
-              className="md:hidden text-foreground"
+              className="md:hidden text-white p-1.5"
               onClick={() => setOpen((s) => !s)}
               aria-label="Toggle menu"
             >
@@ -77,39 +68,48 @@ export function Hero() {
         </div>
 
         {open && (
-          <motion.ul
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            className="md:hidden overflow-hidden border-t border-border px-5 py-4 flex flex-col gap-4 text-sm"
+            className="md:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
           >
-            {NAV.map((n) => (
-              <li key={n.href}>
-                <a href={n.href} onClick={() => setOpen(false)}>
-                  {n.label}
-                </a>
-              </li>
-            ))}
-          </motion.ul>
+            <button
+              onClick={() => handleNavClick("podcast")}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-bold text-white"
+              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+            >
+              <Headphones className="size-3.5" />
+              Écouter le podcast
+            </button>
+            <button
+              onClick={() => handleNavClick("youtube")}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-bold text-white"
+              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+            >
+              <Youtube className="size-3.5 text-accent" />
+              Regarder sur YouTube
+            </button>
+          </motion.div>
         )}
       </motion.nav>
 
       {/* Hero content */}
-      <div className="relative z-10 mx-auto flex h-auto max-w-6xl flex-col items-center justify-center px-6 pt-24 pb-16 text-center">
+      <div className="relative z-10 mx-auto flex h-auto max-w-6xl flex-col items-center justify-center px-5 sm:px-6 pt-32 sm:pt-36 pb-16 sm:pb-24 text-center">
         <motion.span
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-white-muted-foreground"
+          transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
+          className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-[0.18em] text-white/80 max-w-full"
         >
-          <span className="inline-block" />
           Un podcast sur ce que vous ressentez vraiment en jouant.
         </motion.span>
 
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.8 }}
-          className="text-5xl sm:text-7xl md:text-8xl font-normal leading-[0.95] text-white w-full break-words"
+          transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
+          className="font-normal leading-[1] text-white w-full break-words"
+          style={{ fontSize: "clamp(2.25rem, 8vw, 6rem)" }}
         >
           Le podcast qui joue
           <br />
@@ -119,12 +119,37 @@ export function Hero() {
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
-          className="mt-8 max-w-2xl text-base sm:text-lg text-white-muted-foreground"
+          transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
+          className="mt-6 sm:mt-8 max-w-2xl text-sm sm:text-base md:text-lg text-white/70"
         >
           Pixels Perspective explore ce que nous ressentons vraiment manette en main. Joie, peur, tristesse, colère, amour.
           Le côté réellement humain du jeu vidéo.
         </motion.p>
+
+        {/* Mobile CTA buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
+          className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto md:hidden"
+        >
+          <button
+            onClick={() => handleNavClick("podcast")}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold text-white"
+            style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+          >
+            <Headphones className="size-4" />
+            Écouter le podcast
+          </button>
+          <button
+            onClick={() => handleNavClick("youtube")}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold text-white"
+            style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+          >
+            <Youtube className="size-4 text-accent" />
+            Regarder sur YouTube
+          </button>
+        </motion.div>
 
         {/* Floating orbs */}
         <motion.div
