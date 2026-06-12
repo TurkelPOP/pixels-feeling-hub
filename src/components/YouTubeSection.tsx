@@ -121,6 +121,7 @@ export function YouTubeSection() {
                     const handleClick = (e: React.MouseEvent) => {
                       if (isFallback) return;
                       e.preventDefault();
+                      setUserPicked(true);
                       setEmbedUrl(
                         `https://www.youtube.com/embed/videoseries?list=${pl.id}`,
                       );
