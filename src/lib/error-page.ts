@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 export function renderErrorPage(): string {
   return `<!doctype html>
 <html lang="en">

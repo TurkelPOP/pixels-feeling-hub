@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 type LovableErrorOptions = {
   mechanism?: "manual" | "onerror" | "unhandledrejection" | "react_error_boundary";
   handled?: boolean;

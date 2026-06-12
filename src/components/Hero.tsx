@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { motion } from "framer-motion";
 import { Headphones, Youtube, Menu, X } from "lucide-react";
 import { useState } from "react";
@@ -81,7 +82,7 @@ export function Hero() {
           className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-muted-foreground"
         >
           <span className="inline-block size-1.5 rounded-full bg-accent animate-pulse" />
-          A podcast about feeling games
+          Un podcast sur ce que vous ressentez vraiment en jouant.
         </motion.span>
 
         <motion.h1
@@ -90,11 +91,9 @@ export function Hero() {
           transition={{ delay: 0.3, duration: 0.8 }}
           className="text-5xl sm:text-7xl md:text-8xl font-bold text-gradient leading-[0.95]"
         >
-          The emotions
+          Le podcast qui joue
           <br />
-          behind the
-          <br />
-          controller.
+          avec vos émotions.
         </motion.h1>
 
         <motion.p
@@ -103,9 +102,9 @@ export function Hero() {
           transition={{ delay: 0.5, duration: 0.8 }}
           className="mt-8 max-w-2xl text-base sm:text-lg text-muted-foreground"
         >
-          Pixels Perspective explores what we really feel when we play — the
-          joy, the rage, the heartbreak. Real conversations about the human
-          side of video games.
+          Pixels Perspective explore ce que nous ressentons vraiment manette en main. Joie, peur, tristesse, colère, amour. 
+          Le côté réellement humain du jeu vidéo.
+          
         </motion.p>
 
         <motion.div
@@ -119,7 +118,7 @@ export function Hero() {
             className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold text-primary-foreground glow-magenta transition-transform hover:scale-105"
           >
             <Headphones className="size-4" />
-            Listen to the Podcast
+            Écouter le podcast
           </a>
           <a
             href="#youtube"
@@ -133,7 +132,7 @@ export function Hero() {
             style={{ boxShadow: "var(--shadow-glow-cyan)" }}
           >
             <Youtube className="size-4 text-accent" />
-            Watch on YouTube
+            Regarder sur YouTube
           </a>
         </motion.div>
 

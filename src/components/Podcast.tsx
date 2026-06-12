@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -104,9 +105,6 @@ export function Podcast() {
           className="mb-10 flex items-end justify-between flex-wrap gap-4"
         >
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-accent mb-3">
-              The Podcast
-            </p>
             <h2 className="text-4xl sm:text-5xl font-bold text-gradient">
               {data?.title || "Latest Episodes"}
             </h2>

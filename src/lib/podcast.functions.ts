@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { createServerFn } from "@tanstack/react-start";
 
 const FEED_URL = "https://feeds.acast.com/public/shows/644500d69f1fbe001188cbd6";

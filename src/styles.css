@@ -1,4 +1,12 @@
-@import "tailwindcss" source(none);
+@font-face {
+  font-family: 'Homebase';
+  src: url('/src/fonts/homebasesuper3dital.ttf') format('truetype');
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@import "tailwindcss" source(none)
 @source "../src";
 @import "tw-animate-css";
 
@@ -100,10 +108,10 @@
     background: linear-gradient(45deg, #743eca 0%, #691de7 33%, #3a0e8e 66%, #300b7d 100%) fixed;
     background-attachment: fixed;
   }
-  h1, h2, h3, h4 {
-    font-family: "Space Grotesk", "Inter", sans-serif;
-    letter-spacing: -0.02em;
-  }
+/* Après */
+h1, h2, h3, h4 {
+  font-family: "Homebase", "Space Grotesk", "Inter", sans-serif;
+  letter-spacing: 0;
 }
 
 @utility glass {

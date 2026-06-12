@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { createServerFn } from "@tanstack/react-start";
 
 const CHANNEL_ID = "UC7eDkZaMYbiURgdv042M2pg";

@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -43,11 +44,8 @@ export function YouTubeSection() {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <p className="text-xs uppercase tracking-[0.3em] text-accent mb-3">
-            Watch on YouTube
-          </p>
           <h2 className="text-4xl sm:text-5xl font-bold text-gradient">
-            Video Stories
+            Vidéos YouTube
           </h2>
         </motion.div>
 

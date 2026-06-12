@@ -1,3 +1,5 @@
+/* eslint-disable prettier/prettier */
+// eslint-disable-next-line prettier/prettier
 import { motion } from "framer-motion";
 import { Instagram, Facebook } from "lucide-react";
 
@@ -21,7 +23,7 @@ function ThreadsIcon({ className }: { className?: string }) {
 const SOCIALS = [
   {
     label: "Instagram",
-    href: "https://www.instagram.com/pixelsperspective/",
+    href: "https://www.instagram.com/_pixelsperspective_/",
     icon: Instagram,
   },
   {
@@ -31,7 +33,7 @@ const SOCIALS = [
   },
   {
     label: "Threads",
-    href: "https://www.threads.com/@pixelsperspective",
+    href: "https://www.threads.com/@_pixelsperspective_",
     icon: ThreadsIcon,
   },
   {
@@ -46,12 +48,11 @@ export function Footer() {
     <footer className="relative border-t border-border py-16 mt-10">
       <div className="mx-auto max-w-6xl px-6 flex flex-col items-center gap-8">
         <div className="flex items-center gap-2 font-bold text-xl">
-          <span className="inline-block size-2.5 rounded-full bg-primary glow-magenta" />
           <span className="text-gradient">Pixels Perspective</span>
         </div>
 
         <p className="text-sm text-muted-foreground text-center max-w-md">
-          Feeling the games, one episode at a time. Join the conversation.
+          Le podcast qui joue avec vos émotions.
         </p>
 
         <ul className="flex items-center gap-4 flex-wrap justify-center">
