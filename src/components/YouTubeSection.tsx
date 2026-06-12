@@ -44,7 +44,7 @@ export function YouTubeSection() {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <h2 className="text-4xl sm:text-5xl font-bold text-gradient">
+          <h2 className="text-4xl sm:text-5xl font-normal text-white">
             Vidéos YouTube
           </h2>
         </motion.div>

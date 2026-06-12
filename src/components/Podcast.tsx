@@ -105,8 +105,8 @@ export function Podcast() {
           className="mb-10 flex items-end justify-between flex-wrap gap-4"
         >
           <div>
-            <h2 className="text-4xl sm:text-5xl font-bold text-gradient">
-              {data?.title || "Latest Episodes"}
+            <h2 className="text-4xl sm:text-5xl font-normal text-white">
+            Podcast Audio
             </h2>
           </div>
           <a
@@ -115,7 +115,7 @@ export function Podcast() {
             rel="noreferrer"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            All episodes <ExternalLink className="size-3.5" />
+            Liste des épisodes <ExternalLink className="size-3.5" />
           </a>
         </motion.div>
 
@@ -162,9 +162,9 @@ export function Podcast() {
                 transition={{ duration: 0.3 }}
               >
                 <p className="text-[11px] uppercase tracking-[0.2em] text-accent mb-1">
-                  Now playing
+                  En cours de lecture
                 </p>
-                <h3 className="font-semibold text-lg sm:text-xl line-clamp-2">
+                <h3 className="font-semibold text-lg sm:text-2xl line-clamp-2">
                   {isLoading
                     ? "Loading episodes…"
                     : current?.title || "Select an episode"}
@@ -175,7 +175,6 @@ export function Podcast() {
                 </p>
               </motion.div>
             </AnimatePresence>
-
             <div className="mt-5 flex items-center gap-3">
               <button
                 onClick={togglePlay}
@@ -236,7 +235,7 @@ export function Podcast() {
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <ListMusic className="size-4 text-accent" />
               <span className="text-sm font-medium">
-                All episodes{" "}
+                Liste des épisodes{" "}
                 {episodes.length > 0 && (
                   <span className="text-muted-foreground">
                     ({episodes.length})

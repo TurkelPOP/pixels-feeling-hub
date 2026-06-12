@@ -1,7 +1,8 @@
 @font-face {
   font-family: 'Homebase';
-  src: url('/fonts/homebasesuper3dital.ttf') format('truetype');
-  font-weight: 700;
+  src: url('/fonts/homebasesuper3dital-webfont.woff2') format('woff2'),
+       url('/fonts/homebasesuper3dital-webfont.woff') format('woff');
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -50,7 +51,7 @@
   --card-foreground: oklch(0.97 0.01 280);
   --popover: oklch(0.16 0.03 285);
   --popover-foreground: oklch(0.97 0.01 280);
-  --primary: oklch(0.72 0.22 330);
+  --primary: rgba(121, 45, 219, 0.699);
   --primary-foreground: oklch(0.1 0.02 290);
   --secondary: oklch(0.25 0.05 290);
   --secondary-foreground: oklch(0.97 0.01 280);
