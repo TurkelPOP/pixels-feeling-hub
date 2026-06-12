@@ -14,7 +14,7 @@ export function Hero() {
   return (
     <header
       id="top"
-      className="relative min-h-screen overflow-hidden"
+      className="relative overflow-hidden"
       style={{ background: "var(--gradient-hero)" }}
     >
       {/* Nav */}
@@ -94,7 +94,7 @@ export function Hero() {
       </motion.nav>
 
       {/* Hero content */}
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-6 pt-20 pb-8 text-center">
+      <div className="relative z-10 mx-auto flex h-auto max-w-6xl flex-col items-center justify-center px-6 pt-24 pb-16 text-center">
         <motion.span
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
