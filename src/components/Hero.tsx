@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { Headphones, Youtube, Menu, X } from "lucide-react";
 import { useState } from "react";
-import ppLogo from "@/assets/pp-logo.png.asset.json";
+import ppLogo from "@/assets/pp-logo.png";
 
 export function Hero() {
   const [open, setOpen] = useState(false);
@@ -27,38 +27,72 @@ export function Hero() {
       >
         <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center px-3 sm:px-4 py-2 gap-2">
           {/* Logo */}
-          <a href="#top" className="flex items-center shrink-0">
-            <img
-              src={ppLogo.url}
-              alt="Pixels Perspective"
-              className="h-8 sm:h-10 w-auto"
-            />
-          </a>
+          <a href="#top" className="flex items-center overflow-hidden">
+  {/* Logo PP : mobile uniquement */}
+  <img
+    src={ppLogo}
+    alt="Pixels Perspective"
+    className="block lg:hidden h-10 w-auto"
+  />
+  {/* Texte Homebase : desktop uniquement */}
+  <span
+    className="hidden lg:inline-block text-3xl font-['Homebase']"
+    style={{
+      paddingLeft: '2px',
+      width: '300px',
+      letterSpacing: '0.05em',
+      color: 'white',
+    }}
+  >
+    Pixels Perspective
+  </span>
+</a>
 
-          {/* Center buttons — desktop only */}
-          <div className="hidden md:flex items-center justify-center gap-3">
-            <button
-              onClick={() => handleNavClick("podcast")}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
-              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
-            >
-              <Headphones className="size-3" />
-              Écouter le podcast
-            </button>
-            <button
-              onClick={() => handleNavClick("youtube")}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
-              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
-            >
-              <Youtube className="size-3 text-accent" />
-              Regarder sur YouTube
-            </button>
-          </div>
+          {/* Center buttons */}
+<div className="flex items-center justify-center gap-3">
+
+  {/* Mobile : icônes rondes uniquement */}
+  <button
+    onClick={() => handleNavClick("podcast")}
+    className="lg:hidden inline-flex items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
+    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+    aria-label="Écouter le podcast"
+  >
+    <Headphones className="size-4" />
+  </button>
+  <button
+    onClick={() => handleNavClick("youtube")}
+    className="lg:hidden inline-flex items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
+    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+    aria-label="Regarder sur YouTube"
+  >
+    <Youtube className="size-4 text-accent" />
+  </button>
+
+  {/* Desktop : boutons avec texte */}
+  <button
+    onClick={() => handleNavClick("podcast")}
+    className="hidden lg:inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
+    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+  >
+    <Headphones className="size-3" />
+    Écouter le podcast
+  </button>
+  <button
+    onClick={() => handleNavClick("youtube")}
+    className="hidden lg:inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
+    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+  >
+    <Youtube className="size-3 text-accent" />
+    Regarder sur YouTube
+  </button>
+
+</div>
 
           {/* Burger — mobile only */}
           <div className="flex justify-end md:justify-end">
             <button
-              className="md:hidden text-white p-1.5"
+              className="lg:hidden text-white p-1.5"
               onClick={() => setOpen((s) => !s)}
               aria-label="Toggle menu"
             >
@@ -71,7 +105,7 @@ export function Hero() {
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            className="md:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
+            className="lg:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
           >
             <button
               onClick={() => handleNavClick("podcast")}
@@ -131,7 +165,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
-          className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto md:hidden"
+          className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto lg:hidden"
         >
           <button
             onClick={() => handleNavClick("podcast")}

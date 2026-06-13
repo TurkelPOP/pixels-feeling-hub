@@ -163,3 +163,7 @@
     display: none;
   }
 }
+
+@theme {
+  --breakpoint-nav: 978px;
+}

@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { motion } from "framer-motion";
-import subwayLogo from "@/assets/subway-fc.png.asset.json";
+import subwayLogo from "@/assets/subway-fc.png";
 
 export function FCSubwayButton() {
   return (
@@ -22,7 +22,7 @@ export function FCSubwayButton() {
       }}
     >
       <img
-        src={subwayLogo.url}
+        src={subwayLogo}
         alt="FC Subway"
         className="h-full w-full object-contain transition-[filter] duration-300 group-hover:[filter:drop-shadow(0_0_18px_rgba(253,224,71,0.85))]"
         style={{
