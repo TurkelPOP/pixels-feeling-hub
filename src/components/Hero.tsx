@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Headphones, Youtube, Menu, X } from "lucide-react";
 import { useState } from "react";
 import ppLogo from "@/assets/pp-logo.png";
+import subwayLogo from "@/assets/subway-fc.png";
 
 export function Hero() {
   const [open, setOpen] = useState(false);
@@ -25,36 +26,36 @@ export function Hero() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="fixed top-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 rounded-2xl glass-strong"
       >
-        <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center px-3 sm:px-4 py-2 gap-2">
-          {/* Logo */}
-          <a href="#top" className="flex items-center overflow-hidden">
-  {/* Logo PP : mobile uniquement */}
-  <img
-    src={ppLogo}
-    alt="Pixels Perspective"
-    className="block lg:hidden h-10 w-auto"
-  />
-  {/* Texte Homebase : desktop uniquement */}
-  <span
-    className="hidden lg:inline-block text-3xl font-['Homebase']"
-    style={{
-      paddingLeft: '2px',
-      width: '300px',
-      letterSpacing: '0.05em',
-      color: 'white',
-    }}
-  >
-    Pixels Perspective
-  </span>
-</a>
+        <div className="grid grid-cols-[auto_1fr_auto] items-center px-3 sm:px-4 py-2 gap-2">
+  {/* Logo */}
+  <a href="#top" className="flex items-center">
+    {/* Logo PP : sous 700px */}
+    <img
+      src={ppLogo}
+      alt="Pixels Perspective"
+      className="max-[660px]:block hidden h-10 w-auto"
+    />
+    {/* Texte Homebase : 700px et plus */}
+    <span
+      className="max-[660px]:hidden text-3xl font-['Homebase']"
+      style={{
+        paddingLeft: '2px',
+        letterSpacing: '0.05em',
+        color: 'white',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      Pixels Perspective
+    </span>
+  </a>
 
-          {/* Center buttons */}
+{/* Center buttons */}
 <div className="flex items-center justify-center gap-3">
 
-  {/* Mobile : icônes rondes uniquement */}
+  {/* Sous 700px : icônes rondes */}
   <button
     onClick={() => handleNavClick("podcast")}
-    className="lg:hidden inline-flex items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
+    className="max-[699px]:inline-flex hidden items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
     style={{ boxShadow: "var(--shadow-glow-cyan)" }}
     aria-label="Écouter le podcast"
   >
@@ -62,17 +63,17 @@ export function Hero() {
   </button>
   <button
     onClick={() => handleNavClick("youtube")}
-    className="lg:hidden inline-flex items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
+    className="max-[699px]:inline-flex hidden items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
     style={{ boxShadow: "var(--shadow-glow-cyan)" }}
     aria-label="Regarder sur YouTube"
   >
     <Youtube className="size-4 text-accent" />
   </button>
 
-  {/* Desktop : boutons avec texte */}
+  {/* 700px et plus : boutons avec texte */}
   <button
     onClick={() => handleNavClick("podcast")}
-    className="hidden lg:inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
+    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
     style={{ boxShadow: "var(--shadow-glow-cyan)" }}
   >
     <Headphones className="size-3" />
@@ -80,32 +81,55 @@ export function Hero() {
   </button>
   <button
     onClick={() => handleNavClick("youtube")}
-    className="hidden lg:inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
+    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
     style={{ boxShadow: "var(--shadow-glow-cyan)" }}
   >
     <Youtube className="size-3 text-accent" />
     Regarder sur YouTube
   </button>
 
+</div>         
+
+{/* Right col : FC Subway + Burger mobile */}
+<div className="flex items-center justify-end gap-2">
+
+  <a
+    href="https://papasubway.alwaysdata.net/"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Suivre le FC Subway - Lives FM26"
+    className="group relative flex items-center justify-center w-10 h-10 transition-transform hover:scale-[1.05]"
+  >
+    <img
+      src={subwayLogo}
+      alt="FC Subway"
+      className="h-full w-full object-contain transition-[filter] duration-300 group-hover:[filter:drop-shadow(0_0_14px_rgba(253,224,71,0.85))]"
+      style={{
+        clipPath: "polygon(50% 0%, 100% 12%, 100% 65%, 50% 100%, 0% 65%, 0% 12%)",
+      }}
+    />
+    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-md glass-strong px-3 py-1.5 text-xs font-medium text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0">
+      Suivre le FC Subway - Lives FM26
+    </span>
+  </a>
+
+  <button
+    className="max-[699px]:flex min-[700px]:hidden text-white p-1.5"
+    onClick={() => setOpen((s) => !s)}
+    aria-label="Toggle menu"
+  >
+    {open ? <X /> : <Menu />}
+  </button>
+
 </div>
 
-          {/* Burger — mobile only */}
-          <div className="flex justify-end md:justify-end">
-            <button
-              className="lg:hidden text-white p-1.5"
-              onClick={() => setOpen((s) => !s)}
-              aria-label="Toggle menu"
-            >
-              {open ? <X /> : <Menu />}
-            </button>
-          </div>
-        </div>
+</div>
 
         {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            className="lg:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
+            className="min-[700px]:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
           >
             <button
               onClick={() => handleNavClick("podcast")}
