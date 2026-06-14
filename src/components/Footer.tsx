@@ -45,7 +45,7 @@ const SOCIALS = [
 
 export function Footer() {
   return (
-    <footer className="relative border-t border-border py-16 mt-10">
+    <footer className="relative border-t border-border py-5 mt-10">
       <div className="mx-auto max-w-6xl px-6 flex flex-col items-center gap-8">
         <div className="flex items-center font-normal text-xl">
           <span className="text-gradient text-4xl font-['Homebase']"
@@ -60,7 +60,7 @@ export function Footer() {
           >Pixels Perspective</span>
         </div>
 
-        <p className="text-sm text-muted-foreground text-center max-w-md">
+        <p className="text-sm text-white-muted-foreground text-center max-w-md">
           Le podcast qui joue avec vos émotions.
         </p>
 

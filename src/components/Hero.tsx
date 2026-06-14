@@ -157,9 +157,9 @@ export function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-[0.18em] text-white/80 max-w-full"
+          className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[10px] sm:text-xs tracking-[0.18em] text-white/80 max-w-full"
         >
-          Un podcast sur ce que vous ressentez vraiment en jouant.
+          Nos émotions manette en main, dans un podcast.
         </motion.span>
 
         <motion.h1
@@ -183,31 +183,6 @@ export function Hero() {
           Pixels Perspective explore ce que nous ressentons vraiment manette en main. Joie, peur, tristesse, colère, amour.
           Le côté réellement humain du jeu vidéo.
         </motion.p>
-
-        {/* Mobile CTA buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
-          className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto lg:hidden"
-        >
-          <button
-            onClick={() => handleNavClick("podcast")}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold text-white"
-            style={{ boxShadow: "var(--shadow-glow-cyan)" }}
-          >
-            <Headphones className="size-4" />
-            Écouter le podcast
-          </button>
-          <button
-            onClick={() => handleNavClick("youtube")}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold text-white"
-            style={{ boxShadow: "var(--shadow-glow-cyan)" }}
-          >
-            <Youtube className="size-4 text-accent" />
-            Regarder sur YouTube
-          </button>
-        </motion.div>
 
         {/* Floating orbs */}
         <motion.div

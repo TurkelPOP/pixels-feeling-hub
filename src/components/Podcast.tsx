@@ -95,7 +95,7 @@ export function Podcast() {
   const cover = current?.image || data?.image;
 
   return (
-    <section id="podcast" className="relative py-24 sm:py-32">
+    <section id="podcast" className="relative py-5 sm:py-5">
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -113,7 +113,7 @@ export function Podcast() {
             href={SHOW_URL}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-white-muted-foreground hover:text-foreground transition-colors"
           >
             Liste des épisodes <ExternalLink className="size-3.5" />
           </a>
@@ -197,8 +197,8 @@ export function Podcast() {
                 role="slider"
                 aria-label="Seek"
                 aria-valuemin={0}
-                aria-valuemax={duration}
-                aria-valuenow={progress}
+                aria-valuemax={Number(duration)}
+                aria-valuenow={Number(progress)}
               >
                 <div
                   className="absolute inset-y-0 left-0 rounded-full"

@@ -4,7 +4,6 @@ import { Hero } from "@/components/Hero";
 import { Podcast } from "@/components/Podcast";
 import { YouTubeSection } from "@/components/YouTubeSection";
 import { Footer } from "@/components/Footer";
-import { FCSubwayButton } from "@/components/FCSubwayButton";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -36,7 +35,6 @@ function Index() {
       <Podcast />
       <YouTubeSection />
       <Footer />
-      <FCSubwayButton />
     </main>
   );
 }

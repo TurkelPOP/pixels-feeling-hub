@@ -35,7 +35,7 @@ export function YouTubeSection() {
   }, [latest, userPicked]);
 
   return (
-    <section id="youtube" className="relative py-24 sm:py-32">
+    <section id="youtube" className="relative py-5 sm:py-5">
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -94,7 +94,7 @@ export function YouTubeSection() {
               <span className="text-sm font-medium">Playlists</span>
               {data?.fallback && (
                 <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <AlertCircle className="size-3.5" /> Fallback
+                  <AlertCircle className="size-3.5" />
                 </span>
               )}
             </div>
