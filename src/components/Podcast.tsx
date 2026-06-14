@@ -3,10 +3,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Headphones, ExternalLink, Play, Pause, ListMusic } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
+import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
 
 const SHOW_URL = "https://shows.acast.com/644500d69f1fbe001188cbd6";
+const EPISODES_PER_SEASON = 10;
 
 function formatDate(d: string): string {
   if (!d) return "";
@@ -35,12 +37,34 @@ export function Podcast() {
   });
 
   const episodes = data?.episodes ?? [];
+
+  // Mock seasons: assign by chronological order (oldest = S1).
+  const { seasonMap, seasonCount } = useMemo(() => {
+    const map = new Map<string, number>();
+    const asc = [...episodes].slice().reverse();
+    asc.forEach((ep, i) => {
+      map.set(ep.guid, Math.floor(i / EPISODES_PER_SEASON) + 1);
+    });
+    const count = asc.length
+      ? Math.ceil(asc.length / EPISODES_PER_SEASON)
+      : 0;
+    return { seasonMap: map, seasonCount: count };
+  }, [episodes]);
+
+  const [activeSeason, setActiveSeason] = useState<number | "all">("all");
+  const filteredEpisodes = useMemo(() => {
+    if (activeSeason === "all") return episodes;
+    return episodes.filter((e) => seasonMap.get(e.guid) === activeSeason);
+  }, [episodes, seasonMap, activeSeason]);
+
   const [selected, setSelected] = useState<Episode | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const autoplayRef = useRef(false);
+  const playerRef = useRef<HTMLDivElement | null>(null);
+  const [playerOutOfView, setPlayerOutOfView] = useState(false);
 
   const current = selected ?? episodes[0] ?? null;
 
@@ -59,6 +83,17 @@ export function Podcast() {
       }
     }
   }, [current?.audioUrl]);
+
+  useEffect(() => {
+    const el = playerRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setPlayerOutOfView(!entry.isIntersecting),
+      { threshold: 0.15 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -94,6 +129,14 @@ export function Podcast() {
 
   const cover = current?.image || data?.image;
 
+  const seasonTabs: Array<{ key: number | "all"; label: string }> = [
+    { key: "all", label: "Toutes les saisons" },
+    ...Array.from({ length: seasonCount }, (_, i) => ({
+      key: i + 1,
+      label: `Saison ${i + 1}`,
+    })),
+  ];
+
   return (
     <section id="podcast" className="relative py-5 sm:py-5">
       <div className="mx-auto max-w-6xl px-6">
@@ -122,6 +165,7 @@ export function Podcast() {
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-6">
           {/* LEFT: Player */}
           <motion.div
+            ref={playerRef}
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -238,11 +282,44 @@ export function Podcast() {
                 Liste des épisodes{" "}
                 {episodes.length > 0 && (
                   <span className="text-muted-foreground">
-                    ({episodes.length})
+                    ({filteredEpisodes.length})
                   </span>
                 )}
               </span>
             </div>
+
+            {/* Season filter */}
+            {seasonCount > 0 && (
+              <div className="px-3 py-3 border-b border-border overflow-x-auto scrollbar-hide">
+                <div className="flex gap-1.5 w-max">
+                  {seasonTabs.map((tab) => {
+                    const isActive = activeSeason === tab.key;
+                    return (
+                      <button
+                        key={String(tab.key)}
+                        onClick={() => setActiveSeason(tab.key)}
+                        className="relative px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap"
+                      >
+                        {isActive && (
+                          <motion.span
+                            layoutId="season-pill"
+                            className="absolute inset-0 rounded-full bg-primary"
+                            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                          />
+                        )}
+                        <span
+                          className={`relative z-10 ${
+                            isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
               {isLoading
@@ -255,7 +332,7 @@ export function Podcast() {
                       </div>
                     </div>
                   ))
-                : episodes.map((ep, i) => {
+                : filteredEpisodes.map((ep, i) => {
                     const isActive = ep.guid === current?.guid;
                     const isPlayingThis = isActive && playing;
                     const thumb = ep.image || data?.image;
@@ -304,6 +381,8 @@ export function Podcast() {
                             }`}
                           >
                             {isPlayingThis ? (
+                              <PlayingBars />
+                            ) : isActive ? (
                               <Pause className="size-5 text-white" />
                             ) : (
                               <Play className="size-5 ml-0.5 text-white" />
@@ -330,6 +409,21 @@ export function Podcast() {
           </motion.div>
         </div>
       </div>
+
+      <StickyPlayer
+        visible={playing && playerOutOfView && !!current}
+        title={current?.title || ""}
+        playing={playing}
+        progress={progress}
+        duration={duration}
+        cover={cover}
+        onToggle={togglePlay}
+        onClose={() => {
+          const a = audioRef.current;
+          if (a) a.pause();
+          setPlaying(false);
+        }}
+      />
     </section>
   );
 }
