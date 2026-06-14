@@ -123,9 +123,13 @@ body {
     z-index: 0;
   }
   h1, h2, h3, h4 {
-    font-family: "Homebase", "Space Grotesk", "Inter", sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     letter-spacing: 0;
   }
+}
+
+@utility font-homebase {
+  font-family: "Homebase", "Inter", sans-serif;
 }
 
 @utility glass {
