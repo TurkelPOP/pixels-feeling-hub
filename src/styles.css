@@ -100,7 +100,7 @@
     color-scheme: dark;
     scroll-behavior: smooth;
   }
-body {
+  body {
     color: var(--color-foreground);
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -108,17 +108,16 @@ body {
     background: linear-gradient(45deg, #743eca 0%, #691de7 33%, #3a0e8e 66%, #300b7d 100%) fixed;
     background-attachment: fixed;
     position: relative;
-    isolation: isolate;
   }
 
   body::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: url('/bg pattern pp.jpg');
+    background-image: url('/bg-pattern-pp.jpg');
     background-repeat: repeat;
-    background-size: 1050px 1050px;
-    opacity: 0.34;
+    background-size: 180px 180px;
+    opacity: 0.07;
     pointer-events: none;
     z-index: 0;
   }
