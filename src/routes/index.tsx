@@ -4,6 +4,7 @@ import { Hero } from "@/components/Hero";
 import { Podcast } from "@/components/Podcast";
 import { YouTubeSection } from "@/components/YouTubeSection";
 import { Footer } from "@/components/Footer";
+import { ScrollProgress } from "@/components/ScrollProgress";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <main className="min-h-screen">
+      <ScrollProgress />
       <Hero />
       <Podcast />
       <YouTubeSection />
