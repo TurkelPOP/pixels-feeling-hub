@@ -2,7 +2,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Headphones, ExternalLink, Play, Pause, ListMusic } from "lucide-react";
+import { Headphones, ExternalLink, Play, Pause, ListMusic, Link } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
 import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
@@ -65,6 +65,14 @@ export function Podcast() {
   const autoplayRef = useRef(false);
   const playerRef = useRef<HTMLDivElement | null>(null);
   const [playerOutOfView, setPlayerOutOfView] = useState(false);
+  const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
+
+  const copyEpisodeLink = (ep: Episode, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(ep.link || SHOW_URL);
+    setCopiedGuid(ep.guid);
+    setTimeout(() => setCopiedGuid(null), 2000);
+  };
 
   const current = selected ?? episodes[0] ?? null;
 
@@ -402,6 +410,17 @@ export function Podcast() {
                             {ep.duration ? ` · ${ep.duration}` : ""}
                           </span>
                         </span>
+                        <button
+                          onClick={(e) => copyEpisodeLink(ep, e)}
+                          aria-label="Copier le lien"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full hover:bg-white/10"
+                        >
+                          {copiedGuid === ep.guid ? (
+                            <span className="text-[10px] text-accent font-medium">✓</span>
+                          ) : (
+                            <Link className="size-3.5 text-muted-foreground" />
+                          )}
+                        </button>
                       </motion.button>
                     );
                   })}
