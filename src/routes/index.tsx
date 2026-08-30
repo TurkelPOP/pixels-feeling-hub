@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Hero } from "@/components/Hero";
 import { Podcast } from "@/components/Podcast";
 import { YouTubeSection } from "@/components/YouTubeSection";
+import { TwitchSection } from "@/components/TwitchSection";
 import { Footer } from "@/components/Footer";
 import { ScrollProgress } from "@/components/ScrollProgress";
 
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A gaming podcast about the real feelings we experience with a controller in our hands. Listen and watch on YouTube.",
+          "A gaming podcast about the real feelings we experience with a controller in our hands. Listen, watch on YouTube and Twitch.",
       },
       {
         property: "og:title",
@@ -36,6 +37,7 @@ function Index() {
       <Hero />
       <Podcast />
       <YouTubeSection />
+      <TwitchSection />
       <Footer />
     </main>
   );

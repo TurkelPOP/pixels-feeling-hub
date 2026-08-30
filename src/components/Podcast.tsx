@@ -2,7 +2,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Headphones, ExternalLink, Play, Pause, ListMusic, Link } from "lucide-react";
+import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
 import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
@@ -30,13 +30,14 @@ function formatTime(s: number): string {
 
 export function Podcast() {
   const fetchFeed = useServerFn(getPodcastFeed);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["podcast-feed"],
     queryFn: () => fetchFeed(),
     staleTime: 5 * 60_000,
   });
 
   const episodes = data?.episodes ?? [];
+  const isEmpty = !isLoading && !isError && episodes.length === 0;
 
   // Mock seasons: assign by chronological order (oldest = S1).
   const { seasonMap, seasonCount } = useMemo(() => {
@@ -156,8 +157,8 @@ export function Podcast() {
           className="mb-10 flex items-end justify-between flex-wrap gap-4"
         >
           <div>
-            <h2 className="text-4xl sm:text-5xl font-normal text-white">
-            Podcast Audio
+            <h2 className="text-4xl sm:text-5xl font-homebase tracking-wider text-white">
+              Podcast Audio
             </h2>
           </div>
           <a
@@ -218,12 +219,19 @@ export function Podcast() {
                 </p>
                 <h3 className="font-semibold text-lg sm:text-2xl line-clamp-2">
                   {isLoading
-                    ? "Loading episodes…"
-                    : current?.title || "Select an episode"}
+                    ? "Chargement des épisodes…"
+                    : isError
+                      ? "Podcast indisponible"
+                      : isEmpty
+                        ? "Aucun épisode disponible"
+                        : current?.title || "Sélectionnez un épisode"}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {formatDate(current?.pubDate || "")}
-                  {current?.duration ? ` · ${current.duration}` : ""}
+                  {isError
+                    ? "Réessayez dans quelques instants."
+                    : isEmpty
+                      ? "Le flux ne contient aucun épisode pour le moment."
+                      : `${formatDate(current?.pubDate || "")}${current?.duration ? ` · ${current.duration}` : ""}`}
                 </p>
               </motion.div>
             </AnimatePresence>
@@ -340,7 +348,16 @@ export function Podcast() {
                       </div>
                     </div>
                   ))
-                : filteredEpisodes.map((ep, i) => {
+                : isError ? (
+                    <div className="flex flex-col items-center gap-3 px-5 py-10 text-center text-muted-foreground" role="alert">
+                      <AlertCircle className="size-6 text-accent" />
+                      <p className="text-sm">Impossible de charger les épisodes.</p>
+                    </div>
+                  ) : isEmpty ? (
+                    <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                      Aucun épisode disponible pour le moment.
+                    </div>
+                  ) : filteredEpisodes.map((ep, i) => {
                     const isActive = ep.guid === current?.guid;
                     const isPlayingThis = isActive && playing;
                     const thumb = ep.image || data?.image;

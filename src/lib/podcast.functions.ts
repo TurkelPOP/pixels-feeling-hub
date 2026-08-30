@@ -69,10 +69,15 @@ function formatDuration(raw: string): string {
 
 export const getPodcastFeed = createServerFn({ method: "GET" }).handler(
   async (): Promise<PodcastFeed> => {
-    const res = await fetch(FEED_URL, {
-      headers: { "User-Agent": "PixelsPerspective/1.0" },
-    });
-    if (!res.ok) throw new Error(`Feed failed: ${res.status}`);
+    let res: Response;
+    try {
+      res = await fetch(FEED_URL, {
+        headers: { "User-Agent": "PixelsPerspective/1.0" },
+      });
+    } catch {
+      throw new Error("Le podcast est momentanément indisponible.");
+    }
+    if (!res.ok) throw new Error("Le podcast est momentanément indisponible.");
     const xml = await res.text();
 
     const channelMatch = xml.match(/<channel>([\s\S]*?)<\/channel>/i);

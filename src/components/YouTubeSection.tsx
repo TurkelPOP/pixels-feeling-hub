@@ -3,36 +3,60 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, ListVideo, AlertCircle } from "lucide-react";
+import { Play, ListVideo, AlertCircle, ExternalLink } from "lucide-react";
 import { getPlaylists, getLatestVideo } from "@/lib/youtube.functions";
 
-const CHANNEL_ID = "UC7eDkZaMYbiURgdv042M2pg";
+
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
   const fetchLatest = useServerFn(getLatestVideo);
-  const { data, isLoading } = useQuery({
+
+  const playlistsQuery = useQuery({
     queryKey: ["youtube-playlists"],
     queryFn: () => fetchPlaylists(),
   });
-  const { data: latest } = useQuery({
+  const latestQuery = useQuery({
     queryKey: ["youtube-latest"],
     queryFn: () => fetchLatest(),
   });
+  const { data } = playlistsQuery;
+  const { data: latest } = latestQuery;
+  const isLoading = playlistsQuery.isLoading || latestQuery.isLoading;
+  const isError = playlistsQuery.isError || latestQuery.isError;
+  const isEmpty = !isLoading && !isError && !data?.playlists.length;
 
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string>("");
   const [userPicked, setUserPicked] = useState(false);
-
-  const playerError = !embedUrl && latest?.error ? latest.error : null;
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
-    if (userPicked || !latest?.videoId) return;
-    setEmbedUrl(
-      `https://www.youtube.com/embed/${latest.videoId}?autoplay=0&rel=0`,
-    );
-    setActiveId(latest.videoId);
-  }, [latest, userPicked]);
+    if (userPicked) return;
+    const targetId = latest?.videoId || data?.playlists?.[0]?.id;
+    if (targetId) {
+      setActiveId(targetId);
+      setPlaying(false);
+    }
+  }, [latest, data, userPicked]);
+
+  const activeVideo = data?.playlists?.find((p) => p.id === activeId);
+  const thumbnail =
+    activeVideo?.thumbnail ||
+    (activeId ? `https://i.ytimg.com/vi/${activeId}/maxresdefault.jpg` : null);
+
+  const handleSelectVideo = (id: string) => {
+    setUserPicked(true);
+    setActiveId(id);
+    setPlaying(true); // Auto-play when selecting from list
+  };
+
+  const handlePlay = () => {
+    setPlaying(true);
+  };
+
+  const embedSrc = activeId
+    ? `https://www.youtube-nocookie.com/embed/${activeId}?autoplay=1&rel=0&modestbranding=1`
+    : null;
 
   return (
     <section id="youtube" className="relative py-5 sm:py-5">
@@ -44,42 +68,96 @@ export function YouTubeSection() {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <h2 className="text-4xl sm:text-5xl font-normal text-white">
+          <h2 className="text-4xl sm:text-5xl font-homebase tracking-wider text-white">
             Vidéos YouTube
           </h2>
         </motion.div>
 
         <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
-          {/* LEFT: Player */}
+          {/* LEFT: Native Embedded YouTube Player */}
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="lg:sticky lg:top-24 self-start aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border glass-strong"
+            className="lg:sticky lg:top-24 self-start flex flex-col gap-3"
           >
-            {embedUrl ? (
-              <iframe
-                key={embedUrl}
-                title="Latest YouTube video"
-                src={embedUrl}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="size-full"
-              />
-            ) : (
-              <div className="size-full flex items-center justify-center p-8 text-center">
-                {playerError ? (
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <AlertCircle className="size-8 text-accent" />
-                    <p className="text-sm max-w-xs">{playerError}</p>
-                  </div>
-                ) : (
+            <div className="aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border glass-strong relative bg-black">
+              {isLoading ? (
+                <div className="size-full flex items-center justify-center">
                   <div className="size-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-                )}
+                </div>
+              ) : isError ? (
+                <div className="size-full flex flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground" role="alert">
+                  <AlertCircle className="size-8 text-accent" />
+                  <p className="text-sm">Impossible de charger les vidéos YouTube.</p>
+                </div>
+              ) : isEmpty ? (
+                <div className="size-full flex items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  Aucune vidéo disponible pour le moment.
+                </div>
+              ) : playing && embedSrc ? (
+                <iframe
+                  key={embedSrc}
+                  title={activeVideo?.title || "Pixels Perspective Video"}
+                  src={embedSrc}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  className="size-full border-0"
+                />
+              ) : (
+                /* Lite embed: thumbnail + play button */
+                <button
+                  type="button"
+                  onClick={handlePlay}
+                  className="relative size-full group cursor-pointer"
+                  aria-label={`Lire : ${activeVideo?.title || "Vidéo YouTube"}`}
+                >
+                  {thumbnail && (
+                    <img
+                      src={thumbnail}
+                      alt={activeVideo?.title || ""}
+                      className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        // fallback to hqdefault if maxresdefault fails
+                        const t = e.currentTarget;
+                        if (t.src.includes("maxresdefault")) {
+                          t.src = `https://i.ytimg.com/vi/${activeId}/hqdefault.jpg`;
+                        }
+                      }}
+                    />
+                  )}
+                  {/* Dark overlay */}
+                  <span className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors duration-300" />
+                  {/* Play button */}
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                    <span className="flex items-center justify-center size-16 rounded-full bg-red-600 group-hover:bg-red-500 shadow-2xl transition-all duration-300 group-hover:scale-110">
+                      <Play className="size-7 text-white fill-white ml-1" />
+                    </span>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            {/* Direct YouTube link bar */}
+            {activeId && (
+              <div className="flex items-center justify-between px-2 text-xs text-muted-foreground">
+                <span className="truncate pr-2 font-medium text-white/80">
+                  {activeVideo?.title || "Vidéo YouTube"}
+                </span>
+                <a
+                  href={`https://www.youtube.com/watch?v=${activeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 shrink-0 text-accent hover:underline font-medium"
+                >
+                  Regarder sur YouTube <ExternalLink className="size-3" />
+                </a>
               </div>
             )}
           </motion.div>
+
 
           {/* RIGHT: Playlist list */}
           <motion.div
@@ -91,10 +169,12 @@ export function YouTubeSection() {
           >
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <ListVideo className="size-4 text-accent" />
-              <span className="text-sm font-medium">Playlists</span>
+              <span className="text-sm font-medium">
+                Playlist Pixels Perspective
+              </span>
               {data?.fallback && (
                 <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <AlertCircle className="size-3.5" />
+                  <AlertCircle className="size-3.5" /> Mode secours
                 </span>
               )}
             </div>
@@ -113,26 +193,27 @@ export function YouTubeSection() {
                       </div>
                     </div>
                   ))
-                : data?.playlists.map((pl, i) => {
+                : isError ? (
+                    <div className="flex flex-col items-center gap-3 px-5 py-10 text-center text-muted-foreground" role="alert">
+                      <AlertCircle className="size-6 text-accent" />
+                      <p className="text-sm">Impossible de charger les vidéos YouTube.</p>
+                    </div>
+                  ) : isEmpty ? (
+                    <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                      Aucune vidéo disponible pour le moment.
+                    </div>
+                  ) : data?.playlists.map((pl, i) => {
                     const isFallback = pl.id.startsWith("fallback");
                     const isActive = pl.id === activeId;
                     const handleClick = (e: React.MouseEvent) => {
                       if (isFallback) return;
                       e.preventDefault();
-                      setUserPicked(true);
-                      setEmbedUrl(
-                        `https://www.youtube.com/embed/videoseries?list=${pl.id}`,
-                      );
-                      setActiveId(pl.id);
+                      handleSelectVideo(pl.id);
                     };
                     return (
                       <motion.a
                         key={pl.id}
-                        href={
-                          isFallback
-                            ? `https://www.youtube.com/channel/${CHANNEL_ID}/playlists`
-                            : `https://www.youtube.com/playlist?list=${pl.id}`
-                        }
+                        href={`https://www.youtube.com/watch?v=${pl.id}`}
                         onClick={handleClick}
                         target={isFallback ? "_blank" : undefined}
                         rel={isFallback ? "noreferrer" : undefined}
@@ -176,20 +257,22 @@ export function YouTubeSection() {
                               strokeWidth={1.5}
                             />
                           )}
-                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/70 backdrop-blur text-white">
+                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/70 backdrop-blur text-white font-mono">
                             {pl.itemCount}
                           </span>
                         </span>
                         <span className="min-w-0 flex-1">
                           <span
                             className={`block text-sm font-medium line-clamp-2 transition-colors ${
-                              isActive ? "text-accent" : "group-hover:text-accent"
+                              isActive
+                                ? "text-accent"
+                                : "group-hover:text-accent"
                             }`}
                           >
                             {pl.title}
                           </span>
                           <span className="block text-xs text-muted-foreground mt-1 line-clamp-1">
-                            {pl.description || "Curated collection."}
+                            {pl.description || "Pixels Perspective"}
                           </span>
                         </span>
                       </motion.a>

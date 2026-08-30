@@ -5,6 +5,14 @@ import { useState } from "react";
 import ppLogo from "@/assets/pp-logo.png";
 import subwayLogo from "@/assets/subway-fc.png";
 
+function TwitchNavIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.429h-3.429l-3 3v-3H6.857V1.714h13.714z" />
+    </svg>
+  );
+}
+
 export function Hero() {
   const [open, setOpen] = useState(false);
 
@@ -17,7 +25,6 @@ export function Hero() {
     <header
       id="top"
       className="relative overflow-hidden"
-      style={{ background: "var(--gradient-hero)" }}
     >
       {/* Nav */}
       <motion.nav
@@ -37,7 +44,7 @@ export function Hero() {
     />
     {/* Texte Homebase : 700px et plus */}
     <span
-      className="max-[660px]:hidden text-3xl font-['Homebase']"
+      className="max-[660px]:hidden text-3xl font-homebase"
       style={{
         paddingLeft: '2px',
         letterSpacing: '0.05em',
@@ -50,42 +57,76 @@ export function Hero() {
   </a>
 
 {/* Center buttons */}
-<div className="flex items-center justify-center gap-3">
+<div className="flex items-center justify-center gap-2 sm:gap-2.5">
 
-  {/* Sous 700px : icônes rondes */}
+  {/* Sous 700px : icônes rondes compactes */}
   <button
     onClick={() => handleNavClick("podcast")}
-    className="max-[699px]:inline-flex hidden items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
-    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+    className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
+    style={{
+      background: "linear-gradient(135deg, rgba(0, 191, 255, 0.25), rgba(120, 40, 200, 0.3))",
+      boxShadow: "0 0 16px -4px rgba(0, 191, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
+    }}
     aria-label="Écouter le podcast"
   >
-    <Headphones className="size-4" />
+    <Headphones className="size-4 text-cyan-300" />
   </button>
   <button
     onClick={() => handleNavClick("youtube")}
-    className="max-[699px]:inline-flex hidden items-center justify-center rounded-full bg-primary w-10 h-10 transition-transform hover:scale-[1.03]"
-    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+    className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
+    style={{
+      background: "linear-gradient(135deg, rgba(255, 0, 51, 0.25), rgba(180, 0, 30, 0.35))",
+      boxShadow: "0 0 16px -4px rgba(255, 0, 51, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
+    }}
     aria-label="Regarder sur YouTube"
   >
-    <Youtube className="size-4 text-accent" />
+    <Youtube className="size-4 text-red-400" />
+  </button>
+  <button
+    onClick={() => handleNavClick("twitch")}
+    className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
+    style={{
+      background: "linear-gradient(135deg, rgba(145, 70, 255, 0.3), rgba(88, 28, 135, 0.4))",
+      boxShadow: "0 0 16px -4px rgba(145, 70, 255, 0.6), inset 0 1px 0 rgba(255,255,255,0.1)",
+    }}
+    aria-label="Diffusions Twitch"
+  >
+    <TwitchNavIcon className="size-4 text-purple-300" />
   </button>
 
-  {/* 700px et plus : boutons avec texte */}
+  {/* 700px et plus : boutons avec texte et couleurs de marque */}
   <button
     onClick={() => handleNavClick("podcast")}
-    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
-    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
+    style={{
+      background: "linear-gradient(135deg, rgba(0, 191, 255, 0.2), rgba(120, 40, 200, 0.25))",
+      boxShadow: "0 0 20px -5px rgba(0, 191, 255, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
+    }}
   >
-    <Headphones className="size-3" />
+    <Headphones className="size-3.5 text-cyan-300" />
     Écouter le podcast
   </button>
   <button
     onClick={() => handleNavClick("youtube")}
-    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.03] whitespace-nowrap"
-    style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
+    style={{
+      background: "linear-gradient(135deg, rgba(255, 0, 51, 0.2), rgba(180, 0, 30, 0.3))",
+      boxShadow: "0 0 20px -5px rgba(255, 0, 51, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
+    }}
   >
-    <Youtube className="size-3 text-accent" />
+    <Youtube className="size-3.5 text-red-400" />
     Regarder sur YouTube
+  </button>
+  <button
+    onClick={() => handleNavClick("twitch")}
+    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
+    style={{
+      background: "linear-gradient(135deg, rgba(145, 70, 255, 0.25), rgba(88, 28, 135, 0.35))",
+      boxShadow: "0 0 20px -5px rgba(145, 70, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
+    }}
+  >
+    <TwitchNavIcon className="size-3.5 text-purple-300" />
+    Lives Twitch
   </button>
 
 </div>         
@@ -133,19 +174,36 @@ export function Hero() {
           >
             <button
               onClick={() => handleNavClick("podcast")}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-bold text-white"
-              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+              className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
+              style={{
+                background: "linear-gradient(135deg, rgba(0, 191, 255, 0.2), rgba(120, 40, 200, 0.25))",
+                boxShadow: "0 0 20px -5px rgba(0, 191, 255, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
+              }}
             >
-              <Headphones className="size-3.5" />
+              <Headphones className="size-4 text-cyan-300" />
               Écouter le podcast
             </button>
             <button
               onClick={() => handleNavClick("youtube")}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-bold text-white"
-              style={{ boxShadow: "var(--shadow-glow-cyan)" }}
+              className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
+              style={{
+                background: "linear-gradient(135deg, rgba(255, 0, 51, 0.2), rgba(180, 0, 30, 0.3))",
+                boxShadow: "0 0 20px -5px rgba(255, 0, 51, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
+              }}
             >
-              <Youtube className="size-3.5 text-accent" />
+              <Youtube className="size-4 text-red-400" />
               Regarder sur YouTube
+            </button>
+            <button
+              onClick={() => handleNavClick("twitch")}
+              className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
+              style={{
+                background: "linear-gradient(135deg, rgba(145, 70, 255, 0.25), rgba(88, 28, 135, 0.35))",
+                boxShadow: "0 0 20px -5px rgba(145, 70, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
+              }}
+            >
+              <TwitchNavIcon className="size-3.5 text-purple-300" />
+              Diffusions Twitch
             </button>
           </motion.div>
         )}
@@ -166,37 +224,13 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
-          className="font-normal leading-[1] text-white w-full break-words"
+          className="font-homebase tracking-wider font-normal leading-[1.1] text-white w-full break-words"
           style={{ fontSize: "clamp(2.25rem, 8vw, 6rem)" }}
         >
           Le podcast qui joue
           <br />
           avec vos émotions.
         </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
-          className="mt-6 sm:mt-8 max-w-2xl text-sm sm:text-base md:text-lg text-white/70"
-        >
-          Pixels Perspective explore ce que nous ressentons vraiment manette en main. Joie, peur, tristesse, colère, amour.
-          Le côté réellement humain du jeu vidéo.
-        </motion.p>
-
-        {/* Floating orbs */}
-        <motion.div
-          aria-hidden
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute left-[10%] top-1/3 size-32 rounded-full bg-primary/20 blur-3xl"
-        />
-        <motion.div
-          aria-hidden
-          animate={{ y: [0, 20, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute right-[10%] bottom-1/4 size-40 rounded-full bg-accent/20 blur-3xl"
-        />
       </div>
     </header>
   );
