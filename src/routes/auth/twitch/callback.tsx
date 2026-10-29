@@ -76,9 +76,10 @@ function TwitchCallbackComponent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md w-full rounded-3xl glass-strong border border-white/10 p-8 text-center flex flex-col items-center gap-4">
+      <div className="max-w-md w-full glass-strong p-8 text-center flex flex-col items-center gap-4">
         {status === "loading" && (
           <>
+            <p className="text-[11px] hud-label text-accent blink-soft">Loading…</p>
             <Loader2 className="size-12 text-purple-400 animate-spin" />
             <h2 className="text-xl font-semibold text-white">Connexion à Twitch en cours...</h2>
             <p className="text-sm text-muted-foreground">
@@ -105,7 +106,7 @@ function TwitchCallbackComponent() {
             <div className="flex flex-col gap-2 mt-2 w-full">
               <button
                 onClick={() => navigate({ to: "/" })}
-                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm transition-all"
+                className="px-5 py-2.5 pixel-btn bg-purple-600 hover:bg-purple-500 text-white text-[11px] hud-label"
               >
                 Retour à l'accueil
               </button>
