@@ -2,10 +2,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link } from "lucide-react";
+import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link, CheckCircle2, Clock } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
 import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
+import { useMediaHistory } from "@/lib/userHistory";
 
 const SHOW_URL = "https://shows.acast.com/644500d69f1fbe001188cbd6";
 const EPISODES_PER_SEASON = 10;
@@ -36,7 +37,7 @@ export function Podcast() {
     staleTime: 5 * 60_000,
   });
 
-  const episodes = data?.episodes ?? [];
+  const episodes = useMemo(() => data?.episodes ?? [], [data?.episodes]);
   const isEmpty = !isLoading && !isError && episodes.length === 0;
 
   // Mock seasons: assign by chronological order (oldest = S1).
@@ -65,6 +66,8 @@ export function Podcast() {
   const playerRef = useRef<HTMLDivElement | null>(null);
   const [playerOutOfView, setPlayerOutOfView] = useState(false);
   const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
+
+  const { getStatus, markStarted, markCompleted } = useMediaHistory();
 
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
@@ -106,6 +109,42 @@ export function Podcast() {
       }
     }
   }, [current?.audioUrl]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handlePlay = () => {
+      if (current?.guid) {
+        markStarted(current.guid, "podcast");
+      }
+    };
+
+    const handleEnded = () => {
+      if (current?.guid) {
+        markCompleted(current.guid, "podcast");
+      }
+    };
+
+    const handleTimeUpdate = () => {
+      if (audio.duration > 0 && current?.guid) {
+        const pct = (audio.currentTime / audio.duration) * 100;
+        if (pct >= 90) {
+          markCompleted(current.guid, "podcast");
+        }
+      }
+    };
+
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+
+    return () => {
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, [current?.guid, markStarted, markCompleted]);
 
   useEffect(() => {
     const el = playerRef.current;
@@ -388,6 +427,9 @@ export function Podcast() {
                   const isActive = ep.guid === current?.guid;
                   const isPlayingThis = isActive && playing;
                   const thumb = ep.image || data?.image;
+                  const epHistory = getStatus(ep.guid);
+                  const isCompleted = epHistory?.status === "completed";
+                  const isStarted = epHistory?.status === "started";
                   return (
                     <motion.div
                       key={ep.guid}
@@ -445,6 +487,16 @@ export function Podcast() {
                               <Play className="size-5 ml-0.5 text-white" />
                             )}
                           </span>
+                          {/* History status badge on thumbnail corner */}
+                          {(isCompleted || isStarted) && (
+                            <span
+                              className={`absolute top-1 right-1 rounded-full p-0.5 ${
+                                isCompleted ? "bg-green-500/90 text-white" : "bg-amber-500/90 text-white"
+                              }`}
+                            >
+                              {isCompleted ? <CheckCircle2 className="size-2.5" /> : <Clock className="size-2.5" />}
+                            </span>
+                          )}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span
@@ -454,9 +506,13 @@ export function Podcast() {
                           >
                             {ep.title}
                           </span>
-                          <span className="block text-xs text-muted-foreground mt-1">
+                          <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
                             {formatDate(ep.pubDate)}
                             {ep.duration ? ` · ${ep.duration}` : ""}
+                            {isCompleted && <span className="text-green-400 font-medium">· Écouté</span>}
+                            {isStarted && !isCompleted && (
+                              <span className="text-amber-400 font-medium">· En cours</span>
+                            )}
                           </span>
                         </span>
                       </button>

@@ -1,9 +1,10 @@
 /* eslint-disable prettier/prettier */
 import { motion } from "framer-motion";
-import { Headphones, Youtube, Menu, X } from "lucide-react";
+import { Headphones, Youtube, Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import ppLogo from "@/assets/pp-logo.png";
 import subwayLogo from "@/assets/subway-fc.png";
+import { useTwitchAuth } from "@/lib/useTwitchAuth";
 
 function TwitchNavIcon({ className }: { className?: string }) {
   return (
@@ -82,6 +83,7 @@ function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
 
 export function Hero() {
   const [open, setOpen] = useState(false);
+  const { user, login, logout, isLoggingIn } = useTwitchAuth();
 
   const handleNavClick = (id: string) => {
     setOpen(false);
@@ -154,15 +156,50 @@ export function Hero() {
 
 </div>         
 
-{/* Right col : FC Subway + Burger mobile */}
+{/* Right col : Twitch Auth + FC Subway + Burger mobile */}
 <div className="flex items-center justify-end gap-2">
+
+  {/* Twitch User Login or Logged-in Profile Badge */}
+  {user ? (
+    <div className="flex items-center gap-2 bg-purple-950/40 border border-purple-500/30 rounded-xl px-2.5 py-1 text-xs text-white">
+      <img
+        src={user.profileImageUrl}
+        alt={user.displayName}
+        className="size-6 rounded-full border border-purple-400/50 object-cover"
+      />
+      <span className="max-w-[100px] truncate font-medium hidden sm:inline">
+        {user.displayName}
+      </span>
+      <button
+        onClick={logout}
+        title="Se déconnecter"
+        aria-label="Se déconnecter de Twitch"
+        className="p-1 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
+      >
+        <LogOut className="size-3.5" />
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={login}
+      disabled={isLoggingIn}
+      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white border border-purple-500/30 transition-all duration-300 hover:scale-[1.04] cursor-pointer"
+      style={{
+        background: "linear-gradient(135deg, rgba(145, 70, 255, 0.35), rgba(88, 28, 135, 0.45))",
+        boxShadow: "0 0 16px -4px rgba(145, 70, 255, 0.6)",
+      }}
+    >
+      <TwitchNavIcon className="size-3.5 text-purple-200" />
+      <span className="hidden sm:inline">Connexion Twitch</span>
+    </button>
+  )}
 
   <a
     href="https://papasubway.alwaysdata.net/"
     target="_blank"
     rel="noopener noreferrer"
     aria-label="Suivre le FC Subway - Lives FM26"
-    className="group relative flex items-center justify-center w-10 h-10 transition-transform hover:scale-[1.05]"
+    className="group relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-[1.05]"
   >
     <img
       src={subwayLogo}

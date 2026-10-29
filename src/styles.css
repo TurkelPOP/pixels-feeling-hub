@@ -110,7 +110,7 @@
     background-image: url('/bg-wallpaper.svg');
     background-repeat: no-repeat;
     background-position: center top;
-    background-size: cover;
+    background-size: 130% auto;
     background-attachment: fixed;
     position: relative;
   }
