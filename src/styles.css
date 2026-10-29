@@ -7,6 +7,15 @@
   font-display: swap;
 }
 
+/* Flat Homebase cut for small HUD-style labels (the 3D cut is reserved for titles). */
+@font-face {
+  font-family: 'Homebase HUD';
+  src: url('/fonts/homebase.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import "tailwindcss";
 @source "../src";
 @import "tw-animate-css";
@@ -14,8 +23,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: max(0px, calc(var(--radius) - 4px));
+  --radius-md: max(0px, calc(var(--radius) - 2px));
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
@@ -41,10 +50,12 @@
   --color-cyan: var(--cyan);
   --color-twitch: var(--twitch);
   --font-homebase: 'Homebase', 'Inter', sans-serif;
+  --font-hud: 'Homebase HUD', 'Inter', sans-serif;
 }
 
 :root {
-  --radius: 0.875rem;
+  /* Near-square corners: 90s console menus, not modern cards. */
+  --radius: 0.125rem;
 
   --background: oklch(0.13 0.025 290);
   --foreground: oklch(0.97 0.01 280);
@@ -88,9 +99,17 @@
   --gradient-primary: linear-gradient(135deg, var(--magenta), var(--twitch));
   --gradient-accent: linear-gradient(135deg, var(--cyan), var(--magenta));
 
-  --shadow-glow-magenta: 0 0 40px -8px oklch(0.72 0.22 330 / 0.6);
-  --shadow-glow-cyan: 0 0 40px -8px oklch(0.78 0.18 200 / 0.6);
-  --shadow-card: 0 20px 60px -20px oklch(0 0 0 / 0.6);
+  /* Retro arcade surfaces: opaque panels, hard offset shadows instead of blur/glow. */
+  --panel: oklch(0.16 0.04 290 / 0.94);
+  --panel-strong: oklch(0.13 0.035 290 / 0.97);
+  --panel-edge: oklch(0.55 0.12 300 / 0.55);
+  --panel-inner: oklch(1 0 0 / 0.07);
+  --shadow-ink: oklch(0.07 0.03 290);
+  --shadow-offset: 4px 4px 0 var(--shadow-ink);
+
+  --shadow-glow-magenta: 4px 4px 0 var(--magenta);
+  --shadow-glow-cyan: 4px 4px 0 var(--cyan);
+  --shadow-card: var(--shadow-offset);
 }
 
 @layer base {
@@ -107,12 +126,20 @@
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
     background-color: #140236;
-    background-image: url('/bg-wallpaper.svg');
-    background-repeat: no-repeat;
-    background-position: center top;
-    background-size: 130% auto;
+    /* Faint pixel grid over the existing wallpaper. */
+    background-image:
+      linear-gradient(oklch(1 0 0 / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(1 0 0 / 0.025) 1px, transparent 1px),
+      url('/bg-wallpaper.svg');
+    background-repeat: repeat, repeat, no-repeat;
+    background-position: 0 0, 0 0, center top;
+    background-size: 24px 24px, 24px 24px, 130% auto;
     background-attachment: fixed;
     position: relative;
+  }
+  :focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
   }
   h1, h2, h3, h4 {
     font-family: "Inter", system-ui, sans-serif;
@@ -124,26 +151,29 @@
   font-family: "Homebase", "Inter", sans-serif;
 }
 
+/* Names kept from the glassmorphism era so every component picks up the retro look. */
 @utility glass {
-  background: oklch(0.18 0.03 285 / 0.5);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid oklch(1 0 0 / 0.08);
+  background: var(--panel);
+  border: 2px solid var(--panel-edge);
+  box-shadow: var(--shadow-offset);
 }
 
+/* Game-menu frame: outer border + inset inner line. */
 @utility glass-strong {
-  background: oklch(0.15 0.03 285 / 0.75);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid oklch(1 0 0 / 0.1);
+  background: var(--panel-strong);
+  border: 2px solid var(--panel-edge);
+  outline: 1px solid var(--panel-inner);
+  outline-offset: -6px;
+  box-shadow: var(--shadow-offset);
 }
 
+/* Banded arcade-title fill. */
 @utility text-gradient {
   background: linear-gradient(
-    135deg,
-    oklch(0.97 0.01 280),
-    oklch(0.78 0.18 330),
-    oklch(0.78 0.18 200)
+    180deg,
+    oklch(0.98 0.01 280) 0 48%,
+    oklch(0.8 0.17 330) 48% 72%,
+    oklch(0.8 0.15 200) 72% 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -159,10 +189,88 @@
 }
 
 @utility glow-hover {
-  transition: all 0.3s ease;
+  transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
   &:hover {
-    box-shadow: 0 0 30px -4px oklch(0.72 0.22 330 / 0.7);
-    transform: translateY(-2px);
+    box-shadow: 6px 6px 0 var(--magenta);
+    transform: translate(-2px, -2px);
+  }
+}
+
+/* CRT scanlines over a screen (thumbnails, covers). Never put it on an iframe's parent overlay. */
+@utility crt {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      oklch(0 0 0 / 0.22) 0 1px,
+      transparent 1px 3px
+    );
+  }
+}
+
+/* Small game-HUD label. */
+@utility hud-label {
+  font-family: var(--font-hud);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* Chunky square button that presses down on click. */
+@utility pixel-btn {
+  border-radius: 0;
+  border: 2px solid oklch(1 0 0 / 0.22);
+  box-shadow: 3px 3px 0 var(--shadow-ink);
+  transition: transform 0.08s steps(2), box-shadow 0.08s steps(2);
+  &:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--shadow-ink);
+  }
+  &:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--shadow-ink);
+  }
+  &:disabled {
+    transform: none;
+    box-shadow: 3px 3px 0 var(--shadow-ink);
+  }
+}
+
+/* Stepped (pixel) corners. clip-path also clips shadows: use on elements without one. */
+@utility pixel-corners {
+  clip-path: polygon(
+    0 4px, 4px 4px, 4px 0,
+    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+  );
+}
+
+/* Segmented "health bar" fill. */
+@utility segmented {
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+}
+
+/* Slow arcade blink for the LIVE badge. */
+@utility blink-soft {
+  animation: blink-soft 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes blink-soft {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
