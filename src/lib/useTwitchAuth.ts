@@ -63,20 +63,7 @@ export function useTwitchAuth() {
       const redirectUri = `${window.location.origin}/auth/twitch/callback`;
       const state = createOAuthState();
       
-      const clientId = import.meta.env.VITE_TWITCH_CLIENT_ID;
-      if (clientId) {
-        const params = new URLSearchParams({
-          client_id: clientId,
-          redirect_uri: redirectUri,
-          response_type: "code",
-          scope: "user:read:email",
-          force_verify: "false",
-          state,
-        });
-        window.location.href = `https://id.twitch.tv/oauth2/authorize?${params.toString()}`;
-        return;
-      }
-
+      // Always built server-side so the requested scopes (follows, subs, moderation) stay in one place.
       const { url } = await getTwitchAuthUrl({ data: { redirectUri, state } });
       window.location.href = url;
     } catch (err) {

@@ -40,9 +40,10 @@ export function saveMediaStatus(
     const key = getStorageKey(userId);
     const history = getMediaHistory(userId);
     
-    // If setting to started but already completed, keep completed unless explicitly changed
+    // Completed is final: ignore later "started" calls and repeated "completed" ones
+    // (timeupdate fires several times per second past 90%).
     const existing = history[id];
-    if (existing?.status === "completed" && status === "started") {
+    if (existing?.status === "completed") {
       return;
     }
 
@@ -82,13 +83,20 @@ export function useMediaHistory() {
     };
   }, [refreshHistory]);
 
-  const markStarted = (id: string, type: "podcast" | "youtube" | "twitch", progress?: number) => {
-    saveMediaStatus(id, type, "started", userId, progress);
-  };
+  // Stable references: Podcast re-subscribes its audio listeners whenever these change.
+  const markStarted = useCallback(
+    (id: string, type: "podcast" | "youtube" | "twitch", progress?: number) => {
+      saveMediaStatus(id, type, "started", userId, progress);
+    },
+    [userId],
+  );
 
-  const markCompleted = (id: string, type: "podcast" | "youtube" | "twitch") => {
-    saveMediaStatus(id, type, "completed", userId, 100);
-  };
+  const markCompleted = useCallback(
+    (id: string, type: "podcast" | "youtube" | "twitch") => {
+      saveMediaStatus(id, type, "completed", userId, 100);
+    },
+    [userId],
+  );
 
   const getStatus = (id: string): MediaHistoryItem | undefined => {
     return history[id];
