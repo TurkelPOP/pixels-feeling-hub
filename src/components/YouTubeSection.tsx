@@ -67,10 +67,10 @@ export function YouTubeSection() {
             transition={{ duration: 0.7 }}
             className="lg:sticky lg:top-24 self-start flex flex-col gap-3"
           >
-            <div className="aspect-video w-full rounded-3xl overflow-hidden glow-cyan border border-border glass-strong relative bg-black">
+            <div className="aspect-video w-full overflow-hidden glow-cyan border-4 border-black/70 outline-2 outline-[var(--panel-edge)] relative bg-black">
               {isLoading ? (
                 <div className="size-full flex items-center justify-center">
-                  <div className="size-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                  <div className="size-10 border-4 border-accent border-t-transparent animate-spin" />
                 </div>
               ) : isError ? (
                 <div className="size-full flex flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground" role="alert">
@@ -96,7 +96,7 @@ export function YouTubeSection() {
                 <button
                   type="button"
                   onClick={handlePlay}
-                  className="relative size-full group cursor-pointer"
+                  className="crt size-full group cursor-pointer"
                   aria-label={`Lire : ${activeVideo?.title || "Vidéo YouTube"}`}
                 >
                   {thumbnail && (
@@ -117,7 +117,7 @@ export function YouTubeSection() {
                   <span className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors duration-300" />
                   {/* Play button */}
                   <span className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                    <span className="flex items-center justify-center size-16 rounded-full bg-red-600 group-hover:bg-red-500 shadow-2xl transition-all duration-300 group-hover:scale-110">
+                    <span className="relative z-10 flex items-center justify-center size-16 pixel-btn bg-red-600 group-hover:bg-red-500">
                       <Play className="size-7 text-white fill-white ml-1" />
                     </span>
                   </span>
@@ -150,7 +150,7 @@ export function YouTubeSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="rounded-3xl glass overflow-hidden flex flex-col"
+            className="glass overflow-hidden flex flex-col"
           >
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <ListVideo className="size-4 text-accent" />
@@ -171,10 +171,10 @@ export function YouTubeSection() {
                       key={i}
                       className="flex items-center gap-4 px-5 py-4 animate-pulse"
                     >
-                      <div className="w-28 aspect-video rounded-lg bg-muted/40 shrink-0" />
+                      <div className="w-28 aspect-video bg-muted/40 shrink-0" />
                       <div className="flex-1 space-y-2">
-                        <div className="h-4 w-2/3 bg-muted/40 rounded" />
-                        <div className="h-3 w-1/3 bg-muted/30 rounded" />
+                        <div className="h-4 w-2/3 bg-muted/40" />
+                        <div className="h-3 w-1/3 bg-muted/30" />
                       </div>
                     </div>
                   ))
@@ -218,13 +218,13 @@ export function YouTubeSection() {
                           isActive
                             ? {
                                 boxShadow:
-                                  "inset 3px 0 0 var(--accent), 0 0 24px -8px oklch(0.78 0.18 200 / 0.5)",
+                                  "inset 4px 0 0 var(--accent)",
                               }
                             : undefined
                         }
                       >
                         <span
-                          className="relative w-28 aspect-video shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                          className="relative w-28 aspect-video shrink-0 pixel-corners overflow-hidden flex items-center justify-center"
                           style={{
                             background: pl.thumbnail
                               ? undefined
@@ -244,13 +244,13 @@ export function YouTubeSection() {
                               strokeWidth={1.5}
                             />
                           )}
-                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/70 backdrop-blur text-white font-mono">
+                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] bg-black/80 text-white font-mono">
                             {pl.itemCount}
                           </span>
                           {/* History badge on thumbnail */}
                           {(isCompleted || isStarted) && (
                             <span
-                              className={`absolute top-1 left-1 rounded-full p-0.5 ${
+                              className={`absolute top-1 left-1 p-0.5 ${
                                 isCompleted ? "bg-green-500/90 text-white" : "bg-amber-500/90 text-white"
                               }`}
                             >
