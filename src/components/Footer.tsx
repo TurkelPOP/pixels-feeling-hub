@@ -103,7 +103,7 @@ const SOCIALS = [
 
 export function Footer() {
   return (
-    <footer className="relative border-t border-border py-8 mt-12">
+    <footer className="relative border-t-2 border-[var(--panel-edge)] py-8 mt-12">
       <div className="mx-auto max-w-6xl px-6 flex flex-col items-center gap-8">
         <div className="flex items-center font-normal text-xl">
           <span
@@ -133,32 +133,24 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={s.label}
-                className="group relative flex size-13 items-center justify-center rounded-2xl glass-strong border border-white/10 transition-all duration-300 hover:-translate-y-1.5 hover:scale-105 overflow-hidden"
-                style={{
-                  boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.4)",
-                }}
+                className="group relative flex size-13 items-center justify-center pixel-btn overflow-hidden"
+                style={{ background: "var(--panel-strong)" }}
               >
-                {/* Ambient Brand Glow background on hover */}
+                {/* Brand colour fill on hover */}
                 <span
                   aria-hidden
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                   style={{
                     background: s.bgGradient,
-                    boxShadow: `inset 0 0 15px ${s.glowColor}, 0 0 25px ${s.glowColor}`,
+                    boxShadow: `inset 0 0 0 2px ${s.glowColor}`,
                   }}
-                />
-
-                {/* Border highlight on hover */}
-                <span
-                  aria-hidden
-                  className="absolute inset-0 rounded-2xl border border-transparent group-hover:border-white/20 transition-colors duration-300"
                 />
 
                 {/* Icon */}
                 <s.icon
-                  className="size-5.5 relative z-10 text-white/80 transition-all duration-300 group-hover:scale-110"
+                  className="size-5.5 relative z-10 text-white/80 transition-colors duration-150 group-hover:text-white"
                   style={{
-                    filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5))",
+                    filter: "drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.6))",
                   }}
                 />
               </a>
@@ -166,7 +158,7 @@ export function Footer() {
           ))}
         </ul>
 
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-[11px] hud-label text-muted-foreground text-center">
           © {new Date().getFullYear()} Pixels Perspective. All emotions reserved.
         </p>
       </div>

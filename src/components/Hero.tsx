@@ -72,12 +72,12 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+// Brand-tinted cartridge buttons: flat two-band fill, coloured border. Shadow comes from `pixel-btn`.
 function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
   const [a, b, g] = compact ? item.compactAlpha : item.fullAlpha;
-  const blur = compact ? "16px -4px" : "20px -5px";
   return {
-    background: `linear-gradient(135deg, rgba(${item.from}, ${a}), rgba(${item.to}, ${b}))`,
-    boxShadow: `0 0 ${blur} rgba(${item.glow}, ${g}), inset 0 1px 0 rgba(255,255,255,0.1)`,
+    background: `linear-gradient(180deg, rgba(${item.from}, ${a}) 0 50%, rgba(${item.to}, ${b}) 50% 100%)`,
+    borderColor: `rgba(${item.glow}, ${Math.min(g + 0.25, 1)})`,
   };
 }
 
@@ -100,7 +100,7 @@ export function Hero() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="fixed top-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 rounded-2xl glass-strong"
+        className="fixed top-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 glass-strong"
       >
         <div className="grid grid-cols-[auto_1fr_auto] items-center px-3 sm:px-4 py-2 gap-2">
   {/* Logo */}
@@ -133,7 +133,7 @@ export function Hero() {
     <button
       key={`compact-${item.id}`}
       onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
+      className="max-[699px]:inline-flex hidden items-center justify-center w-9 h-9 pixel-btn cursor-pointer"
       style={navStyle(item, true)}
       aria-label={item.ariaLabel}
     >
@@ -146,7 +146,7 @@ export function Hero() {
     <button
       key={`full-${item.id}`}
       onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
+      className="max-[699px]:hidden inline-flex items-center gap-2 px-4 py-2 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
       style={navStyle(item, false)}
     >
       <item.Icon className={`size-3.5 ${item.iconColor}`} />
@@ -161,13 +161,13 @@ export function Hero() {
 
   {/* Twitch User Login or Logged-in Profile Badge */}
   {user ? (
-    <div className="flex items-center gap-2 bg-purple-950/40 border border-purple-500/30 rounded-xl px-2.5 py-1 text-xs text-white">
+    <div className="flex items-center gap-2 bg-purple-950/60 border-2 border-purple-500/50 px-2 py-1 text-xs text-white">
       <img
         src={user.profileImageUrl}
         alt={user.displayName}
-        className="size-6 rounded-full border border-purple-400/50 object-cover"
+        className="size-6 pixel-corners object-cover"
       />
-      <span className="max-w-[100px] truncate font-medium hidden sm:inline">
+      <span className="max-w-[100px] truncate hud-label text-[11px] hidden sm:inline">
         {user.displayName}
       </span>
       <button
@@ -183,10 +183,10 @@ export function Hero() {
     <button
       onClick={login}
       disabled={isLoggingIn}
-      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white border border-purple-500/30 transition-all duration-300 hover:scale-[1.04] cursor-pointer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
       style={{
-        background: "linear-gradient(135deg, rgba(145, 70, 255, 0.35), rgba(88, 28, 135, 0.45))",
-        boxShadow: "0 0 16px -4px rgba(145, 70, 255, 0.6)",
+        background: "linear-gradient(180deg, rgba(145, 70, 255, 0.45) 0 50%, rgba(88, 28, 135, 0.6) 50% 100%)",
+        borderColor: "rgba(145, 70, 255, 0.8)",
       }}
     >
       <TwitchNavIcon className="size-3.5 text-purple-200" />
@@ -209,7 +209,7 @@ export function Hero() {
         clipPath: "polygon(50% 0%, 100% 12%, 100% 65%, 50% 100%, 0% 65%, 0% 12%)",
       }}
     />
-    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-md glass-strong px-3 py-1.5 text-xs font-medium text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0">
+    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap glass-strong px-3 py-1.5 text-[11px] hud-label text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0">
       Suivre le FC Subway - Lives FM26
     </span>
   </a>
@@ -237,7 +237,7 @@ export function Hero() {
               <button
                 key={`menu-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
-                className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2.5 px-4 py-2.5 text-[11px] hud-label text-white pixel-btn cursor-pointer"
                 style={navStyle(item, false)}
               >
                 <item.Icon className={`size-4 ${item.iconColor}`} />
@@ -254,8 +254,9 @@ export function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[10px] sm:text-xs tracking-[0.18em] text-white/80 max-w-full"
+          className="mb-6 inline-flex items-center gap-2 glass px-4 py-1.5 text-[10px] sm:text-xs hud-label text-white/85 max-w-full"
         >
+          <span aria-hidden className="text-accent blink-soft">▶</span>
           Nos émotions manette en main, dans un podcast.
         </motion.span>
 
@@ -264,7 +265,11 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
           className="font-homebase tracking-wider font-normal leading-[1.1] text-white w-full break-words"
-          style={{ fontSize: "clamp(2.25rem, 8vw, 6rem)" }}
+          style={{
+            fontSize: "clamp(2.25rem, 8vw, 6rem)",
+            // Hard layered drop shadow, arcade title-screen style.
+            textShadow: "4px 4px 0 var(--magenta), 8px 8px 0 oklch(0.25 0.12 290)",
+          }}
         >
           Le podcast qui joue
           <br />

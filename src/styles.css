@@ -7,15 +7,6 @@
   font-display: swap;
 }
 
-/* Flat Homebase cut for small HUD-style labels (the 3D cut is reserved for titles). */
-@font-face {
-  font-family: 'Homebase HUD';
-  src: url('/fonts/homebase.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 @import "tailwindcss";
 @source "../src";
 @import "tw-animate-css";
@@ -50,7 +41,6 @@
   --color-cyan: var(--cyan);
   --color-twitch: var(--twitch);
   --font-homebase: 'Homebase', 'Inter', sans-serif;
-  --font-hud: 'Homebase HUD', 'Inter', sans-serif;
 }
 
 :root {
@@ -213,11 +203,12 @@
   }
 }
 
-/* Small game-HUD label. */
+/* Small game-HUD label. Homebase is unreadable at label sizes, so Inter bold caps. */
 @utility hud-label {
-  font-family: var(--font-hud);
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
 }
 
 /* Chunky square button that presses down on click. */
