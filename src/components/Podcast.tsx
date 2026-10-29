@@ -245,10 +245,10 @@ export function Podcast() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="rounded-3xl glass-strong p-6 glow-magenta lg:sticky lg:top-24 self-start"
+            className="glass-strong p-6 glow-magenta lg:sticky lg:top-24 self-start"
           >
             <div
-              className="relative aspect-square w-full rounded-2xl overflow-hidden flex items-center justify-center mb-6"
+              className="crt aspect-square w-full overflow-hidden flex items-center justify-center mb-6 border-2 border-black/60"
               style={{ background: "var(--gradient-primary)" }}
             >
               <AnimatePresence mode="wait">
@@ -277,8 +277,8 @@ export function Podcast() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3 }}
               >
-                <p className="text-[11px] uppercase tracking-[0.2em] text-accent mb-1">
-                  En cours de lecture
+                <p className="text-[11px] hud-label text-accent mb-1">
+                  <span aria-hidden className="blink-soft">▶ </span>En cours de lecture
                 </p>
                 <h3 className="font-semibold text-lg sm:text-2xl line-clamp-2">
                   {isLoading
@@ -303,7 +303,7 @@ export function Podcast() {
                 onClick={togglePlay}
                 aria-label={playing ? "Pause" : "Play"}
                 disabled={!current?.audioUrl}
-                className="inline-flex items-center justify-center size-12 shrink-0 rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform glow-magenta disabled:opacity-50"
+                className="inline-flex items-center justify-center size-12 shrink-0 pixel-btn bg-magenta text-primary-foreground disabled:opacity-50"
               >
                 {playing ? <Pause className="size-5" /> : <Play className="size-5 ml-0.5" />}
               </button>
@@ -314,7 +314,7 @@ export function Podcast() {
                 onClick={seek}
                 onKeyDown={seekWithKeyboard}
                 tabIndex={duration ? 0 : -1}
-                className="relative h-2 flex-1 rounded-full bg-muted/40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                className="relative h-3 flex-1 bg-black/50 border-2 border-[var(--panel-edge)] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                 role="slider"
                 aria-label="Position de lecture"
                 aria-valuemin={0}
@@ -323,7 +323,7 @@ export function Podcast() {
                 aria-valuetext={`${formatTime(progress)} sur ${formatTime(duration)}`}
               >
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full"
+                  className="absolute inset-y-0 left-0 segmented"
                   style={{
                     width: duration ? `${(progress / duration) * 100}%` : "0%",
                     background: "var(--gradient-accent)",
@@ -352,7 +352,7 @@ export function Podcast() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="rounded-3xl glass overflow-hidden flex flex-col"
+            className="glass overflow-hidden flex flex-col"
           >
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <ListMusic className="size-4 text-accent" />
@@ -374,12 +374,12 @@ export function Podcast() {
                       <button
                         key={String(tab.key)}
                         onClick={() => setActiveSeason(tab.key)}
-                        className="relative px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap"
+                        className="relative px-3 py-1.5 text-[11px] hud-label transition-colors whitespace-nowrap"
                       >
                         {isActive && (
                           <motion.span
                             layoutId="season-pill"
-                            className="absolute inset-0 rounded-full bg-primary"
+                            className="absolute inset-0 bg-magenta"
                             transition={{ type: "spring", stiffness: 380, damping: 32 }}
                           />
                         )}
@@ -390,6 +390,7 @@ export function Podcast() {
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
+                          {isActive && <span aria-hidden>▶ </span>}
                           {tab.label}
                         </span>
                       </button>
@@ -403,10 +404,10 @@ export function Podcast() {
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
-                    <div className="size-14 rounded-lg bg-muted/40 shrink-0" />
+                    <div className="size-14 bg-muted/40 shrink-0" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 w-2/3 bg-muted/40 rounded" />
-                      <div className="h-3 w-1/3 bg-muted/30 rounded" />
+                      <div className="h-4 w-2/3 bg-muted/40" />
+                      <div className="h-3 w-1/3 bg-muted/30" />
                     </div>
                   </div>
                 ))
@@ -447,7 +448,7 @@ export function Podcast() {
                         isActive
                           ? {
                               boxShadow:
-                                "inset 3px 0 0 var(--magenta), 0 0 24px -8px oklch(0.72 0.22 330 / 0.5)",
+                                "inset 4px 0 0 var(--magenta)",
                             }
                           : undefined
                       }
@@ -459,7 +460,7 @@ export function Podcast() {
                         className="min-w-0 flex-1 flex items-center gap-4 text-left"
                       >
                         <span
-                          className="relative size-14 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                          className="relative size-14 shrink-0 pixel-corners overflow-hidden flex items-center justify-center"
                           style={{ background: "var(--gradient-primary)" }}
                         >
                           {thumb ? (
@@ -490,7 +491,7 @@ export function Podcast() {
                           {/* History status badge on thumbnail corner */}
                           {(isCompleted || isStarted) && (
                             <span
-                              className={`absolute top-1 right-1 rounded-full p-0.5 ${
+                              className={`absolute top-1 right-1 p-0.5 ${
                                 isCompleted ? "bg-green-500/90 text-white" : "bg-amber-500/90 text-white"
                               }`}
                             >
@@ -501,7 +502,7 @@ export function Podcast() {
                         <span className="min-w-0 flex-1">
                           <span
                             className={`block text-sm font-medium line-clamp-2 transition-colors ${
-                              isActive ? "text-primary" : "group-hover:text-primary"
+                              isActive ? "text-magenta" : "group-hover:text-magenta"
                             }`}
                           >
                             {ep.title}
@@ -520,7 +521,7 @@ export function Podcast() {
                         type="button"
                         onClick={() => copyEpisodeLink(ep)}
                         aria-label={`Copier le lien de l'épisode : ${ep.title}`}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100 transition-opacity p-2 rounded-full hover:bg-white/10"
+                        className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100 transition-opacity p-2 hover:bg-white/10"
                       >
                         {copiedGuid === ep.guid ? (
                           <span className="text-[10px] text-accent font-medium">✓</span>

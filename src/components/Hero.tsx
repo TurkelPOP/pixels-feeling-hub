@@ -146,7 +146,7 @@ export function Hero() {
     <button
       key={`full-${item.id}`}
       onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:hidden inline-flex items-center gap-2 px-4 py-2 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
+      className="max-[699px]:hidden inline-flex items-center gap-2 px-3 py-2 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
       style={navStyle(item, false)}
     >
       <item.Icon className={`size-3.5 ${item.iconColor}`} />

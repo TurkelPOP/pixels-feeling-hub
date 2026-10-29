@@ -34,23 +34,23 @@ export function StickyPlayer({
           transition={{ duration: 0.35, ease: "easeOut" }}
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,520px)]"
         >
-          <div className="glass rounded-full pl-2 pr-3 py-2 flex items-center gap-3 shadow-2xl">
+          <div className="glass-strong pl-2 pr-3 py-2 flex items-center gap-3">
             {cover ? (
               <img
                 src={cover}
                 alt=""
-                className="size-10 rounded-full object-cover shrink-0"
+                className="size-10 pixel-corners object-cover shrink-0"
               />
             ) : (
               <div
-                className="size-10 rounded-full shrink-0"
+                className="size-10 pixel-corners shrink-0"
                 style={{ background: "var(--gradient-primary)" }}
               />
             )}
             <button
               onClick={onToggle}
               aria-label={playing ? "Pause" : "Play"}
-              className="inline-flex items-center justify-center size-9 shrink-0 rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform"
+              className="inline-flex items-center justify-center size-9 shrink-0 pixel-btn bg-magenta text-primary-foreground"
             >
               {playing ? (
                 <Pause className="size-4" />
@@ -59,10 +59,10 @@ export function StickyPlayer({
               )}
             </button>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium truncate">{title}</p>
-              <div className="relative h-1 mt-1 rounded-full bg-muted/40 overflow-hidden">
+              <p className="text-[11px] hud-label truncate">{title}</p>
+              <div className="relative h-2 mt-1 bg-black/50 overflow-hidden">
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full"
+                  className="absolute inset-y-0 left-0 segmented"
                   style={{
                     width: `${pct}%`,
                     background: "var(--gradient-accent)",
@@ -73,7 +73,7 @@ export function StickyPlayer({
             <button
               onClick={onClose}
               aria-label="Close mini player"
-              className="shrink-0 size-7 inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+              className="shrink-0 size-7 inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
             >
               <X className="size-4" />
             </button>
@@ -93,7 +93,7 @@ export function PlayingBars({ className = "" }: { className?: string }) {
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
-          className="w-[3px] rounded-sm bg-white"
+          className="w-[3px] bg-white"
           animate={{ height: ["30%", "100%", "50%", "80%", "30%"] }}
           transition={{
             duration: 0.9,
