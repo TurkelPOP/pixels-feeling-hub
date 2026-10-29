@@ -2,6 +2,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+// Twitch logins: letters, digits and underscores, at most 25 chars.
+const LOGIN_RE = /^[a-z0-9_]{3,25}$/;
+const LOGIN_FAILED = "La connexion Twitch a échoué. Réessayez dans quelques instants.";
+
+const helixUrl = (path: string, params: Record<string, string>) =>
+  `https://api.twitch.tv/helix/${path}?${new URLSearchParams(params)}`;
+
 export interface TwitchUser {
   id: string;
   login: string;
@@ -22,7 +29,7 @@ export interface TwitchUser {
   The Client Secret never leaves the server.
  */
 export const getTwitchAuthUrl = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ redirectUri: z.string().url() }))
+  .inputValidator(z.object({ redirectUri: z.string().url(), state: z.string().min(16).max(128) }))
   .handler(
   async (ctx): Promise<{ url: string }> => {
     const clientId = process.env.TWITCH_CLIENT_ID;
@@ -30,7 +37,7 @@ export const getTwitchAuthUrl = createServerFn({ method: "POST" })
       throw new Error("TWITCH_CLIENT_ID not configured on the server.");
     }
 
-    const redirectUri = (ctx as unknown as { data: { redirectUri: string } })?.data?.redirectUri ?? "";
+    const { redirectUri, state } = ctx.data;
     if (!redirectUri) {
       throw new Error("redirectUri is required.");
     }
@@ -41,6 +48,8 @@ export const getTwitchAuthUrl = createServerFn({ method: "POST" })
       response_type: "code",
       scope: "user:read:email user:read:subscriptions user:read:follows moderation:read",
       force_verify: "false",
+      // CSRF protection: echoed back by Twitch, checked by the callback route.
+      state,
     });
 
     const url = `https://id.twitch.tv/oauth2/authorize?${params.toString()}`;
@@ -54,20 +63,18 @@ export const getTwitchAuthUrl = createServerFn({ method: "POST" })
 export const handleTwitchCallback = createServerFn({ method: "POST" })
   .inputValidator(z.object({ code: z.string().min(1), redirectUri: z.string().url() }))
   .handler(
-  async (ctx): Promise<{ user: TwitchUser; token: string }> => {
+  async (ctx): Promise<{ user: TwitchUser }> => {
     const clientId = process.env.TWITCH_CLIENT_ID;
     const clientSecret = process.env.TWITCH_CLIENT_SECRET;
-    const channelName = (process.env.TWITCH_CHANNEL || "turkelpop").toLowerCase().trim();
+    const configured = (process.env.TWITCH_CHANNEL || "turkelpop").toLowerCase().trim();
+    const channelName = LOGIN_RE.test(configured) ? configured : "turkelpop";
 
     if (!clientId || !clientSecret) {
-      throw new Error("Twitch credentials (Client ID / Secret) not configured.");
+      console.error("[Twitch Auth] Client ID / Secret not configured.");
+      throw new Error(LOGIN_FAILED);
     }
 
-    const payload = (ctx as unknown as { data: { code: string; redirectUri: string } })?.data;
-    const code = payload?.code ?? "";
-    const redirectUri = payload?.redirectUri ?? "";
-
-    if (!code) throw new Error("Authorization code is missing.");
+    const { code, redirectUri } = ctx.data;
 
     // 1. Exchange authorization code → user access token
     const tokenParams = new URLSearchParams({
@@ -84,15 +91,16 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       body: tokenParams.toString(),
     });
 
+    // Twitch error details stay in the server logs; the client gets a generic message.
     if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
-      console.error("[Twitch Auth] Token exchange failed:", errText);
-      throw new Error(`Token exchange failed: ${tokenRes.status} — ${errText}`);
+      console.error("[Twitch Auth] Token exchange failed:", tokenRes.status, await tokenRes.text());
+      throw new Error(LOGIN_FAILED);
     }
 
     const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string; message?: string };
     if (!tokenData.access_token) {
-      throw new Error(`Twitch token error: ${tokenData.message || tokenData.error || "unknown"}`);
+      console.error("[Twitch Auth] No access token:", tokenData.message || tokenData.error);
+      throw new Error(LOGIN_FAILED);
     }
 
     const accessToken = tokenData.access_token;
@@ -104,7 +112,8 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
     // 2. Fetch user profile from Helix API
     const userRes = await fetch("https://api.twitch.tv/helix/users", { headers });
     if (!userRes.ok) {
-      throw new Error("Failed to retrieve Twitch user profile.");
+      console.error("[Twitch Auth] Profile fetch failed:", userRes.status);
+      throw new Error(LOGIN_FAILED);
     }
 
     const userData = (await userRes.json()) as {
@@ -119,13 +128,14 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
 
     const profile = userData?.data?.[0];
     if (!profile) {
-      throw new Error("Twitch user profile not found.");
+      console.error("[Twitch Auth] Empty profile response.");
+      throw new Error(LOGIN_FAILED);
     }
 
     // 3. Fetch broadcaster (channel) ID for turkelpop
     let broadcasterId = "";
     try {
-      const bRes = await fetch(`https://api.twitch.tv/helix/users?login=${channelName}`, { headers });
+      const bRes = await fetch(helixUrl("users", { login: channelName }), { headers });
       if (bRes.ok) {
         const bData = (await bRes.json()) as { data?: Array<{ id: string }> };
         broadcasterId = bData?.data?.[0]?.id || "";
@@ -151,7 +161,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       // 4. Check if user is a Follower of the channel
       try {
         const followRes = await fetch(
-          `https://api.twitch.tv/helix/channels/followed?user_id=${profile.id}&broadcaster_id=${broadcasterId}`,
+          helixUrl("channels/followed", { user_id: profile.id, broadcaster_id: broadcasterId }),
           { headers }
         );
         if (followRes.ok) {
@@ -170,7 +180,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       // 5. Check if user is a Subscriber to the channel
       try {
         const subRes = await fetch(
-          `https://api.twitch.tv/helix/subscriptions/user?broadcaster_id=${broadcasterId}&user_id=${profile.id}`,
+          helixUrl("subscriptions/user", { broadcaster_id: broadcasterId, user_id: profile.id }),
           { headers }
         );
         if (subRes.ok) {
@@ -190,7 +200,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       if (!isModerator) {
         try {
           const modRes = await fetch(
-            `https://api.twitch.tv/helix/moderators?broadcaster_id=${broadcasterId}&user_id=${profile.id}`,
+            helixUrl("moderators", { broadcaster_id: broadcasterId, user_id: profile.id }),
             { headers }
           );
           if (modRes.ok) {
@@ -207,7 +217,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       // 7. Fetch subscriber & moderator badges for the channel
       try {
         const badgeRes = await fetch(
-          `https://api.twitch.tv/helix/chat/badges?broadcaster_id=${broadcasterId}`,
+          helixUrl("chat/badges", { broadcaster_id: broadcasterId }),
           { headers }
         );
         if (badgeRes.ok) {
@@ -250,7 +260,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
         isModerator,
         modBadgeUrl,
       },
-      token: accessToken,
+      // The access token is only used above, server-side: never sent to the browser.
     };
   },
 );

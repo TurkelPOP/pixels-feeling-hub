@@ -2,6 +2,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { handleTwitchCallback } from "@/lib/twitch-auth.functions";
+import { consumeOAuthState } from "@/lib/useTwitchAuth";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/auth/twitch/callback")({
@@ -20,6 +21,7 @@ function TwitchCallbackComponent() {
         const code = urlParams.get("code");
         const error = urlParams.get("error");
         const errorDescription = urlParams.get("error_description");
+        const stateMatches = consumeOAuthState(urlParams.get("state"));
 
         if (error) {
           setStatus("error");
@@ -28,6 +30,13 @@ function TwitchCallbackComponent() {
               ? "Connexion Twitch annulée. Vous avez refusé l'accès."
               : errorDescription || `Erreur Twitch : ${error}`
           );
+          return;
+        }
+
+        // Reject callbacks not started from this browser (login CSRF).
+        if (!stateMatches) {
+          setStatus("error");
+          setErrorMessage("Session de connexion invalide ou expirée. Relancez la connexion Twitch.");
           return;
         }
 
@@ -43,7 +52,6 @@ function TwitchCallbackComponent() {
 
         // Persist session in localStorage
         localStorage.setItem("twitch_user", JSON.stringify(result.user));
-        localStorage.setItem("twitch_token", result.token);
 
         // Notify all useTwitchAuth hooks across tabs
         window.dispatchEvent(new Event("twitch-auth-change"));

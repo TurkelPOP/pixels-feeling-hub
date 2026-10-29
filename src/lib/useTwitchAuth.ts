@@ -3,6 +3,23 @@ import { useEffect, useState, useCallback } from "react";
 import type { TwitchUser } from "./twitch-auth.functions";
 import { getTwitchAuthUrl } from "./twitch-auth.functions";
 
+const STATE_KEY = "twitch_oauth_state";
+
+/** Random value tying the Twitch callback to a login started in this tab (OAuth CSRF protection). */
+function createOAuthState(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const state = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  sessionStorage.setItem(STATE_KEY, state);
+  return state;
+}
+
+/** True only if `state` matches the one stored at login; single use. */
+export function consumeOAuthState(state: string | null): boolean {
+  const expected = sessionStorage.getItem(STATE_KEY);
+  sessionStorage.removeItem(STATE_KEY);
+  return !!state && !!expected && state === expected;
+}
+
 export function useTwitchAuth() {
   const [user, setUser] = useState<TwitchUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -24,6 +41,8 @@ export function useTwitchAuth() {
   }, []);
 
   useEffect(() => {
+    // Older versions stored the Twitch access token client-side: purge it.
+    localStorage.removeItem("twitch_token");
     loadUserFromStorage();
 
     const handleAuthChange = () => {
@@ -42,6 +61,7 @@ export function useTwitchAuth() {
     try {
       setIsLoggingIn(true);
       const redirectUri = `${window.location.origin}/auth/twitch/callback`;
+      const state = createOAuthState();
       
       const clientId = import.meta.env.VITE_TWITCH_CLIENT_ID;
       if (clientId) {
@@ -51,12 +71,13 @@ export function useTwitchAuth() {
           response_type: "code",
           scope: "user:read:email",
           force_verify: "false",
+          state,
         });
         window.location.href = `https://id.twitch.tv/oauth2/authorize?${params.toString()}`;
         return;
       }
 
-      const { url } = await getTwitchAuthUrl({ data: { redirectUri } });
+      const { url } = await getTwitchAuthUrl({ data: { redirectUri, state } });
       window.location.href = url;
     } catch (err) {
       console.error("Login initiation error:", err);
