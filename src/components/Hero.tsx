@@ -13,6 +13,73 @@ function TwitchNavIcon({ className }: { className?: string }) {
   );
 }
 
+type NavItem = {
+  id: "podcast" | "youtube" | "twitch";
+  label: string;
+  menuLabel: string;
+  ariaLabel: string;
+  Icon: (props: { className?: string }) => React.ReactNode;
+  iconColor: string;
+  /** rgb triplets for the two gradient stops and the glow */
+  from: string;
+  to: string;
+  glow: string;
+  /** compact/full alpha for [from, to, glow] */
+  compactAlpha: [number, number, number];
+  fullAlpha: [number, number, number];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    id: "podcast",
+    label: "Écouter le podcast",
+    menuLabel: "Écouter le podcast",
+    ariaLabel: "Écouter le podcast",
+    Icon: Headphones,
+    iconColor: "text-cyan-300",
+    from: "0, 191, 255",
+    to: "120, 40, 200",
+    glow: "0, 191, 255",
+    compactAlpha: [0.25, 0.3, 0.5],
+    fullAlpha: [0.2, 0.25, 0.45],
+  },
+  {
+    id: "youtube",
+    label: "Regarder sur YouTube",
+    menuLabel: "Regarder sur YouTube",
+    ariaLabel: "Regarder sur YouTube",
+    Icon: Youtube,
+    iconColor: "text-red-400",
+    from: "255, 0, 51",
+    to: "180, 0, 30",
+    glow: "255, 0, 51",
+    compactAlpha: [0.25, 0.35, 0.5],
+    fullAlpha: [0.2, 0.3, 0.45],
+  },
+  {
+    id: "twitch",
+    label: "Lives Twitch",
+    menuLabel: "Diffusions Twitch",
+    ariaLabel: "Diffusions Twitch",
+    Icon: TwitchNavIcon,
+    iconColor: "text-purple-300",
+    from: "145, 70, 255",
+    to: "88, 28, 135",
+    glow: "145, 70, 255",
+    compactAlpha: [0.3, 0.4, 0.6],
+    fullAlpha: [0.25, 0.35, 0.5],
+  },
+];
+
+function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
+  const [a, b, g] = compact ? item.compactAlpha : item.fullAlpha;
+  const blur = compact ? "16px -4px" : "20px -5px";
+  return {
+    background: `linear-gradient(135deg, rgba(${item.from}, ${a}), rgba(${item.to}, ${b}))`,
+    boxShadow: `0 0 ${blur} rgba(${item.glow}, ${g}), inset 0 1px 0 rgba(255,255,255,0.1)`,
+  };
+}
+
 export function Hero() {
   const [open, setOpen] = useState(false);
 
@@ -60,74 +127,30 @@ export function Hero() {
 <div className="flex items-center justify-center gap-2 sm:gap-2.5">
 
   {/* Sous 700px : icônes rondes compactes */}
-  <button
-    onClick={() => handleNavClick("podcast")}
-    className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
-    style={{
-      background: "linear-gradient(135deg, rgba(0, 191, 255, 0.25), rgba(120, 40, 200, 0.3))",
-      boxShadow: "0 0 16px -4px rgba(0, 191, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
-    }}
-    aria-label="Écouter le podcast"
-  >
-    <Headphones className="size-4 text-cyan-300" />
-  </button>
-  <button
-    onClick={() => handleNavClick("youtube")}
-    className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
-    style={{
-      background: "linear-gradient(135deg, rgba(255, 0, 51, 0.25), rgba(180, 0, 30, 0.35))",
-      boxShadow: "0 0 16px -4px rgba(255, 0, 51, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
-    }}
-    aria-label="Regarder sur YouTube"
-  >
-    <Youtube className="size-4 text-red-400" />
-  </button>
-  <button
-    onClick={() => handleNavClick("twitch")}
-    className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
-    style={{
-      background: "linear-gradient(135deg, rgba(145, 70, 255, 0.3), rgba(88, 28, 135, 0.4))",
-      boxShadow: "0 0 16px -4px rgba(145, 70, 255, 0.6), inset 0 1px 0 rgba(255,255,255,0.1)",
-    }}
-    aria-label="Diffusions Twitch"
-  >
-    <TwitchNavIcon className="size-4 text-purple-300" />
-  </button>
+  {NAV_ITEMS.map((item) => (
+    <button
+      key={`compact-${item.id}`}
+      onClick={() => handleNavClick(item.id)}
+      className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
+      style={navStyle(item, true)}
+      aria-label={item.ariaLabel}
+    >
+      <item.Icon className={`size-4 ${item.iconColor}`} />
+    </button>
+  ))}
 
   {/* 700px et plus : boutons avec texte et couleurs de marque */}
-  <button
-    onClick={() => handleNavClick("podcast")}
-    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
-    style={{
-      background: "linear-gradient(135deg, rgba(0, 191, 255, 0.2), rgba(120, 40, 200, 0.25))",
-      boxShadow: "0 0 20px -5px rgba(0, 191, 255, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
-    }}
-  >
-    <Headphones className="size-3.5 text-cyan-300" />
-    Écouter le podcast
-  </button>
-  <button
-    onClick={() => handleNavClick("youtube")}
-    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
-    style={{
-      background: "linear-gradient(135deg, rgba(255, 0, 51, 0.2), rgba(180, 0, 30, 0.3))",
-      boxShadow: "0 0 20px -5px rgba(255, 0, 51, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
-    }}
-  >
-    <Youtube className="size-3.5 text-red-400" />
-    Regarder sur YouTube
-  </button>
-  <button
-    onClick={() => handleNavClick("twitch")}
-    className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
-    style={{
-      background: "linear-gradient(135deg, rgba(145, 70, 255, 0.25), rgba(88, 28, 135, 0.35))",
-      boxShadow: "0 0 20px -5px rgba(145, 70, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
-    }}
-  >
-    <TwitchNavIcon className="size-3.5 text-purple-300" />
-    Lives Twitch
-  </button>
+  {NAV_ITEMS.map((item) => (
+    <button
+      key={`full-${item.id}`}
+      onClick={() => handleNavClick(item.id)}
+      className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
+      style={navStyle(item, false)}
+    >
+      <item.Icon className={`size-3.5 ${item.iconColor}`} />
+      {item.label}
+    </button>
+  ))}
 
 </div>         
 
@@ -157,7 +180,8 @@ export function Hero() {
   <button
     className="max-[699px]:flex min-[700px]:hidden text-white p-1.5"
     onClick={() => setOpen((s) => !s)}
-    aria-label="Toggle menu"
+    aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+    aria-expanded={open}
   >
     {open ? <X /> : <Menu />}
   </button>
@@ -172,39 +196,17 @@ export function Hero() {
             animate={{ height: "auto", opacity: 1 }}
             className="min-[700px]:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
           >
-            <button
-              onClick={() => handleNavClick("podcast")}
-              className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
-              style={{
-                background: "linear-gradient(135deg, rgba(0, 191, 255, 0.2), rgba(120, 40, 200, 0.25))",
-                boxShadow: "0 0 20px -5px rgba(0, 191, 255, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
-              }}
-            >
-              <Headphones className="size-4 text-cyan-300" />
-              Écouter le podcast
-            </button>
-            <button
-              onClick={() => handleNavClick("youtube")}
-              className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
-              style={{
-                background: "linear-gradient(135deg, rgba(255, 0, 51, 0.2), rgba(180, 0, 30, 0.3))",
-                boxShadow: "0 0 20px -5px rgba(255, 0, 51, 0.45), inset 0 1px 0 rgba(255,255,255,0.1)",
-              }}
-            >
-              <Youtube className="size-4 text-red-400" />
-              Regarder sur YouTube
-            </button>
-            <button
-              onClick={() => handleNavClick("twitch")}
-              className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
-              style={{
-                background: "linear-gradient(135deg, rgba(145, 70, 255, 0.25), rgba(88, 28, 135, 0.35))",
-                boxShadow: "0 0 20px -5px rgba(145, 70, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
-              }}
-            >
-              <TwitchNavIcon className="size-3.5 text-purple-300" />
-              Diffusions Twitch
-            </button>
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={`menu-${item.id}`}
+                onClick={() => handleNavClick(item.id)}
+                className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
+                style={navStyle(item, false)}
+              >
+                <item.Icon className={`size-4 ${item.iconColor}`} />
+                {item.menuLabel}
+              </button>
+            ))}
           </motion.div>
         )}
       </motion.nav>

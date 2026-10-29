@@ -11,7 +11,8 @@
 
 - Site vitrine SSR à page unique pour Pixels Perspective.
 - Routes fichier-based dans `src/routes`; composants métier dans `src/components`.
-- Fonctions serveur dans `src/lib/*.functions.ts`; elles appellent services externes.
+- Fonctions serveur dans `src/lib/*.functions.ts`; elles appellent services externes via `src/lib/fetch.server.ts` (timeout, taille max, cache mémoire par isolate, validation d'URL).
+- `src/server.ts` ajoute les en-têtes de sécurité (HSTS, nosniff, Referrer-Policy, Permissions-Policy, COOP).
 - `src/server.ts` intercepte erreurs SSR catastrophiques et rend page HTML de secours.
 - `src/router.tsx` crée QueryClient par instance de routeur.
 
@@ -70,7 +71,7 @@
 
 ## Pièges connus
 
-- Lint global échoue actuellement: `.agents` est analysé et Prettier signale de nombreux CRLF.
+- `.agents` est exclu du lint; `eslint .` passe (warnings seulement).
 - Aucun test automatisé configuré.
 - Le flux Podcast peut échouer sans état d’erreur visible.
 - Données Twitch fallback sont statiques avec dates reconstruites à l’exécution.

@@ -1,43 +1,24 @@
 /* eslint-disable prettier/prettier */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Play, ListVideo, AlertCircle, ExternalLink } from "lucide-react";
-import { getPlaylists, getLatestVideo } from "@/lib/youtube.functions";
-
-
+import { getPlaylists } from "@/lib/youtube.functions";
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
-  const fetchLatest = useServerFn(getLatestVideo);
-
-  const playlistsQuery = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["youtube-playlists"],
     queryFn: () => fetchPlaylists(),
+    staleTime: 5 * 60_000,
   });
-  const latestQuery = useQuery({
-    queryKey: ["youtube-latest"],
-    queryFn: () => fetchLatest(),
-  });
-  const { data } = playlistsQuery;
-  const { data: latest } = latestQuery;
-  const isLoading = playlistsQuery.isLoading || latestQuery.isLoading;
-  const isError = playlistsQuery.isError || latestQuery.isError;
   const isEmpty = !isLoading && !isError && !data?.playlists.length;
 
-  const [activeId, setActiveId] = useState<string>("");
-  const [userPicked, setUserPicked] = useState(false);
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-
-  useEffect(() => {
-    if (userPicked) return;
-    const targetId = latest?.videoId || data?.playlists?.[0]?.id;
-    if (targetId) {
-      setActiveId(targetId);
-      setPlaying(false);
-    }
-  }, [latest, data, userPicked]);
+  // Until the user picks a video, show the latest one (first in the list).
+  const activeId = pickedId ?? data?.playlists[0]?.id ?? "";
 
   const activeVideo = data?.playlists?.find((p) => p.id === activeId);
   const thumbnail =
@@ -45,8 +26,7 @@ export function YouTubeSection() {
     (activeId ? `https://i.ytimg.com/vi/${activeId}/maxresdefault.jpg` : null);
 
   const handleSelectVideo = (id: string) => {
-    setUserPicked(true);
-    setActiveId(id);
+    setPickedId(id);
     setPlaying(true); // Auto-play when selecting from list
   };
 
@@ -203,10 +183,10 @@ export function YouTubeSection() {
                       Aucune vidéo disponible pour le moment.
                     </div>
                   ) : data?.playlists.map((pl, i) => {
-                    const isFallback = pl.id.startsWith("fallback");
                     const isActive = pl.id === activeId;
                     const handleClick = (e: React.MouseEvent) => {
-                      if (isFallback) return;
+                      // Keep the real link for middle-click / new tab, play inline otherwise.
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
                       e.preventDefault();
                       handleSelectVideo(pl.id);
                     };
@@ -215,8 +195,7 @@ export function YouTubeSection() {
                         key={pl.id}
                         href={`https://www.youtube.com/watch?v=${pl.id}`}
                         onClick={handleClick}
-                        target={isFallback ? "_blank" : undefined}
-                        rel={isFallback ? "noreferrer" : undefined}
+                        aria-current={isActive ? "true" : undefined}
                         initial={{ opacity: 0, x: -12 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}

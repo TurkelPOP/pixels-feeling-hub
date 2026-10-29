@@ -1,7 +1,17 @@
 /* eslint-disable prettier/prettier */
 import { createServerFn } from "@tanstack/react-start";
 
+import {
+  cached,
+  decodeEntities,
+  fetchWithTimeout,
+  readTextLimited,
+  safeHttpUrl,
+} from "./fetch.server";
+
 const FEED_URL = "https://feeds.acast.com/public/shows/644500d69f1fbe001188cbd6";
+const CACHE_TTL_MS = 10 * 60_000;
+const UNAVAILABLE = "Le podcast est momentanément indisponible.";
 
 export interface Episode {
   guid: string;
@@ -38,21 +48,14 @@ function pickAttr(xml: string, tag: string, attr: string): string {
 }
 
 function stripHtml(s: string): string {
-  return s
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
+  return decodeEntities(s.replace(/<[^>]+>/g, "")).trim();
 }
 
 function formatDuration(raw: string): string {
   if (!raw) return "";
   if (raw.includes(":")) {
     const parts = raw.split(":").map((n) => parseInt(n, 10));
+    if (parts.some(isNaN)) return "";
     let h = 0,
       m = 0,
       s = 0;
@@ -67,63 +70,58 @@ function formatDuration(raw: string): string {
   return raw;
 }
 
+async function fetchPodcastFeed(): Promise<PodcastFeed> {
+  let xml: string;
+  try {
+    const res = await fetchWithTimeout(FEED_URL, {
+      headers: { "User-Agent": "PixelsPerspective/1.0" },
+    });
+    if (!res.ok) throw new Error(`Feed HTTP ${res.status}`);
+    xml = await readTextLimited(res);
+  } catch (error) {
+    console.error("[podcast] feed fetch failed", error);
+    throw new Error(UNAVAILABLE);
+  }
+
+  const channelMatch = xml.match(/<channel>([\s\S]*?)<\/channel>/i);
+  const channel = channelMatch ? channelMatch[1] : xml;
+  const channelHead = channel.split(/<item>/i)[0];
+
+  // Every URL below comes from a third-party feed and ends up in src/href
+  // attributes or the clipboard: only keep absolute http(s) URLs.
+  const showImage = safeHttpUrl(
+    pickAttr(channelHead, "itunes:image", "href") || pick(channelHead, "url"),
+  );
+
+  const itemRe = /<item>([\s\S]*?)<\/item>/gi;
+  const episodes: Episode[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = itemRe.exec(channel))) {
+    const item = m[1];
+    const title = stripHtml(pick(item, "title"));
+    if (!title) continue;
+    const audioUrl = safeHttpUrl(decodeEntities(pickAttr(item, "enclosure", "url")));
+    episodes.push({
+      guid: pick(item, "guid") || audioUrl || title,
+      title,
+      description: stripHtml(pick(item, "itunes:summary") || pick(item, "description")),
+      pubDate: pick(item, "pubDate"),
+      duration: formatDuration(pick(item, "itunes:duration")),
+      audioUrl,
+      image: safeHttpUrl(decodeEntities(pickAttr(item, "itunes:image", "href"))) || showImage,
+      link: safeHttpUrl(pick(item, "link")),
+    });
+  }
+
+  return {
+    title: stripHtml(pick(channelHead, "title")),
+    description: stripHtml(pick(channelHead, "description")),
+    image: showImage,
+    link: safeHttpUrl(pick(channelHead, "link")),
+    episodes,
+  };
+}
+
 export const getPodcastFeed = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PodcastFeed> => {
-    let res: Response;
-    try {
-      res = await fetch(FEED_URL, {
-        headers: { "User-Agent": "PixelsPerspective/1.0" },
-      });
-    } catch {
-      throw new Error("Le podcast est momentanément indisponible.");
-    }
-    if (!res.ok) throw new Error("Le podcast est momentanément indisponible.");
-    const xml = await res.text();
-
-    const channelMatch = xml.match(/<channel>([\s\S]*?)<\/channel>/i);
-    const channel = channelMatch ? channelMatch[1] : xml;
-    const channelHead = channel.split(/<item>/i)[0];
-
-    const showImage =
-      pickAttr(channelHead, "itunes:image", "href") ||
-      pick(channelHead, "url");
-
-    const itemRe = /<item>([\s\S]*?)<\/item>/gi;
-    const episodes: Episode[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = itemRe.exec(xml))) {
-      const item = m[1];
-      const title = pick(item, "title");
-      const desc = stripHtml(
-        pick(item, "itunes:summary") || pick(item, "description"),
-      );
-      const audioUrl = pickAttr(item, "enclosure", "url");
-      const duration = formatDuration(pick(item, "itunes:duration"));
-      const pubDate = pick(item, "pubDate");
-      const image =
-        pickAttr(item, "itunes:image", "href") || showImage;
-      const link = pick(item, "link");
-      const guid = pick(item, "guid") || audioUrl;
-      if (title) {
-        episodes.push({
-          guid,
-          title,
-          description: desc,
-          pubDate,
-          duration,
-          audioUrl,
-          image,
-          link,
-        });
-      }
-    }
-
-    return {
-      title: pick(channelHead, "title"),
-      description: stripHtml(pick(channelHead, "description")),
-      image: showImage,
-      link: pick(channelHead, "link"),
-      episodes,
-    };
-  },
+  (): Promise<PodcastFeed> => cached("podcast-feed", CACHE_TTL_MS, fetchPodcastFeed),
 );

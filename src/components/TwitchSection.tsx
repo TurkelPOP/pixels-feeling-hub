@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, Play, Tv, ExternalLink, Radio, Eye, Calendar, Clock, Sparkles } from "lucide-react";
+import { AlertCircle, Play, Tv, ExternalLink, Radio, Calendar, Clock } from "lucide-react";
 import { getTwitchData, type TwitchVideo } from "@/lib/twitch.functions";
 
 function TwitchIcon({ className }: { className?: string }) {
@@ -44,29 +44,21 @@ export function TwitchSection() {
   const channelName = data?.channelName || "turkelpop";
   const channelUrl = data?.channelUrl || `https://www.twitch.tv/${channelName}`;
 
-  const [activeVideoId, setActiveVideoId] = useState<string>("");
+  const [pickedVideoId, setPickedVideoId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playLive, setPlayLive] = useState(false);
+  // Twitch embeds require the embedding hostname; only known after hydration.
   const [hostname, setHostname] = useState("localhost");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setHostname(window.location.hostname || "localhost");
-    }
+    setHostname(window.location.hostname || "localhost");
   }, []);
 
-  useEffect(() => {
-    if (!activeVideoId && videos.length > 0) {
-      setActiveVideoId(videos[0].id);
-    }
-  }, [videos, activeVideoId]);
-
-  const activeVideo: TwitchVideo | undefined = videos.find(
-    (v) => v.id === activeVideoId,
-  ) || videos[0];
+  const activeVideo: TwitchVideo | undefined =
+    videos.find((v) => v.id === pickedVideoId) ?? videos[0];
 
   const handleSelectVideo = (video: TwitchVideo) => {
-    setActiveVideoId(video.id);
+    setPickedVideoId(video.id);
     setPlayLive(false);
     setIsPlaying(false);
   };
@@ -76,11 +68,19 @@ export function TwitchSection() {
     setIsPlaying(true);
   };
 
-  const embedSrc = playLive
-    ? `https://player.twitch.tv/?channel=${channelName}&parent=${hostname}&autoplay=true&muted=false`
+  const playerParams: Record<string, string> | null = playLive
+    ? { channel: channelName }
     : activeVideo?.id
-      ? `https://player.twitch.tv/?video=${activeVideo.id}&parent=${hostname}&autoplay=true&muted=false`
+      ? { video: activeVideo.id }
       : null;
+  const embedSrc = playerParams
+    ? `https://player.twitch.tv/?${new URLSearchParams({
+        ...playerParams,
+        parent: hostname,
+        autoplay: "true",
+        muted: "false",
+      })}`
+    : null;
 
   return (
     <section id="twitch" className="relative py-5 sm:py-5">
@@ -194,6 +194,7 @@ export function TwitchSection() {
                   key={embedSrc}
                   title={activeVideo?.title || "Twitch Player"}
                   src={embedSrc}
+                  allow="autoplay; fullscreen; picture-in-picture"
                   allowFullScreen
                   className="size-full border-0"
                 />

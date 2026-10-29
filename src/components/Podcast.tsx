@@ -14,7 +14,7 @@ function formatDate(d: string): string {
   if (!d) return "";
   const date = new Date(d);
   if (isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("fr-FR", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -46,9 +46,7 @@ export function Podcast() {
     asc.forEach((ep, i) => {
       map.set(ep.guid, Math.floor(i / EPISODES_PER_SEASON) + 1);
     });
-    const count = asc.length
-      ? Math.ceil(asc.length / EPISODES_PER_SEASON)
-      : 0;
+    const count = asc.length ? Math.ceil(asc.length / EPISODES_PER_SEASON) : 0;
     return { seasonMap: map, seasonCount: count };
   }, [episodes]);
 
@@ -68,18 +66,34 @@ export function Podcast() {
   const [playerOutOfView, setPlayerOutOfView] = useState(false);
   const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
 
-  const copyEpisodeLink = (ep: Episode, e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(ep.link || SHOW_URL);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
+
+  const copyEpisodeLink = async (ep: Episode) => {
+    try {
+      // Clipboard API is unavailable on insecure origins / denied permission.
+      await navigator.clipboard.writeText(ep.link || SHOW_URL);
+    } catch {
+      return;
+    }
     setCopiedGuid(ep.guid);
-    setTimeout(() => setCopiedGuid(null), 2000);
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopiedGuid(null), 2000);
   };
 
   const current = selected ?? episodes[0] ?? null;
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !current?.audioUrl) return;
+    if (!audio) return;
+    if (!current?.audioUrl) {
+      // Don't keep the previous episode loaded behind an unplayable selection.
+      audio.pause();
+      audio.removeAttribute("src");
+      setProgress(0);
+      setDuration(0);
+      return;
+    }
     if (audio.src !== current.audioUrl) {
       audio.src = current.audioUrl;
       setProgress(0);
@@ -96,10 +110,9 @@ export function Podcast() {
   useEffect(() => {
     const el = playerRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setPlayerOutOfView(!entry.isIntersecting),
-      { threshold: 0.15 },
-    );
+    const obs = new IntersectionObserver(([entry]) => setPlayerOutOfView(!entry.isIntersecting), {
+      threshold: 0.15,
+    });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -128,12 +141,26 @@ export function Podcast() {
     setSelected(ep);
   };
 
-  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+  const seekTo = (seconds: number) => {
     const audio = audioRef.current;
     if (!audio || !duration) return;
+    audio.currentTime = Math.min(Math.max(seconds, 0), duration);
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    audio.currentTime = ratio * duration;
+    seekTo(((e.clientX - rect.left) / rect.width) * duration);
+  };
+
+  const seekWithKeyboard = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowLeft: -10, ArrowDown: -10, ArrowRight: 10, ArrowUp: 10 }[e.key];
+    if (step !== undefined) {
+      e.preventDefault();
+      seekTo(progress + step);
+    } else if (e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      seekTo(e.key === "Home" ? 0 : duration);
+    }
   };
 
   const cover = current?.image || data?.image;
@@ -198,10 +225,7 @@ export function Podcast() {
                     className="absolute inset-0 size-full object-cover"
                   />
                 ) : (
-                  <Headphones
-                    className="size-16 text-white/90"
-                    strokeWidth={1.2}
-                  />
+                  <Headphones className="size-16 text-white/90" strokeWidth={1.2} />
                 )}
               </AnimatePresence>
             </div>
@@ -242,23 +266,22 @@ export function Podcast() {
                 disabled={!current?.audioUrl}
                 className="inline-flex items-center justify-center size-12 shrink-0 rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform glow-magenta disabled:opacity-50"
               >
-                {playing ? (
-                  <Pause className="size-5" />
-                ) : (
-                  <Play className="size-5 ml-0.5" />
-                )}
+                {playing ? <Pause className="size-5" /> : <Play className="size-5 ml-0.5" />}
               </button>
               <span className="text-[11px] font-mono text-muted-foreground w-10 text-right">
                 {formatTime(progress)}
               </span>
               <div
                 onClick={seek}
-                className="relative h-2 flex-1 rounded-full bg-muted/40 cursor-pointer"
+                onKeyDown={seekWithKeyboard}
+                tabIndex={duration ? 0 : -1}
+                className="relative h-2 flex-1 rounded-full bg-muted/40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                 role="slider"
-                aria-label="Seek"
+                aria-label="Position de lecture"
                 aria-valuemin={0}
-                aria-valuemax={Number(duration)}
-                aria-valuenow={Number(progress)}
+                aria-valuemax={Math.round(duration)}
+                aria-valuenow={Math.round(progress)}
+                aria-valuetext={`${formatTime(progress)} sur ${formatTime(duration)}`}
               >
                 <div
                   className="absolute inset-y-0 left-0 rounded-full"
@@ -297,9 +320,7 @@ export function Podcast() {
               <span className="text-sm font-medium">
                 Liste des épisodes{" "}
                 {episodes.length > 0 && (
-                  <span className="text-muted-foreground">
-                    ({filteredEpisodes.length})
-                  </span>
+                  <span className="text-muted-foreground">({filteredEpisodes.length})</span>
                 )}
               </span>
             </div>
@@ -325,7 +346,9 @@ export function Podcast() {
                         )}
                         <span
                           className={`relative z-10 ${
-                            isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                            isActive
+                              ? "text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
                           {tab.label}
@@ -338,51 +361,60 @@ export function Podcast() {
             )}
 
             <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
-              {isLoading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
-                      <div className="size-14 rounded-lg bg-muted/40 shrink-0" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 w-2/3 bg-muted/40 rounded" />
-                        <div className="h-3 w-1/3 bg-muted/30 rounded" />
-                      </div>
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
+                    <div className="size-14 rounded-lg bg-muted/40 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-2/3 bg-muted/40 rounded" />
+                      <div className="h-3 w-1/3 bg-muted/30 rounded" />
                     </div>
-                  ))
-                : isError ? (
-                    <div className="flex flex-col items-center gap-3 px-5 py-10 text-center text-muted-foreground" role="alert">
-                      <AlertCircle className="size-6 text-accent" />
-                      <p className="text-sm">Impossible de charger les épisodes.</p>
-                    </div>
-                  ) : isEmpty ? (
-                    <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                      Aucun épisode disponible pour le moment.
-                    </div>
-                  ) : filteredEpisodes.map((ep, i) => {
-                    const isActive = ep.guid === current?.guid;
-                    const isPlayingThis = isActive && playing;
-                    const thumb = ep.image || data?.image;
-                    return (
-                      <motion.button
-                        key={ep.guid}
+                  </div>
+                ))
+              ) : isError ? (
+                <div
+                  className="flex flex-col items-center gap-3 px-5 py-10 text-center text-muted-foreground"
+                  role="alert"
+                >
+                  <AlertCircle className="size-6 text-accent" />
+                  <p className="text-sm">Impossible de charger les épisodes.</p>
+                </div>
+              ) : isEmpty ? (
+                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                  Aucun épisode disponible pour le moment.
+                </div>
+              ) : (
+                filteredEpisodes.map((ep, i) => {
+                  const isActive = ep.guid === current?.guid;
+                  const isPlayingThis = isActive && playing;
+                  const thumb = ep.image || data?.image;
+                  return (
+                    <motion.div
+                      key={ep.guid}
+                      initial={{ opacity: 0, x: -12 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{
+                        duration: 0.35,
+                        delay: Math.min(i * 0.03, 0.3),
+                      }}
+                      className={`w-full flex items-center gap-2 px-5 py-4 transition-all duration-300 group ${
+                        isActive ? "bg-primary/10" : "hover:bg-muted/20"
+                      }`}
+                      style={
+                        isActive
+                          ? {
+                              boxShadow:
+                                "inset 3px 0 0 var(--magenta), 0 0 24px -8px oklch(0.72 0.22 330 / 0.5)",
+                            }
+                          : undefined
+                      }
+                    >
+                      <button
+                        type="button"
                         onClick={() => selectEpisode(ep)}
-                        initial={{ opacity: 0, x: -12 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{
-                          duration: 0.35,
-                          delay: Math.min(i * 0.03, 0.3),
-                        }}
-                        className={`w-full text-left flex items-center gap-4 px-5 py-4 transition-all duration-300 group ${
-                          isActive ? "bg-primary/10" : "hover:bg-muted/20"
-                        }`}
-                        style={
-                          isActive
-                            ? {
-                                boxShadow:
-                                  "inset 3px 0 0 var(--magenta), 0 0 24px -8px oklch(0.72 0.22 330 / 0.5)",
-                              }
-                            : undefined
-                        }
+                        aria-current={isActive ? "true" : undefined}
+                        className="min-w-0 flex-1 flex items-center gap-4 text-left"
                       >
                         <span
                           className="relative size-14 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
@@ -427,20 +459,23 @@ export function Podcast() {
                             {ep.duration ? ` · ${ep.duration}` : ""}
                           </span>
                         </span>
-                        <button
-                          onClick={(e) => copyEpisodeLink(ep, e)}
-                          aria-label="Copier le lien"
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full hover:bg-white/10"
-                        >
-                          {copiedGuid === ep.guid ? (
-                            <span className="text-[10px] text-accent font-medium">✓</span>
-                          ) : (
-                            <Link className="size-3.5 text-muted-foreground" />
-                          )}
-                        </button>
-                      </motion.button>
-                    );
-                  })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyEpisodeLink(ep)}
+                        aria-label={`Copier le lien de l'épisode : ${ep.title}`}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100 transition-opacity p-2 rounded-full hover:bg-white/10"
+                      >
+                        {copiedGuid === ep.guid ? (
+                          <span className="text-[10px] text-accent font-medium">✓</span>
+                        ) : (
+                          <Link className="size-3.5 text-muted-foreground" />
+                        )}
+                      </button>
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
           </motion.div>
         </div>

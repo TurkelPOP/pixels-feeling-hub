@@ -10,20 +10,20 @@ import { ScrollProgress } from "@/components/ScrollProgress";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pixels Perspective — The emotions behind the controller" },
+      { title: "Pixels Perspective — Le podcast qui joue avec vos émotions" },
       {
         name: "description",
         content:
-          "A gaming podcast about the real feelings we experience with a controller in our hands. Listen, watch on YouTube and Twitch.",
+          "Un podcast jeu vidéo sur les émotions ressenties manette en main. À écouter en audio, à regarder sur YouTube et en live sur Twitch.",
       },
       {
         property: "og:title",
-        content: "Pixels Perspective — Feeling the games",
+        content: "Pixels Perspective — Le podcast qui joue avec vos émotions",
       },
       {
         property: "og:description",
         content:
-          "A passionate gaming podcast exploring the emotions behind every pixel.",
+          "Un podcast sur le jeu vidéo axé sur les émotions et le ressenti des joueurs manette en main.",
       },
     ],
   }),
