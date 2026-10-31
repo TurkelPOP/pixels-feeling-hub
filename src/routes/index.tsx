@@ -6,25 +6,13 @@ import { YouTubeSection } from "@/components/YouTubeSection";
 import { TwitchSection } from "@/components/TwitchSection";
 import { Footer } from "@/components/Footer";
 import { ScrollProgress } from "@/components/ScrollProgress";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/site";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pixels Perspective — Le podcast qui joue avec vos émotions" },
-      {
-        name: "description",
-        content:
-          "Un podcast jeu vidéo sur les émotions ressenties manette en main. À écouter en audio, à regarder sur YouTube et en live sur Twitch.",
-      },
-      {
-        property: "og:title",
-        content: "Pixels Perspective — Le podcast qui joue avec vos émotions",
-      },
-      {
-        property: "og:description",
-        content:
-          "Un podcast sur le jeu vidéo axé sur les émotions et le ressenti des joueurs manette en main.",
-      },
+      { title: SITE_TITLE },
+      { name: "description", content: SITE_DESCRIPTION },
     ],
   }),
   component: Index,
@@ -32,7 +20,13 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <main className="min-h-screen">
+    <main id="main" className="min-h-screen">
+      <a
+        href="#podcast"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:px-4 focus:py-2 pixel-btn bg-magenta text-[11px] hud-label text-primary-foreground"
+      >
+        Aller au contenu
+      </a>
       <ScrollProgress />
       <Hero />
       <Podcast />

@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { motion } from "framer-motion";
 import { Headphones, Youtube, Menu, X, LogOut, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ppLogo from "@/assets/pp-logo.png";
 import subwayLogo from "@/assets/subway-fc.png";
 import { useTwitchAuth } from "@/lib/useTwitchAuth";
@@ -83,7 +83,19 @@ function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
 
 export function Hero() {
   const [open, setOpen] = useState(false);
+  const burgerRef = useRef<HTMLButtonElement>(null);
   const { user, login, logout, isLoggingIn } = useTwitchAuth();
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      burgerRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   const handleNavClick = (id: string) => {
     setOpen(false);
@@ -97,6 +109,7 @@ export function Hero() {
     >
       {/* Nav */}
       <motion.nav
+        aria-label="Navigation principale"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
@@ -133,7 +146,7 @@ export function Hero() {
     <button
       key={`compact-${item.id}`}
       onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:inline-flex hidden items-center justify-center w-9 h-9 pixel-btn cursor-pointer"
+      className="max-[699px]:inline-flex hidden items-center justify-center size-10 pixel-btn cursor-pointer"
       style={navStyle(item, true)}
       aria-label={item.ariaLabel}
     >
@@ -174,7 +187,7 @@ export function Hero() {
         onClick={logout}
         title="Se déconnecter"
         aria-label="Se déconnecter de Twitch"
-        className="p-1 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
+        className="p-2 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
       >
         <LogOut className="size-3.5" />
       </button>
@@ -209,13 +222,14 @@ export function Hero() {
         clipPath: "polygon(50% 0%, 100% 12%, 100% 65%, 50% 100%, 0% 65%, 0% 12%)",
       }}
     />
-    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap glass-strong px-3 py-1.5 text-[11px] hud-label text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0">
+    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap glass-strong px-3 py-1.5 text-[11px] hud-label text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0">
       Suivre le FC Subway - Lives FM26
     </span>
   </a>
 
   <button
-    className="max-[699px]:flex min-[700px]:hidden text-white p-1.5"
+    ref={burgerRef}
+    className="max-[699px]:flex min-[700px]:hidden items-center justify-center size-10 text-white"
     onClick={() => setOpen((s) => !s)}
     aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
     aria-expanded={open}

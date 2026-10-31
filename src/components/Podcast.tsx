@@ -43,7 +43,7 @@ export function Podcast() {
   // Mock seasons: assign by chronological order (oldest = S1).
   const { seasonMap, seasonCount } = useMemo(() => {
     const map = new Map<string, number>();
-    const asc = [...episodes].slice().reverse();
+    const asc = [...episodes].reverse();
     asc.forEach((ep, i) => {
       map.set(ep.guid, Math.floor(i / EPISODES_PER_SEASON) + 1);
     });
@@ -231,7 +231,7 @@ export function Podcast() {
             href={SHOW_URL}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-white-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Liste des épisodes <ExternalLink className="size-3.5" />
           </a>
@@ -256,7 +256,7 @@ export function Podcast() {
                   <motion.img
                     key={current?.guid || "cover"}
                     src={cover}
-                    alt={current?.title || "Podcast cover"}
+                    alt={current?.title || "Pochette du podcast"}
                     initial={{ opacity: 0, scale: 1.06 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
@@ -298,10 +298,13 @@ export function Podcast() {
                 </p>
               </motion.div>
             </AnimatePresence>
+            <p role="status" className="sr-only">
+              {playing && current ? `Lecture en cours : ${current.title}` : ""}
+            </p>
             <div className="mt-5 flex items-center gap-3">
               <button
                 onClick={togglePlay}
-                aria-label={playing ? "Pause" : "Play"}
+                aria-label={playing ? "Pause" : "Lecture"}
                 disabled={!current?.audioUrl}
                 className="inline-flex items-center justify-center size-12 shrink-0 pixel-btn bg-magenta text-primary-foreground disabled:opacity-50"
               >

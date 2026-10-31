@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { AnimatePresence, motion } from "framer-motion";
 import { Play, Pause, X } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 
 interface StickyPlayerProps {
   visible: boolean;
@@ -49,7 +50,7 @@ export function StickyPlayer({
             )}
             <button
               onClick={onToggle}
-              aria-label={playing ? "Pause" : "Play"}
+              aria-label={playing ? "Pause" : "Lecture"}
               className="inline-flex items-center justify-center size-9 shrink-0 pixel-btn bg-magenta text-primary-foreground"
             >
               {playing ? (
@@ -72,7 +73,7 @@ export function StickyPlayer({
             </div>
             <button
               onClick={onClose}
-              aria-label="Close mini player"
+              aria-label="Fermer le mini lecteur"
               className="shrink-0 size-7 inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
             >
               <X className="size-4" />
@@ -85,16 +86,18 @@ export function StickyPlayer({
 }
 
 export function PlayingBars({ className = "" }: { className?: string }) {
+  const reduceMotion = useReducedMotion();
   return (
     <span
       className={`inline-flex items-end gap-[2px] h-4 ${className}`}
-      aria-label="Playing"
+      role="img"
+      aria-label="Lecture en cours"
     >
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
           className="w-[3px] bg-white"
-          animate={{ height: ["30%", "100%", "50%", "80%", "30%"] }}
+          animate={reduceMotion ? { height: "70%" } : { height: ["30%", "100%", "50%", "80%", "30%"] }}
           transition={{
             duration: 0.9,
             repeat: Infinity,

@@ -149,10 +149,7 @@ export function TwitchSection() {
           >
             {/* Live Banner if currently live */}
             {isLive && !playLive && (
-              <div
-                onClick={handleToggleLive}
-                className="cursor-pointer p-4 glass border-red-500/60! hover:bg-red-950/40 transition-colors flex items-center justify-between gap-4"
-              >
+              <div className="p-4 glass border-red-500/60! flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="relative flex size-3">
                     <span className="relative inline-flex size-3 bg-red-500 blink-soft"></span>
@@ -168,6 +165,7 @@ export function TwitchSection() {
                 </div>
                 <button
                   type="button"
+                  onClick={handleToggleLive}
                   className="shrink-0 px-3.5 py-1.5 text-[11px] hud-label pixel-btn bg-red-600 text-white hover:bg-red-500"
                 >
                   Regarder le Live

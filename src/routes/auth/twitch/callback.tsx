@@ -79,7 +79,7 @@ function TwitchCallbackComponent() {
       <div className="max-w-md w-full glass-strong p-8 text-center flex flex-col items-center gap-4">
         {status === "loading" && (
           <>
-            <p className="text-[11px] hud-label text-accent blink-soft">Loading…</p>
+            <p className="text-[11px] hud-label text-accent blink-soft">Chargement…</p>
             <Loader2 className="size-12 text-purple-400 animate-spin" />
             <h2 className="text-xl font-semibold text-white">Connexion à Twitch en cours...</h2>
             <p className="text-sm text-muted-foreground">

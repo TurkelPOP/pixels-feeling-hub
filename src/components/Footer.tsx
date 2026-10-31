@@ -159,7 +159,7 @@ export function Footer() {
         </ul>
 
         <p className="text-[11px] hud-label text-muted-foreground text-center">
-          © {new Date().getFullYear()} Pixels Perspective. All emotions reserved.
+          © {new Date().getFullYear()} Pixels Perspective. Tous droits réservés.
         </p>
       </div>
     </footer>

@@ -8,10 +8,19 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { MotionConfig } from "framer-motion";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import {
+  SITE_DESCRIPTION,
+  SITE_JSON_LD,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+  absoluteUrl,
+} from "../lib/site";
 
 function NotFoundComponent() {
   return (
@@ -24,16 +33,16 @@ function NotFoundComponent() {
         >
           404
         </h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">Page introuvable</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          La page que vous cherchez n'existe pas ou a été déplacée.
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center pixel-btn bg-magenta px-4 py-2 text-[11px] hud-label text-primary-foreground"
           >
-            Go home
+            Retour à l'accueil
           </Link>
         </div>
       </div>
@@ -51,12 +60,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md w-full text-center glass-strong p-8">
-        <p className="text-[11px] hud-label text-accent blink-soft">Continue ?</p>
+        <p className="text-[11px] hud-label text-accent blink-soft">Continuer ?</p>
         <h1 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          Cette page ne s'est pas chargée
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          Un problème est survenu de notre côté. Essayez de recharger la page ou retournez à l'accueil.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -66,13 +75,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center pixel-btn bg-magenta px-4 py-2 text-[11px] hud-label text-primary-foreground"
           >
-            Try again
+            Réessayer
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center pixel-btn bg-background px-4 py-2 text-[11px] hud-label text-foreground hover:bg-muted"
           >
-            Go home
+            Retour à l'accueil
           </a>
         </div>
       </div>
@@ -81,34 +90,52 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Pixels Perspective — Le podcast qui joue avec vos émotions" },
-      { name: "description", content: "Un podcast sur le jeu vidéo axé sur les émotions et le ressenti des joueurs manette en main." },
-      { property: "og:title", content: "Pixels Perspective — Le podcast qui joue avec vos émotions" },
-      { property: "og:description", content: "Un podcast sur le jeu vidéo axé sur les émotions et le ressenti des joueurs manette en main." },
-      { property: "og:type", content: "website" },
-      { property: "og:image", content: "/pp-logo.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Pixels Perspective" },
-      { name: "twitter:description", content: "Un podcast sur le jeu vidéo axé sur les émotions des joueurs." },
-      { name: "twitter:image", content: "/pp-logo.png" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
-      { rel: "icon", href: "/pp-logo.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/pp-logo.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
-      },
-    ],
-  }),
+  head: () => {
+    const image = absoluteUrl("/pp-logo.png");
+    const canonical = absoluteUrl("/");
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: SITE_TITLE },
+        { name: "description", content: SITE_DESCRIPTION },
+        { name: "theme-color", content: "#0e0a18" },
+        { property: "og:title", content: SITE_TITLE },
+        { property: "og:description", content: SITE_DESCRIPTION },
+        { property: "og:type", content: "website" },
+        { property: "og:site_name", content: SITE_NAME },
+        { property: "og:locale", content: "fr_FR" },
+        { name: "twitter:card", content: "summary" },
+        { name: "twitter:title", content: SITE_NAME },
+        { name: "twitter:description", content: SITE_DESCRIPTION },
+        ...(canonical ? [{ property: "og:url", content: canonical }] : []),
+        ...(image
+          ? [
+              { property: "og:image", content: image },
+              { name: "twitter:image", content: image },
+            ]
+          : []),
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "icon", href: "/favicon.png", type: "image/png" },
+        { rel: "apple-touch-icon", href: "/pp-logo.png" },
+        ...(canonical ? [{ rel: "canonical", href: canonical }] : []),
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" as const },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+        },
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({ ...SITE_JSON_LD, url: SITE_URL || undefined }),
+        },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -135,7 +162,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <MotionConfig reducedMotion="user">
+        <Outlet />
+      </MotionConfig>
     </QueryClientProvider>
   );
 }
