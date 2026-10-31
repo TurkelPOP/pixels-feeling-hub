@@ -81,14 +81,35 @@ function navStyle(item: NavItem): React.CSSProperties {
 export function Hero() {
   const [open, setOpen] = useState(false);
   const burgerRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const { user, login, logout, isLoggingIn, loginError } = useTwitchAuth();
 
+  // Mobile menu: focus moves into it, Tab/Shift+Tab stay inside the nav, Escape closes and restores focus.
   useEffect(() => {
     if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>("button")?.focus();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setOpen(false);
-      burgerRef.current?.focus();
+      if (e.key === "Escape") {
+        setOpen(false);
+        burgerRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab" || !navRef.current) return;
+      const focusable = [
+        ...navRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])"),
+      ].filter((el) => el.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !navRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !navRef.current.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -106,6 +127,7 @@ export function Hero() {
     >
       {/* Nav */}
       <motion.nav
+        ref={navRef}
         aria-label="Navigation principale"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -237,6 +259,7 @@ export function Hero() {
 
         {open && (
           <motion.div
+            ref={menuRef}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             className="min-[700px]:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"

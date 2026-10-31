@@ -75,6 +75,9 @@
   --magenta: oklch(0.72 0.22 330);
   --cyan: oklch(0.78 0.18 200);
   --twitch: oklch(0.6 0.22 295);
+  /* Contrast-safe variants (>= 4.5:1): white text on a Twitch-purple fill, Twitch-purple text on dark panels. */
+  --twitch-solid: oklch(0.54 0.22 295);
+  --twitch-text: oklch(0.76 0.15 295);
 
   --gradient-hero: radial-gradient(
       ellipse 80% 60% at 50% 0%,

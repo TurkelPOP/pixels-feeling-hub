@@ -92,7 +92,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => {
-    const image = absoluteUrl("/pp-logo.png");
+    const image = absoluteUrl("/og-image.jpg");
     const canonical = absoluteUrl("/");
     return {
       meta: [
@@ -106,13 +106,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: SITE_NAME },
         { property: "og:locale", content: "fr_FR" },
-        { name: "twitter:card", content: "summary" },
+        // Large card only when the 1200x630 image is available (it needs an absolute URL).
+        { name: "twitter:card", content: image ? "summary_large_image" : "summary" },
         { name: "twitter:title", content: SITE_NAME },
         { name: "twitter:description", content: SITE_DESCRIPTION },
         ...(canonical ? [{ property: "og:url", content: canonical }] : []),
         ...(image
           ? [
               { property: "og:image", content: image },
+              { property: "og:image:width", content: "1200" },
+              { property: "og:image:height", content: "630" },
+              { property: "og:image:alt", content: `${SITE_NAME} : le podcast qui joue avec vos émotions` },
               { name: "twitter:image", content: image },
             ]
           : []),

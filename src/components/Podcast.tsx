@@ -233,7 +233,7 @@ export function Podcast() {
   const shownDuration = duration || current?.durationSec || 0;
 
   const seasonTabs: Array<{ key: number | "all"; label: string }> = [
-    { key: "all", label: "Toutes les saisons" },
+    { key: "all", label: "Toutes" },
     ...seasons.map((n) => ({ key: n, label: `Saison ${n}` })),
   ];
 
@@ -410,20 +410,22 @@ export function Podcast() {
 
             {/* Season filter */}
             {seasons.length > 0 && (
-              <div className="px-3 py-3 border-b border-border overflow-x-auto scrollbar-hide">
-                <div className="flex gap-1.5 w-max">
+              <div className="px-3 py-3 border-b border-border">
+                <div className="flex flex-wrap gap-1.5">
                   {seasonTabs.map((tab) => {
                     const isActive = activeSeason === tab.key;
                     return (
                       <button
                         key={String(tab.key)}
                         onClick={() => setActiveSeason(tab.key)}
-                        className="relative px-3 py-1.5 text-[11px] hud-label transition-colors whitespace-nowrap"
+                        className="relative rounded-btn px-3 py-1.5 text-[11px] hud-label transition-colors whitespace-nowrap"
                       >
                         {isActive && (
                           <motion.span
                             layoutId="season-pill"
-                            className="absolute inset-0 bg-magenta"
+                            className="absolute inset-0 rounded-btn bg-magenta"
+                            // Radius set inline so the layout animation doesn't stretch the corners (keep in sync with --radius-btn).
+                            style={{ borderRadius: 4 }}
                             transition={{ type: "spring", stiffness: 380, damping: 32 }}
                           />
                         )}

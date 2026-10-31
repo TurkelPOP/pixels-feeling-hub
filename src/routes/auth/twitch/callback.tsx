@@ -112,7 +112,7 @@ function TwitchCallbackComponent() {
               >
                 Retour à l'accueil
               </button>
-              <p className="text-[11px] text-white/40 mt-1">
+              <p className="text-[11px] text-white/70 mt-1">
                 Si le problème persiste, vérifiez que l'URL de retour est bien enregistrée dans la console Twitch.
               </p>
             </div>

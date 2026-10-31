@@ -157,11 +157,6 @@ export function YouTubeSection() {
               <span className="text-sm font-medium">
                 Playlist Pixels Perspective
               </span>
-              {data?.fallback && (
-                <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <AlertCircle className="size-3.5" /> Mode secours
-                </span>
-              )}
             </div>
 
             <div className="max-h-[640px] overflow-y-auto divide-y divide-border lg:max-h-none lg:min-h-0 lg:flex-1">

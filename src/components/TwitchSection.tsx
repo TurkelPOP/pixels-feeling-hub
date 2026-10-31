@@ -101,7 +101,7 @@ export function TwitchSection() {
             <div className="flex items-center gap-2.5 mb-2 flex-wrap">
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] hud-label text-white pixel-corners"
-                style={{ background: "var(--twitch)" }}
+                style={{ background: "var(--twitch-solid)" }}
               >
                 <TwitchIcon className="size-3.5" />
                 Twitch
@@ -123,10 +123,6 @@ export function TwitchSection() {
               Diffusions Twitch
             </h2>
           </div>
-
-          {data?.fallback && (
-            <p className="text-xs text-muted-foreground">Mode secours : données de démonstration.</p>
-          )}
 
           <a
             href={channelUrl}
@@ -235,7 +231,7 @@ export function TwitchSection() {
                   <span className="absolute top-4 left-4 flex items-center gap-2">
                     <span
                       className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] hud-label text-white pixel-corners"
-                      style={{ background: "var(--twitch)" }}
+                      style={{ background: "var(--twitch-solid)" }}
                     >
                       <TwitchIcon className="size-3" />
                       {playLive ? "EN DIRECT" : "Dernière diffusion"}
@@ -296,7 +292,7 @@ export function TwitchSection() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 shrink-0 hover:underline font-semibold"
-                  style={{ color: "var(--twitch)" }}
+                  style={{ color: "var(--twitch-text)" }}
                 >
                   Ouvrir sur Twitch <ExternalLink className="size-3" />
                 </a>
