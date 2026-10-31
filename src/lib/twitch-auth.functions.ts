@@ -2,9 +2,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-// Twitch logins: letters, digits and underscores, at most 25 chars.
-const LOGIN_RE = /^[a-z0-9_]{3,25}$/;
+import { isRateLimited, pinRedirectUri, resolveChannelLogin } from "./twitch.server";
+
 const LOGIN_FAILED = "La connexion Twitch a échoué. Réessayez dans quelques instants.";
+
+/** The user token is only needed during this request: revoke it so it can't outlive the login. */
+async function revokeUserToken(clientId: string, token: string): Promise<void> {
+  try {
+    await fetch("https://id.twitch.tv/oauth2/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: clientId, token }).toString(),
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch (e) {
+    console.warn("[Twitch Auth] Token revocation failed:", e);
+  }
+}
 
 const helixUrl = (path: string, params: Record<string, string>) =>
   `https://api.twitch.tv/helix/${path}?${new URLSearchParams(params)}`;
@@ -14,7 +28,6 @@ export interface TwitchUser {
   login: string;
   displayName: string;
   profileImageUrl: string;
-  email?: string;
   isSubscriber?: boolean;
   subTier?: string; // "1000" (Tier 1), "2000" (Tier 2), "3000" (Tier 3), "Prime"
   isFollower?: boolean;
@@ -37,16 +50,17 @@ export const getTwitchAuthUrl = createServerFn({ method: "POST" })
       throw new Error("TWITCH_CLIENT_ID not configured on the server.");
     }
 
-    const { redirectUri, state } = ctx.data;
-    if (!redirectUri) {
-      throw new Error("redirectUri is required.");
-    }
+    if (isRateLimited("twitch-url", 30, 60_000)) throw new Error(LOGIN_FAILED);
+
+    const redirectUri = pinRedirectUri(ctx.data.redirectUri);
+    if (!redirectUri) throw new Error(LOGIN_FAILED);
+    const { state } = ctx.data;
 
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: "user:read:email user:read:subscriptions user:read:follows moderation:read",
+      scope: "user:read:subscriptions user:read:follows moderation:read",
       force_verify: "false",
       // CSRF protection: echoed back by Twitch, checked by the callback route.
       state,
@@ -66,15 +80,18 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
   async (ctx): Promise<{ user: TwitchUser }> => {
     const clientId = process.env.TWITCH_CLIENT_ID;
     const clientSecret = process.env.TWITCH_CLIENT_SECRET;
-    const configured = (process.env.TWITCH_CHANNEL || "turkelpop").toLowerCase().trim();
-    const channelName = LOGIN_RE.test(configured) ? configured : "turkelpop";
+    const channelName = resolveChannelLogin();
 
     if (!clientId || !clientSecret) {
       console.error("[Twitch Auth] Client ID / Secret not configured.");
       throw new Error(LOGIN_FAILED);
     }
 
-    const { code, redirectUri } = ctx.data;
+    if (isRateLimited("twitch-callback", 10, 60_000)) throw new Error(LOGIN_FAILED);
+
+    const redirectUri = pinRedirectUri(ctx.data.redirectUri);
+    if (!redirectUri) throw new Error(LOGIN_FAILED);
+    const { code } = ctx.data;
 
     // 1. Exchange authorization code → user access token
     const tokenParams = new URLSearchParams({
@@ -113,6 +130,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
     const userRes = await fetch("https://api.twitch.tv/helix/users", { headers });
     if (!userRes.ok) {
       console.error("[Twitch Auth] Profile fetch failed:", userRes.status);
+      await revokeUserToken(clientId, accessToken);
       throw new Error(LOGIN_FAILED);
     }
 
@@ -122,13 +140,13 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
         login: string;
         display_name: string;
         profile_image_url: string;
-        email?: string;
       }>;
     };
 
     const profile = userData?.data?.[0];
     if (!profile) {
       console.error("[Twitch Auth] Empty profile response.");
+      await revokeUserToken(clientId, accessToken);
       throw new Error(LOGIN_FAILED);
     }
 
@@ -245,13 +263,14 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       }
     }
 
+    await revokeUserToken(clientId, accessToken);
+
     return {
       user: {
         id: profile.id,
         login: profile.login,
         displayName: profile.display_name,
         profileImageUrl: profile.profile_image_url,
-        email: profile.email,
         isSubscriber,
         subTier,
         isFollower,
@@ -260,7 +279,7 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
         isModerator,
         modBadgeUrl,
       },
-      // The access token is only used above, server-side: never sent to the browser.
+      // The access token is only used above, server-side: never sent to the browser or stored in a cookie.
     };
   },
 );

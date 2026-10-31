@@ -35,25 +35,27 @@
 - Composants React nommés; routes via `createFileRoute`.
 - Appels client aux handlers serveur avec `useServerFn` + React Query.
 - Secrets seulement dans `process.env` côté serveur; jamais préfixer secrets avec `VITE_`.
+- Exception publique : `VITE_SITE_URL` (URL du site, non secrète) alimente og:image, og:url et canonical (`src/lib/site.ts`).
 - `routeTree.gen.ts` est généré: ne pas éditer manuellement.
 
 ## Design system
 
 - Thème sombre, glassmorphism, gradients magenta/cyan/violet définis dans `src/styles.css`.
 - Tailwind utilities; police locale Homebase pour identité, Inter pour texte.
-- Animations Framer Motion. Composants Radix/shadcn disponibles dans `src/components/ui`.
+- Animations Framer Motion. Pas de bibliothèque de composants : les composants sont écrits à la main (le dossier `ui/` shadcn a été supprimé).
 
 ## Data / API
 
 - Podcast: RSS Acast.
 - YouTube: `YOUTUBE_API_KEY` pour Data API, fallback RSS de playlist.
 - Twitch: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, optionnel `TWITCH_CHANNEL`; Helix/OAuth, fallback statique.
-- Aucun stockage persistant ni base de données.
+- Aucune base de données (seul localStorage côté navigateur).
 
 ## Auth
 
-- Aucune authentification utilisateur.
-- OAuth Twitch uniquement machine-à-machine pour lire API Twitch.
+- Connexion Twitch facultative (code d'autorisation, secret côté serveur) : affiche le profil et le statut abonné/follower.
+- Historique d'écoute/visionnage stocké uniquement en localStorage (`src/lib/userHistory.ts`).
+- OAuth Twitch machine-à-machine pour lire l'API Twitch.
 
 ## Commandes utiles
 
@@ -67,7 +69,6 @@
 - Préserver SSR et wrappers d’erreur dans `src/server.ts` / `src/start.ts`.
 - Ne pas ajouter manuellement plugins déjà inclus par configuration Lovable.
 - Garder appels API et secrets côté serveur.
-- Éviter modifications massives dans `src/components/ui` non utilisées.
 
 ## Pièges connus
 

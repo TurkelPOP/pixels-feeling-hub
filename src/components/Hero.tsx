@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { motion } from "framer-motion";
 import { Headphones, Youtube, Menu, X, LogOut, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ppLogo from "@/assets/pp-logo.png";
 import subwayLogo from "@/assets/subway-fc.png";
 import { useTwitchAuth } from "@/lib/useTwitchAuth";
@@ -25,8 +25,7 @@ type NavItem = {
   from: string;
   to: string;
   glow: string;
-  /** compact/full alpha for [from, to, glow] */
-  compactAlpha: [number, number, number];
+  /** alpha for [from, to, glow] */
   fullAlpha: [number, number, number];
 };
 
@@ -37,12 +36,12 @@ const NAV_ITEMS: NavItem[] = [
     menuLabel: "Écouter le podcast",
     ariaLabel: "Écouter le podcast",
     Icon: Headphones,
-    iconColor: "text-cyan-300",
-    from: "0, 191, 255",
-    to: "120, 40, 200",
-    glow: "0, 191, 255",
-    compactAlpha: [0.25, 0.3, 0.5],
-    fullAlpha: [0.2, 0.25, 0.45],
+    iconColor: "text-pink-300",
+    // Rose du thème podcast (--magenta).
+    from: "237, 102, 229",
+    to: "170, 40, 160",
+    glow: "237, 102, 229",
+    fullAlpha: [0.25, 0.35, 0.5],
   },
   {
     id: "youtube",
@@ -54,7 +53,6 @@ const NAV_ITEMS: NavItem[] = [
     from: "255, 0, 51",
     to: "180, 0, 30",
     glow: "255, 0, 51",
-    compactAlpha: [0.25, 0.35, 0.5],
     fullAlpha: [0.2, 0.3, 0.45],
   },
   {
@@ -67,23 +65,55 @@ const NAV_ITEMS: NavItem[] = [
     from: "145, 70, 255",
     to: "88, 28, 135",
     glow: "145, 70, 255",
-    compactAlpha: [0.3, 0.4, 0.6],
     fullAlpha: [0.25, 0.35, 0.5],
   },
 ];
 
-function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
-  const [a, b, g] = compact ? item.compactAlpha : item.fullAlpha;
-  const blur = compact ? "16px -4px" : "20px -5px";
+// Brand-tinted cartridge buttons: flat two-band fill, coloured border. Shadow comes from `pixel-btn`.
+function navStyle(item: NavItem): React.CSSProperties {
+  const [a, b, g] = item.fullAlpha;
   return {
-    background: `linear-gradient(135deg, rgba(${item.from}, ${a}), rgba(${item.to}, ${b}))`,
-    boxShadow: `0 0 ${blur} rgba(${item.glow}, ${g}), inset 0 1px 0 rgba(255,255,255,0.1)`,
+    background: `linear-gradient(180deg, rgba(${item.from}, ${a}) 0 50%, rgba(${item.to}, ${b}) 50% 100%)`,
+    borderColor: `rgba(${item.glow}, ${Math.min(g + 0.25, 1)})`,
   };
 }
 
 export function Hero() {
   const [open, setOpen] = useState(false);
-  const { user, login, logout, isLoggingIn } = useTwitchAuth();
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { user, login, logout, isLoggingIn, loginError } = useTwitchAuth();
+
+  // Mobile menu: focus moves into it, Tab/Shift+Tab stay inside the nav, Escape closes and restores focus.
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>("button")?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        burgerRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab" || !navRef.current) return;
+      const focusable = [
+        ...navRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])"),
+      ].filter((el) => el.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !navRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !navRef.current.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   const handleNavClick = (id: string) => {
     setOpen(false);
@@ -97,10 +127,12 @@ export function Hero() {
     >
       {/* Nav */}
       <motion.nav
+        ref={navRef}
+        aria-label="Navigation principale"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="fixed top-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 rounded-2xl glass-strong"
+        className="fixed top-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 glass-strong"
       >
         <div className="grid grid-cols-[auto_1fr_auto] items-center px-3 sm:px-4 py-2 gap-2">
   {/* Logo */}
@@ -109,11 +141,13 @@ export function Hero() {
     <img
       src={ppLogo}
       alt="Pixels Perspective"
-      className="max-[660px]:block hidden h-10 w-auto"
+      width={40}
+      height={40}
+      className="max-[699px]:block hidden h-10 w-auto"
     />
     {/* Texte Homebase : 700px et plus */}
     <span
-      className="max-[660px]:hidden text-3xl font-homebase"
+      className="max-[699px]:hidden text-3xl font-homebase"
       style={{
         paddingLeft: '2px',
         letterSpacing: '0.05em',
@@ -128,29 +162,16 @@ export function Hero() {
 {/* Center buttons */}
 <div className="flex items-center justify-center gap-2 sm:gap-2.5">
 
-  {/* Sous 700px : icônes rondes compactes */}
+  {/* Un seul jeu de boutons : icône seule sous 700px, icône + libellé au-delà */}
   {NAV_ITEMS.map((item) => (
     <button
-      key={`compact-${item.id}`}
+      key={item.id}
       onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:inline-flex hidden items-center justify-center rounded-xl w-9 h-9 border border-white/15 transition-all duration-300 hover:scale-110 hover:-translate-y-0.5 cursor-pointer"
-      style={navStyle(item, true)}
-      aria-label={item.ariaLabel}
+      className="inline-flex items-center justify-center gap-2 h-10 min-w-10 min-[700px]:px-3 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
+      style={navStyle(item)}
     >
       <item.Icon className={`size-4 ${item.iconColor}`} />
-    </button>
-  ))}
-
-  {/* 700px et plus : boutons avec texte et couleurs de marque */}
-  {NAV_ITEMS.map((item) => (
-    <button
-      key={`full-${item.id}`}
-      onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:hidden inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white border border-white/15 transition-all duration-300 hover:scale-[1.04] hover:-translate-y-0.5 whitespace-nowrap cursor-pointer"
-      style={navStyle(item, false)}
-    >
-      <item.Icon className={`size-3.5 ${item.iconColor}`} />
-      {item.label}
+      <span className="max-[699px]:sr-only">{item.label}</span>
     </button>
   ))}
 
@@ -161,20 +182,20 @@ export function Hero() {
 
   {/* Twitch User Login or Logged-in Profile Badge */}
   {user ? (
-    <div className="flex items-center gap-2 bg-purple-950/40 border border-purple-500/30 rounded-xl px-2.5 py-1 text-xs text-white">
+    <div className="flex items-center gap-2 h-10 rounded-btn bg-purple-950/60 border-2 border-purple-500/50 px-2 text-xs text-white">
       <img
         src={user.profileImageUrl}
         alt={user.displayName}
-        className="size-6 rounded-full border border-purple-400/50 object-cover"
+        className="size-6 pixel-corners object-cover"
       />
-      <span className="max-w-[100px] truncate font-medium hidden sm:inline">
+      <span className="max-w-[100px] truncate hud-label text-[11px] hidden sm:inline">
         {user.displayName}
       </span>
       <button
         onClick={logout}
         title="Se déconnecter"
         aria-label="Se déconnecter de Twitch"
-        className="p-1 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
+        className="inline-flex items-center justify-center size-7 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
       >
         <LogOut className="size-3.5" />
       </button>
@@ -183,10 +204,10 @@ export function Hero() {
     <button
       onClick={login}
       disabled={isLoggingIn}
-      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white border border-purple-500/30 transition-all duration-300 hover:scale-[1.04] cursor-pointer"
+      className="inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-3 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
       style={{
-        background: "linear-gradient(135deg, rgba(145, 70, 255, 0.35), rgba(88, 28, 135, 0.45))",
-        boxShadow: "0 0 16px -4px rgba(145, 70, 255, 0.6)",
+        background: "linear-gradient(180deg, rgba(145, 70, 255, 0.45) 0 50%, rgba(88, 28, 135, 0.6) 50% 100%)",
+        borderColor: "rgba(145, 70, 255, 0.8)",
       }}
     >
       <TwitchNavIcon className="size-3.5 text-purple-200" />
@@ -199,23 +220,26 @@ export function Hero() {
     target="_blank"
     rel="noopener noreferrer"
     aria-label="Suivre le FC Subway - Lives FM26"
-    className="group relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-[1.05]"
+    className="group relative flex items-center justify-center size-10 transition-transform hover:scale-[1.05]"
   >
     <img
       src={subwayLogo}
       alt="FC Subway"
+      width={36}
+      height={36}
       className="h-full w-full object-contain transition-[filter] duration-300 group-hover:[filter:drop-shadow(0_0_14px_rgba(253,224,71,0.85))]"
       style={{
         clipPath: "polygon(50% 0%, 100% 12%, 100% 65%, 50% 100%, 0% 65%, 0% 12%)",
       }}
     />
-    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-md glass-strong px-3 py-1.5 text-xs font-medium text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0">
+    <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap glass-strong px-3 py-1.5 text-[11px] hud-label text-white opacity-0 translate-x-2 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0">
       Suivre le FC Subway - Lives FM26
     </span>
   </a>
 
   <button
-    className="max-[699px]:flex min-[700px]:hidden text-white p-1.5"
+    ref={burgerRef}
+    className="max-[699px]:flex min-[700px]:hidden items-center justify-center size-10 text-white"
     onClick={() => setOpen((s) => !s)}
     aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
     aria-expanded={open}
@@ -227,8 +251,15 @@ export function Hero() {
 
 </div>
 
+        {loginError && (
+          <p role="alert" className="px-4 pb-2 text-xs text-red-300">
+            {loginError}
+          </p>
+        )}
+
         {open && (
           <motion.div
+            ref={menuRef}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             className="min-[700px]:hidden overflow-hidden border-t border-border px-4 py-4 flex flex-col gap-3"
@@ -237,8 +268,8 @@ export function Hero() {
               <button
                 key={`menu-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
-                className="inline-flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-white border border-white/15 transition-all duration-300 cursor-pointer"
-                style={navStyle(item, false)}
+                className="inline-flex items-center justify-center gap-2.5 px-4 py-2.5 text-[11px] hud-label text-white pixel-btn cursor-pointer"
+                style={navStyle(item)}
               >
                 <item.Icon className={`size-4 ${item.iconColor}`} />
                 {item.menuLabel}
@@ -254,8 +285,9 @@ export function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[10px] sm:text-xs tracking-[0.18em] text-white/80 max-w-full"
+          className="mb-6 inline-flex items-center gap-2 glass px-4 py-1.5 text-[10px] sm:text-xs hud-label text-white/85 max-w-full"
         >
+          <span aria-hidden className="text-accent blink-soft">▶</span>
           Nos émotions manette en main, dans un podcast.
         </motion.span>
 
@@ -264,7 +296,12 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
           className="font-homebase tracking-wider font-normal leading-[1.1] text-white w-full break-words"
-          style={{ fontSize: "clamp(2.25rem, 8vw, 6rem)" }}
+          style={{
+            fontSize: "clamp(2.25rem, 8vw, 6rem)",
+            // La police "super 3D" a déjà son relief : pas d'ombre portée colorée par-dessus,
+            // juste un léger détachement du fond.
+            textShadow: "0 6px 14px oklch(0.1 0.05 290 / 0.55)",
+          }}
         >
           Le podcast qui joue
           <br />

@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { cached, fetchWithTimeout } from "./fetch.server";
+import { resolveChannelLogin } from "./twitch.server";
 
 export interface TwitchVideo {
   id: string;
@@ -59,13 +60,10 @@ function formatTwitchDuration(raw: string): string {
   return raw;
 }
 
-const FALLBACK_CHANNEL = "turkelpop";
 const FALLBACK_THUMBNAIL =
   "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80";
 const CACHE_TTL_MS = 2 * 60_000;
 const UNAVAILABLE = "Twitch est momentanément indisponible.";
-// Twitch logins: letters, digits and underscores, at most 25 chars.
-const LOGIN_RE = /^[a-z0-9_]{3,25}$/;
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
 
@@ -277,8 +275,7 @@ export const getTwitchData = createServerFn({ method: "GET" }).handler(
   async (): Promise<TwitchData> => {
     const clientId = process.env.TWITCH_CLIENT_ID;
     const clientSecret = process.env.TWITCH_CLIENT_SECRET;
-    const configured = (process.env.TWITCH_CHANNEL || FALLBACK_CHANNEL).toLowerCase().trim();
-    const channelLogin = LOGIN_RE.test(configured) ? configured : FALLBACK_CHANNEL;
+    const channelLogin = resolveChannelLogin();
 
     // Ignore missing or placeholder secrets and serve the curated fallback.
     const hasCredentials =
