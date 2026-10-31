@@ -22,6 +22,8 @@ function TwitchCallbackComponent() {
         const error = urlParams.get("error");
         const errorDescription = urlParams.get("error_description");
         const stateMatches = consumeOAuthState(urlParams.get("state"));
+        // The single-use code must not stay in the address bar or browser history.
+        window.history.replaceState(null, "", window.location.pathname);
 
         if (error) {
           setStatus("error");

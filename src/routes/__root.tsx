@@ -12,6 +12,7 @@ import { MotionConfig } from "framer-motion";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { TwitchAuthProvider } from "../lib/useTwitchAuth";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import {
   SITE_DESCRIPTION,
@@ -29,7 +30,7 @@ function NotFoundComponent() {
         <p className="text-[11px] hud-label text-accent">▶ Game over</p>
         <h1
           className="mt-2 text-7xl font-homebase text-foreground"
-          style={{ textShadow: "4px 4px 0 var(--magenta)" }}
+          style={{ textShadow: "0 6px 14px oklch(0.1 0.05 290 / 0.55)" }}
         >
           404
         </h1>
@@ -121,11 +122,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { rel: "icon", href: "/favicon.png", type: "image/png" },
         { rel: "apple-touch-icon", href: "/pp-logo.png" },
         ...(canonical ? [{ rel: "canonical", href: canonical }] : []),
-        { rel: "preconnect", href: "https://fonts.googleapis.com" },
-        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" as const },
         {
-          rel: "stylesheet",
-          href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+          rel: "preload",
+          href: "/fonts/homebasesuper3dital-webfont.woff2",
+          as: "font",
+          type: "font/woff2",
+          crossOrigin: "anonymous" as const,
         },
       ],
       scripts: [
@@ -162,9 +164,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <MotionConfig reducedMotion="user">
-        <Outlet />
-      </MotionConfig>
+      <TwitchAuthProvider>
+        <MotionConfig reducedMotion="user">
+          <Outlet />
+        </MotionConfig>
+      </TwitchAuthProvider>
     </QueryClientProvider>
   );
 }

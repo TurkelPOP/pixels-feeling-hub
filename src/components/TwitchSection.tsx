@@ -145,7 +145,7 @@ export function TwitchSection() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="lg:sticky lg:top-24 self-start flex flex-col gap-3"
+            className="flex flex-col gap-3"
           >
             {/* Live Banner if currently live */}
             {isLive && !playLive && (
@@ -175,7 +175,7 @@ export function TwitchSection() {
 
             {/* Video Player Card */}
             <div
-              className="aspect-video w-full overflow-hidden border-4 border-black/70 outline-2 outline-[var(--panel-edge)] relative bg-black"
+              className="aspect-video w-full overflow-hidden rounded-card border-4 border-black/70 outline-2 -outline-offset-2 outline-[var(--panel-edge)] relative bg-black"
               style={{
                 boxShadow: "4px 4px 0 var(--twitch)",
               }}
@@ -310,7 +310,7 @@ export function TwitchSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="glass overflow-hidden flex flex-col"
+            className="glass overflow-hidden flex flex-col lg:contain-size"
           >
             {/* List Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -326,7 +326,7 @@ export function TwitchSection() {
             </div>
 
             {/* Scrollable Items */}
-            <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
+            <div className="max-h-[640px] overflow-y-auto divide-y divide-border lg:max-h-none lg:min-h-0 lg:flex-1">
               {isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
                     <div

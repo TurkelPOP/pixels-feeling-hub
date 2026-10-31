@@ -22,11 +22,11 @@ function formatDate(d: string): string {
   });
 }
 
+// Always HH:MM:SS (e.g. 00:52:10, 01:34:32) so every episode reads the same way.
 function formatTime(s: number): string {
-  if (!isFinite(s) || s < 0) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+  const total = isFinite(s) && s > 0 ? Math.floor(s) : 0;
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
 }
 
 export function Podcast() {
@@ -40,15 +40,19 @@ export function Podcast() {
   const episodes = useMemo(() => data?.episodes ?? [], [data?.episodes]);
   const isEmpty = !isLoading && !isError && episodes.length === 0;
 
-  // Mock seasons: assign by chronological order (oldest = S1).
-  const { seasonMap, seasonCount } = useMemo(() => {
+  // Real seasons come from the feed (`itunes:season`). Feeds that don't tag any episode
+  // fall back to chronological groups of EPISODES_PER_SEASON (oldest = S1).
+  const { seasonMap, seasons } = useMemo(() => {
     const map = new Map<string, number>();
-    const asc = [...episodes].reverse();
-    asc.forEach((ep, i) => {
-      map.set(ep.guid, Math.floor(i / EPISODES_PER_SEASON) + 1);
-    });
-    const count = asc.length ? Math.ceil(asc.length / EPISODES_PER_SEASON) : 0;
-    return { seasonMap: map, seasonCount: count };
+    if (episodes.some((ep) => ep.season)) {
+      episodes.forEach((ep) => map.set(ep.guid, ep.season ?? 0));
+    } else {
+      [...episodes].reverse().forEach((ep, i) => {
+        map.set(ep.guid, Math.floor(i / EPISODES_PER_SEASON) + 1);
+      });
+    }
+    const list = [...new Set(map.values())].filter((n) => n > 0).sort((a, b) => a - b);
+    return { seasonMap: map, seasons: list };
   }, [episodes]);
 
   const [activeSeason, setActiveSeason] = useState<number | "all">("all");
@@ -66,6 +70,8 @@ export function Podcast() {
   const playerRef = useRef<HTMLDivElement | null>(null);
   const [playerOutOfView, setPlayerOutOfView] = useState(false);
   const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
+  const [copyFailedGuid, setCopyFailedGuid] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const { getStatus, markStarted, markCompleted } = useMediaHistory();
 
@@ -77,6 +83,9 @@ export function Podcast() {
       // Clipboard API is unavailable on insecure origins / denied permission.
       await navigator.clipboard.writeText(ep.link || SHOW_URL);
     } catch {
+      setCopyFailedGuid(ep.guid);
+      clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopyFailedGuid(null), 2000);
       return;
     }
     setCopiedGuid(ep.guid);
@@ -85,6 +94,19 @@ export function Podcast() {
   };
 
   const current = selected ?? episodes[0] ?? null;
+
+  const startPlayback = (audio: HTMLAudioElement) => {
+    setAudioError(null);
+    audio
+      .play()
+      .then(() => setPlaying(true))
+      .catch((error: unknown) => {
+        setPlaying(false);
+        // AbortError: play() was interrupted by a newer load/pause, not a failure.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setAudioError("Lecture impossible. Réessayez ou écoutez l'épisode sur Acast.");
+      });
+  };
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -101,12 +123,8 @@ export function Podcast() {
       audio.src = current.audioUrl;
       setProgress(0);
       setDuration(0);
-      if (autoplayRef.current) {
-        audio
-          .play()
-          .then(() => setPlaying(true))
-          .catch(() => setPlaying(false));
-      }
+      setAudioError(null);
+      if (autoplayRef.current) startPlayback(audio);
     }
   }, [current?.audioUrl]);
 
@@ -164,10 +182,7 @@ export function Podcast() {
       audio.pause();
       setPlaying(false);
     } else {
-      audio
-        .play()
-        .then(() => setPlaying(true))
-        .catch(() => setPlaying(false));
+      startPlayback(audio);
     }
   };
 
@@ -186,9 +201,19 @@ export function Podcast() {
     audio.currentTime = Math.min(Math.max(seconds, 0), duration);
   };
 
-  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Pointer events cover mouse, touch and pen, and allow dragging the thumb along the bar.
+  const seekFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     seekTo(((e.clientX - rect.left) / rect.width) * duration);
+  };
+
+  const startSeek = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    seekFromPointer(e);
+  };
+
+  const dragSeek = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFromPointer(e);
   };
 
   const seekWithKeyboard = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -203,13 +228,13 @@ export function Podcast() {
   };
 
   const cover = current?.image || data?.image;
+  // The audio is only fetched on play (preload="none"): until its metadata arrives,
+  // show the length announced by the feed so the timer reads m:ss from the start.
+  const shownDuration = duration || current?.durationSec || 0;
 
   const seasonTabs: Array<{ key: number | "all"; label: string }> = [
     { key: "all", label: "Toutes les saisons" },
-    ...Array.from({ length: seasonCount }, (_, i) => ({
-      key: i + 1,
-      label: `Saison ${i + 1}`,
-    })),
+    ...seasons.map((n) => ({ key: n, label: `Saison ${n}` })),
   ];
 
   return (
@@ -245,10 +270,10 @@ export function Podcast() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="glass-strong p-6 glow-magenta lg:sticky lg:top-24 self-start"
+            className="glass-strong p-6 glow-magenta"
           >
             <div
-              className="crt aspect-square w-full overflow-hidden flex items-center justify-center mb-6 border-2 border-black/60"
+              className="crt aspect-square w-full overflow-hidden rounded-card flex items-center justify-center mb-6 border-2 border-black/60"
               style={{ background: "var(--gradient-primary)" }}
             >
               <AnimatePresence mode="wait">
@@ -310,20 +335,21 @@ export function Podcast() {
               >
                 {playing ? <Pause className="size-5" /> : <Play className="size-5 ml-0.5" />}
               </button>
-              <span className="text-[11px] font-mono text-muted-foreground w-10 text-right">
+              <span className="text-[11px] font-mono text-muted-foreground min-w-10 shrink-0 text-right">
                 {formatTime(progress)}
               </span>
               <div
-                onClick={seek}
+                onPointerDown={startSeek}
+                onPointerMove={dragSeek}
                 onKeyDown={seekWithKeyboard}
                 tabIndex={duration ? 0 : -1}
-                className="relative h-3 flex-1 bg-black/50 border-2 border-[var(--panel-edge)] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                className="relative h-3 flex-1 touch-none bg-black/50 border-2 border-[var(--panel-edge)] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                 role="slider"
                 aria-label="Position de lecture"
                 aria-valuemin={0}
                 aria-valuemax={Math.round(duration)}
                 aria-valuenow={Math.round(progress)}
-                aria-valuetext={`${formatTime(progress)} sur ${formatTime(duration)}`}
+                aria-valuetext={`${formatTime(progress)} sur ${formatTime(shownDuration)}`}
               >
                 <div
                   className="absolute inset-y-0 left-0 segmented"
@@ -333,16 +359,31 @@ export function Podcast() {
                   }}
                 />
               </div>
-              <span className="text-[11px] font-mono text-muted-foreground w-10">
-                {formatTime(duration)}
+              <span className="text-[11px] font-mono text-muted-foreground min-w-10 shrink-0">
+                {formatTime(shownDuration)}
               </span>
             </div>
+
+            {audioError && (
+              <p role="alert" className="mt-3 text-xs text-red-300">
+                {audioError}
+              </p>
+            )}
 
             <audio
               ref={audioRef}
               preload="none"
+              onError={(e) => {
+                // An emptied src (no playable episode) also fires `error`: ignore it.
+                if (!e.currentTarget.getAttribute("src")) return;
+                setPlaying(false);
+                setAudioError("Impossible de charger l'audio de cet épisode.");
+              }}
               onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)}
-              onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+              onLoadedMetadata={(e) => {
+                const d = e.currentTarget.duration;
+                setDuration(Number.isFinite(d) ? d : 0);
+              }}
               onEnded={() => setPlaying(false)}
               onPause={() => setPlaying(false)}
               onPlay={() => setPlaying(true)}
@@ -355,7 +396,7 @@ export function Podcast() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="glass overflow-hidden flex flex-col"
+            className="glass overflow-hidden flex flex-col lg:contain-size"
           >
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <ListMusic className="size-4 text-accent" />
@@ -368,7 +409,7 @@ export function Podcast() {
             </div>
 
             {/* Season filter */}
-            {seasonCount > 0 && (
+            {seasons.length > 0 && (
               <div className="px-3 py-3 border-b border-border overflow-x-auto scrollbar-hide">
                 <div className="flex gap-1.5 w-max">
                   {seasonTabs.map((tab) => {
@@ -403,7 +444,7 @@ export function Podcast() {
               </div>
             )}
 
-            <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
+            <div className="max-h-[640px] overflow-y-auto divide-y divide-border lg:max-h-none lg:min-h-0 lg:flex-1">
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
@@ -528,6 +569,10 @@ export function Podcast() {
                       >
                         {copiedGuid === ep.guid ? (
                           <span className="text-[10px] text-accent font-medium">✓</span>
+                        ) : copyFailedGuid === ep.guid ? (
+                          <span className="text-[10px] text-red-300 font-medium" role="alert">
+                            Échec
+                          </span>
                         ) : (
                           <Link className="size-3.5 text-muted-foreground" />
                         )}
@@ -546,7 +591,7 @@ export function Podcast() {
         title={current?.title || ""}
         playing={playing}
         progress={progress}
-        duration={duration}
+        duration={shownDuration}
         cover={cover}
         onToggle={togglePlay}
         onClose={() => {

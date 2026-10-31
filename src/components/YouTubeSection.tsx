@@ -65,9 +65,9 @@ export function YouTubeSection() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="lg:sticky lg:top-24 self-start flex flex-col gap-3"
+            className="flex flex-col gap-3"
           >
-            <div className="aspect-video w-full overflow-hidden glow-cyan border-4 border-black/70 outline-2 outline-[var(--panel-edge)] relative bg-black">
+            <div className="aspect-video w-full overflow-hidden rounded-card glow-cyan border-4 border-black/70 outline-2 -outline-offset-2 outline-[var(--panel-edge)] relative bg-black">
               {isLoading ? (
                 <div className="size-full flex items-center justify-center">
                   <div className="size-10 border-4 border-accent border-t-transparent animate-spin" />
@@ -150,7 +150,7 @@ export function YouTubeSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="glass overflow-hidden flex flex-col"
+            className="glass overflow-hidden flex flex-col lg:contain-size"
           >
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <ListVideo className="size-4 text-accent" />
@@ -164,7 +164,7 @@ export function YouTubeSection() {
               )}
             </div>
 
-            <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
+            <div className="max-h-[640px] overflow-y-auto divide-y divide-border lg:max-h-none lg:min-h-0 lg:flex-1">
               {isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
                     <div

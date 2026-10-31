@@ -25,8 +25,7 @@ type NavItem = {
   from: string;
   to: string;
   glow: string;
-  /** compact/full alpha for [from, to, glow] */
-  compactAlpha: [number, number, number];
+  /** alpha for [from, to, glow] */
   fullAlpha: [number, number, number];
 };
 
@@ -37,12 +36,12 @@ const NAV_ITEMS: NavItem[] = [
     menuLabel: "Écouter le podcast",
     ariaLabel: "Écouter le podcast",
     Icon: Headphones,
-    iconColor: "text-cyan-300",
-    from: "0, 191, 255",
-    to: "120, 40, 200",
-    glow: "0, 191, 255",
-    compactAlpha: [0.25, 0.3, 0.5],
-    fullAlpha: [0.2, 0.25, 0.45],
+    iconColor: "text-pink-300",
+    // Rose du thème podcast (--magenta).
+    from: "237, 102, 229",
+    to: "170, 40, 160",
+    glow: "237, 102, 229",
+    fullAlpha: [0.25, 0.35, 0.5],
   },
   {
     id: "youtube",
@@ -54,7 +53,6 @@ const NAV_ITEMS: NavItem[] = [
     from: "255, 0, 51",
     to: "180, 0, 30",
     glow: "255, 0, 51",
-    compactAlpha: [0.25, 0.35, 0.5],
     fullAlpha: [0.2, 0.3, 0.45],
   },
   {
@@ -67,14 +65,13 @@ const NAV_ITEMS: NavItem[] = [
     from: "145, 70, 255",
     to: "88, 28, 135",
     glow: "145, 70, 255",
-    compactAlpha: [0.3, 0.4, 0.6],
     fullAlpha: [0.25, 0.35, 0.5],
   },
 ];
 
 // Brand-tinted cartridge buttons: flat two-band fill, coloured border. Shadow comes from `pixel-btn`.
-function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
-  const [a, b, g] = compact ? item.compactAlpha : item.fullAlpha;
+function navStyle(item: NavItem): React.CSSProperties {
+  const [a, b, g] = item.fullAlpha;
   return {
     background: `linear-gradient(180deg, rgba(${item.from}, ${a}) 0 50%, rgba(${item.to}, ${b}) 50% 100%)`,
     borderColor: `rgba(${item.glow}, ${Math.min(g + 0.25, 1)})`,
@@ -84,7 +81,7 @@ function navStyle(item: NavItem, compact: boolean): React.CSSProperties {
 export function Hero() {
   const [open, setOpen] = useState(false);
   const burgerRef = useRef<HTMLButtonElement>(null);
-  const { user, login, logout, isLoggingIn } = useTwitchAuth();
+  const { user, login, logout, isLoggingIn, loginError } = useTwitchAuth();
 
   useEffect(() => {
     if (!open) return;
@@ -122,11 +119,13 @@ export function Hero() {
     <img
       src={ppLogo}
       alt="Pixels Perspective"
-      className="max-[660px]:block hidden h-10 w-auto"
+      width={40}
+      height={40}
+      className="max-[699px]:block hidden h-10 w-auto"
     />
     {/* Texte Homebase : 700px et plus */}
     <span
-      className="max-[660px]:hidden text-3xl font-homebase"
+      className="max-[699px]:hidden text-3xl font-homebase"
       style={{
         paddingLeft: '2px',
         letterSpacing: '0.05em',
@@ -141,29 +140,16 @@ export function Hero() {
 {/* Center buttons */}
 <div className="flex items-center justify-center gap-2 sm:gap-2.5">
 
-  {/* Sous 700px : icônes rondes compactes */}
+  {/* Un seul jeu de boutons : icône seule sous 700px, icône + libellé au-delà */}
   {NAV_ITEMS.map((item) => (
     <button
-      key={`compact-${item.id}`}
+      key={item.id}
       onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:inline-flex hidden items-center justify-center size-10 pixel-btn cursor-pointer"
-      style={navStyle(item, true)}
-      aria-label={item.ariaLabel}
+      className="inline-flex items-center justify-center gap-2 h-10 min-w-10 min-[700px]:px-3 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
+      style={navStyle(item)}
     >
       <item.Icon className={`size-4 ${item.iconColor}`} />
-    </button>
-  ))}
-
-  {/* 700px et plus : boutons avec texte et couleurs de marque */}
-  {NAV_ITEMS.map((item) => (
-    <button
-      key={`full-${item.id}`}
-      onClick={() => handleNavClick(item.id)}
-      className="max-[699px]:hidden inline-flex items-center gap-2 px-3 py-2 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
-      style={navStyle(item, false)}
-    >
-      <item.Icon className={`size-3.5 ${item.iconColor}`} />
-      {item.label}
+      <span className="max-[699px]:sr-only">{item.label}</span>
     </button>
   ))}
 
@@ -174,7 +160,7 @@ export function Hero() {
 
   {/* Twitch User Login or Logged-in Profile Badge */}
   {user ? (
-    <div className="flex items-center gap-2 bg-purple-950/60 border-2 border-purple-500/50 px-2 py-1 text-xs text-white">
+    <div className="flex items-center gap-2 h-10 rounded-btn bg-purple-950/60 border-2 border-purple-500/50 px-2 text-xs text-white">
       <img
         src={user.profileImageUrl}
         alt={user.displayName}
@@ -187,7 +173,7 @@ export function Hero() {
         onClick={logout}
         title="Se déconnecter"
         aria-label="Se déconnecter de Twitch"
-        className="p-2 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
+        className="inline-flex items-center justify-center size-7 hover:text-red-400 text-white/70 transition-colors cursor-pointer"
       >
         <LogOut className="size-3.5" />
       </button>
@@ -196,7 +182,7 @@ export function Hero() {
     <button
       onClick={login}
       disabled={isLoggingIn}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
+      className="inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-3 text-[11px] hud-label text-white pixel-btn whitespace-nowrap cursor-pointer"
       style={{
         background: "linear-gradient(180deg, rgba(145, 70, 255, 0.45) 0 50%, rgba(88, 28, 135, 0.6) 50% 100%)",
         borderColor: "rgba(145, 70, 255, 0.8)",
@@ -212,11 +198,13 @@ export function Hero() {
     target="_blank"
     rel="noopener noreferrer"
     aria-label="Suivre le FC Subway - Lives FM26"
-    className="group relative flex items-center justify-center w-9 h-9 transition-transform hover:scale-[1.05]"
+    className="group relative flex items-center justify-center size-10 transition-transform hover:scale-[1.05]"
   >
     <img
       src={subwayLogo}
       alt="FC Subway"
+      width={36}
+      height={36}
       className="h-full w-full object-contain transition-[filter] duration-300 group-hover:[filter:drop-shadow(0_0_14px_rgba(253,224,71,0.85))]"
       style={{
         clipPath: "polygon(50% 0%, 100% 12%, 100% 65%, 50% 100%, 0% 65%, 0% 12%)",
@@ -241,6 +229,12 @@ export function Hero() {
 
 </div>
 
+        {loginError && (
+          <p role="alert" className="px-4 pb-2 text-xs text-red-300">
+            {loginError}
+          </p>
+        )}
+
         {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -252,7 +246,7 @@ export function Hero() {
                 key={`menu-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
                 className="inline-flex items-center justify-center gap-2.5 px-4 py-2.5 text-[11px] hud-label text-white pixel-btn cursor-pointer"
-                style={navStyle(item, false)}
+                style={navStyle(item)}
               >
                 <item.Icon className={`size-4 ${item.iconColor}`} />
                 {item.menuLabel}
@@ -281,8 +275,9 @@ export function Hero() {
           className="font-homebase tracking-wider font-normal leading-[1.1] text-white w-full break-words"
           style={{
             fontSize: "clamp(2.25rem, 8vw, 6rem)",
-            // Hard layered drop shadow, arcade title-screen style.
-            textShadow: "4px 4px 0 var(--magenta), 8px 8px 0 oklch(0.25 0.12 290)",
+            // La police "super 3D" a déjà son relief : pas d'ombre portée colorée par-dessus,
+            // juste un léger détachement du fond.
+            textShadow: "0 6px 14px oklch(0.1 0.05 290 / 0.55)",
           }}
         >
           Le podcast qui joue

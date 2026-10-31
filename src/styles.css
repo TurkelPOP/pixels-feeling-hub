@@ -1,3 +1,8 @@
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+
 @font-face {
   font-family: 'Homebase';
   src: url('/fonts/homebasesuper3dital-webfont.woff2') format('woff2'),
@@ -95,6 +100,9 @@
   --panel-edge: oklch(0.55 0.12 300 / 0.55);
   --panel-inner: oklch(1 0 0 / 0.07);
   --shadow-ink: oklch(0.07 0.03 290);
+  /* Light rounding on cards: soft plastic-handheld corners, buttons and thumbnails stay square/pixelated. */
+  --radius-card: 8px;
+  --radius-btn: 4px;
   --shadow-offset: 4px 4px 0 var(--shadow-ink);
 
   --shadow-glow-magenta: 4px 4px 0 var(--magenta);
@@ -116,16 +124,18 @@
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
     background-color: #140236;
-    /* Faint pixel grid over the existing wallpaper. */
-    background-image:
-      linear-gradient(oklch(1 0 0 / 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, oklch(1 0 0 / 0.025) 1px, transparent 1px),
-      url('/bg-wallpaper.svg');
-    background-repeat: repeat, repeat, no-repeat;
-    background-position: 0 0, 0 0, center top;
-    background-size: 24px 24px, 24px 24px, 130% auto;
-    background-attachment: fixed;
     position: relative;
+  }
+  /* Wallpaper: public/bg-wallpaper.webp (purple gradient, controller-symbol bands on both sides),
+     scaled to cover the viewport. On a fixed layer rather than `background-attachment: fixed`,
+     which repaints the whole page on every scroll frame. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: #140236 url('/bg-wallpaper.webp') center / cover no-repeat;
   }
   :focus-visible {
     outline: 2px solid var(--cyan);
@@ -145,6 +155,7 @@
 @utility glass {
   background: var(--panel);
   border: 2px solid var(--panel-edge);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-offset);
 }
 
@@ -152,9 +163,19 @@
 @utility glass-strong {
   background: var(--panel-strong);
   border: 2px solid var(--panel-edge);
+  border-radius: var(--radius-card);
   outline: 1px solid var(--panel-inner);
   outline-offset: -6px;
   box-shadow: var(--shadow-offset);
+}
+
+@utility rounded-btn {
+  border-radius: var(--radius-btn);
+}
+
+/* Same rounding for screens (video frames, covers) that sit beside the cards. */
+@utility rounded-card {
+  border-radius: var(--radius-card);
 }
 
 /* Banded arcade-title fill. */
@@ -211,9 +232,9 @@
   letter-spacing: 0.08em;
 }
 
-/* Chunky square button that presses down on click. */
+/* Chunky button (lightly rounded) that presses down on click. */
 @utility pixel-btn {
-  border-radius: 0;
+  border-radius: var(--radius-btn);
   border: 2px solid oklch(1 0 0 / 0.22);
   box-shadow: 3px 3px 0 var(--shadow-ink);
   transition: transform 0.08s steps(2), box-shadow 0.08s steps(2);
