@@ -8,4 +8,6 @@ execSync("npx vite build", {
   env: { ...process.env, NITRO_PRESET: "node-server" },
 });
 copyFileSync("deploy/start.mjs", ".output/start.mjs");
-console.log("\nOK : uploadez le contenu de .output/ (start.mjs, server/, public/) sur l'hébergeur.");
+console.log(
+  "\nOK : uploadez le contenu de .output/ (start.mjs, server/, public/) sur l'hébergeur.",
+);
