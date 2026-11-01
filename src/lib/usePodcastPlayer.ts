@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 
 import type { Episode } from "./podcast.functions";
 import {
+  RATE_CHANGE_EVENT,
   clearPosition,
   getResumePosition,
   loadRate,
@@ -134,7 +135,13 @@ export function usePodcastPlayer({ episode, cover, showTitle, autoplayRef }: Opt
   };
 
   // Vitesse lue après l'hydratation (localStorage n'existe pas côté serveur).
-  useEffect(() => setRate(loadRate()), []);
+  // Elle peut aussi changer depuis un autre appareil, via la synchronisation.
+  useEffect(() => {
+    const sync = () => setRate(loadRate());
+    sync();
+    window.addEventListener(RATE_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(RATE_CHANGE_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;

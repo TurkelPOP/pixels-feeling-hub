@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { createContext, createElement, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { TwitchUser } from "./twitch-auth.functions";
+import { endSyncSession } from "./sync.functions";
 import { getTwitchAuthUrl } from "./twitch-auth.functions";
 
 const STATE_KEY = "twitch_oauth_state";
@@ -102,6 +103,8 @@ function useTwitchAuthState(): TwitchAuthState {
   };
 
   const logout = () => {
+    // Ferme la session de synchronisation côté serveur (le cookie est HttpOnly : seul le serveur peut l'effacer).
+    void endSyncSession().catch(() => {});
     localStorage.removeItem("twitch_user");
     localStorage.removeItem("twitch_token");
     setUser(null);

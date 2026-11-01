@@ -6,6 +6,7 @@
 - TanStack Start (SSR), Router, React Query.
 - Tailwind CSS 4, Framer Motion, Lucide.
 - Nitro build via `@lovable.dev/vite-tanstack-config`; target Cloudflare par défaut.
+- Production alwaysdata : `bun run build:node` (preset Nitro `node-server`, dossier `.output/`) lancé par `start.mjs`. Voir `DEPLOY.md`.
 
 ## Architecture
 
@@ -53,13 +54,17 @@
 - Podcast: RSS Acast.
 - YouTube: `YOUTUBE_API_KEY` pour Data API, fallback RSS de playlist.
 - Twitch: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, optionnel `TWITCH_CHANNEL`; Helix/OAuth, fallback statique.
-- Aucune base de données (seul localStorage côté navigateur : historique, position de lecture par épisode `pp_podcast_positions`, vitesse `pp_podcast_rate`, effet CRT `pp_crt`).
+- Base SQLite (fichier `SYNC_DB_PATH`, module `node:sqlite`, Node 22.13+) uniquement pour la synchronisation entre appareils ; sans elle le site marche, seule la synchro est désactivée.
+- localStorage côté navigateur : historique (`pp_history_<id>`), position de lecture par épisode `pp_podcast_positions` (`{guid:{s,t}}`, `t` = date de modification), vitesse `pp_podcast_rate` + `pp_podcast_rate_at`, effet CRT `pp_crt`.
 - PWA minimale : `public/manifest.webmanifest` (installable, pas de service worker ni de hors-ligne).
 
 ## Auth
 
 - Connexion Twitch facultative (code d'autorisation, secret côté serveur) : affiche le profil et le statut abonné/follower.
-- Historique d'écoute/visionnage stocké uniquement en localStorage (`src/lib/userHistory.ts`).
+- Historique d'écoute/visionnage dans localStorage (`src/lib/userHistory.ts`), synchronisé entre appareils pour les utilisateurs connectés.
+- Synchronisation : `SyncEngine` (racine) échange l'état local contre l'état fusionné du serveur (`syncExchange`, `src/lib/sync.functions.ts`) à l'ouverture, à chaque changement (au plus toutes les 20 s) et au changement de visibilité de l'onglet. Fusion dans `src/lib/sync.merge.ts` : le plus récent gagne par entrée, « terminé » est définitif.
+- Identité côté serveur : cookie `pp_session` (HttpOnly, SameSite=Lax, signé HMAC avec `SESSION_SECRET`, 30 jours) posé par `handleTwitchCallback`; il ne contient que l'identifiant Twitch. Le serveur lit l'identité uniquement dans ce cookie, jamais dans la requête. Sans `SESSION_SECRET` (32 caractères min.), pas de session ni de synchro.
+- `deleteSyncData` (bouton du pied de page) efface les données serveur ; la déconnexion appelle `endSyncSession`.
 - OAuth Twitch machine-à-machine pour lire l'API Twitch.
 
 ## Commandes utiles

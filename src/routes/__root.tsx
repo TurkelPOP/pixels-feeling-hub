@@ -14,6 +14,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { ContinueCountdown } from "../components/ContinueCountdown";
 import { KonamiCode } from "../components/KonamiCode";
+import { SyncEngine } from "../components/SyncEngine";
 import { PlayerProvider } from "../lib/PlayerProvider";
 import { TwitchAuthProvider } from "../lib/useTwitchAuth";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -176,6 +177,7 @@ function RootComponent() {
           <PlayerProvider>
             <Outlet />
             <KonamiCode />
+            <SyncEngine />
           </PlayerProvider>
         </MotionConfig>
       </TwitchAuthProvider>

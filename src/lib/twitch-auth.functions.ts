@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { startSession } from "./session.server";
 import { isRateLimited, pinRedirectUri, resolveChannelLogin } from "./twitch.server";
 
 const LOGIN_FAILED = "La connexion Twitch a échoué. Réessayez dans quelques instants.";
@@ -149,6 +150,9 @@ export const handleTwitchCallback = createServerFn({ method: "POST" })
       await revokeUserToken(clientId, accessToken);
       throw new Error(LOGIN_FAILED);
     }
+
+    // Session de synchronisation : cookie HttpOnly signé, avec le seul identifiant Twitch (pas le jeton).
+    startSession(profile.id);
 
     // 3. Fetch broadcaster (channel) ID for turkelpop
     let broadcasterId = "";

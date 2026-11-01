@@ -4,6 +4,7 @@ import { Headphones, Youtube, Menu, X, LogOut, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ppLogo from "@/assets/pp-logo.png";
 import subwayLogo from "@/assets/subway-fc.png";
+import { SYNC_STATUS_LABELS, useSyncStatus } from "@/lib/syncStatus";
 import { useTwitchAuth } from "@/lib/useTwitchAuth";
 
 function TwitchNavIcon({ className }: { className?: string }) {
@@ -84,6 +85,7 @@ export function Hero() {
   const navRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, login, logout, isLoggingIn, loginError } = useTwitchAuth();
+  const syncStatus = useSyncStatus();
 
   // Mobile menu: focus moves into it, Tab/Shift+Tab stay inside the nav, Escape closes and restores focus.
   useEffect(() => {
@@ -191,6 +193,28 @@ export function Hero() {
       <span className="max-w-[100px] truncate hud-label text-[11px] hidden sm:inline">
         {user.displayName}
       </span>
+      {syncStatus === "reconnect" ? (
+        // Connexion antérieure à la synchronisation (ou session expirée) : un clic suffit pour l'activer.
+        <button
+          onClick={login}
+          disabled={isLoggingIn}
+          title={SYNC_STATUS_LABELS.reconnect}
+          className="hidden sm:inline text-[11px] hud-label underline underline-offset-4 text-purple-200 hover:text-white cursor-pointer"
+        >
+          Activer la synchro
+        </button>
+      ) : (
+        syncStatus !== "off" && (
+          <span
+            role="img"
+            aria-label={SYNC_STATUS_LABELS[syncStatus]}
+            title={SYNC_STATUS_LABELS[syncStatus]}
+            className={`size-2 shrink-0 ${
+              syncStatus === "synced" ? "bg-green-400" : syncStatus === "syncing" ? "bg-amber-300 blink-soft" : "bg-red-400"
+            }`}
+          />
+        )
+      )}
       <button
         onClick={logout}
         title="Se déconnecter"

@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 
 import { CrtToggle } from "@/components/CrtToggle";
+import { SyncDataControls } from "@/components/SyncDataControls";
 
 // High-precision official SVG icons for all social networks
 function TwitchIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -161,6 +162,7 @@ export function Footer() {
         </ul>
 
         <CrtToggle />
+        <SyncDataControls />
 
         <p className="text-[11px] hud-label text-muted-foreground text-center">
           © {new Date().getFullYear()} Pixels Perspective. Tous droits réservés.

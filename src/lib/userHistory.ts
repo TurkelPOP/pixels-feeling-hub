@@ -1,5 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { useEffect, useState, useCallback } from "react";
+import { SYNC_DIRTY_EVENT } from "./podcastPlayback";
+import { mergeSync, sanitizePayload, type HistoryItem } from "./sync.merge";
 import { useTwitchAuth } from "./useTwitchAuth";
 
 export type ProgressStatus = "started" | "completed";
@@ -57,8 +59,32 @@ export function saveMediaStatus(
 
     localStorage.setItem(key, JSON.stringify(history));
     window.dispatchEvent(new Event("pp-media-history-change"));
+    window.dispatchEvent(new Event(SYNC_DIRTY_EVENT));
   } catch (e) {
     console.error("Failed to save media history:", e);
+  }
+}
+
+/** Historique local au format de synchronisation (entrées invalides écartées). */
+export function readHistoryForSync(userId: string): Record<string, HistoryItem> {
+  return sanitizePayload({ positions: {}, history: getMediaHistory(userId) }).history;
+}
+
+/**
+ * Applique l'historique renvoyé par le serveur en le fusionnant avec le local (« terminé » est définitif,
+ * sinon le plus récent gagne). Rafraîchit l'affichage mais n'émet pas de « dirty » : rien à renvoyer.
+ */
+export function applyHistoryFromSync(userId: string, remote: Record<string, HistoryItem>) {
+  if (typeof window === "undefined") return;
+  try {
+    const merged = mergeSync(
+      { positions: {}, history: readHistoryForSync(userId) },
+      { positions: {}, history: remote },
+    ).history;
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(merged));
+    window.dispatchEvent(new Event("pp-media-history-change"));
+  } catch (e) {
+    console.error("Failed to apply synced media history:", e);
   }
 }
 
