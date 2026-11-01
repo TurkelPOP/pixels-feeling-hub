@@ -9,12 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EpisodeSlugRouteImport } from './routes/episode.$slug'
 import { Route as AuthTwitchCallbackRouteImport } from './routes/auth/twitch/callback'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EpisodeSlugRoute = EpisodeSlugRouteImport.update({
+  id: '/episode/$slug',
+  path: '/episode/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthTwitchCallbackRoute = AuthTwitchCallbackRouteImport.update({
@@ -25,37 +43,86 @@ const AuthTwitchCallbackRoute = AuthTwitchCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/episode/$slug': typeof EpisodeSlugRoute
   '/auth/twitch/callback': typeof AuthTwitchCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/episode/$slug': typeof EpisodeSlugRoute
   '/auth/twitch/callback': typeof AuthTwitchCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/episode/$slug': typeof EpisodeSlugRoute
   '/auth/twitch/callback': typeof AuthTwitchCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth/twitch/callback'
+  fullPaths:
+    | '/'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/episode/$slug'
+    | '/auth/twitch/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth/twitch/callback'
-  id: '__root__' | '/' | '/auth/twitch/callback'
+  to:
+    | '/'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/episode/$slug'
+    | '/auth/twitch/callback'
+  id:
+    | '__root__'
+    | '/'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/episode/$slug'
+    | '/auth/twitch/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  EpisodeSlugRoute: typeof EpisodeSlugRoute
   AuthTwitchCallbackRoute: typeof AuthTwitchCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/episode/$slug': {
+      id: '/episode/$slug'
+      path: '/episode/$slug'
+      fullPath: '/episode/$slug'
+      preLoaderRoute: typeof EpisodeSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/twitch/callback': {
@@ -70,6 +137,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  EpisodeSlugRoute: EpisodeSlugRoute,
   AuthTwitchCallbackRoute: AuthTwitchCallbackRoute,
 }
 export const routeTree = rootRouteImport

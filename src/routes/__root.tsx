@@ -93,7 +93,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => {
     const image = absoluteUrl("/og-image.jpg");
-    const canonical = absoluteUrl("/");
     return {
       meta: [
         { charSet: "utf-8" },
@@ -110,13 +109,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { name: "twitter:card", content: image ? "summary_large_image" : "summary" },
         { name: "twitter:title", content: SITE_NAME },
         { name: "twitter:description", content: SITE_DESCRIPTION },
-        ...(canonical ? [{ property: "og:url", content: canonical }] : []),
         ...(image
           ? [
               { property: "og:image", content: image },
-              { property: "og:image:width", content: "1200" },
-              { property: "og:image:height", content: "630" },
-              { property: "og:image:alt", content: `${SITE_NAME} : le podcast qui joue avec vos émotions` },
               { name: "twitter:image", content: image },
             ]
           : []),
@@ -125,7 +120,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { rel: "stylesheet", href: appCss },
         { rel: "icon", href: "/favicon.png", type: "image/png" },
         { rel: "apple-touch-icon", href: "/pp-logo.png" },
-        ...(canonical ? [{ rel: "canonical", href: canonical }] : []),
         {
           rel: "preload",
           href: "/fonts/homebasesuper3dital-webfont.woff2",

@@ -39,6 +39,17 @@ function stripHtml(s: string): string {
   return decodeEntities(s.replace(/<[^>]+>/g, "")).trim();
 }
 
+/** Comme stripHtml, mais les paragraphes et retours à la ligne deviennent des sauts de ligne (descriptions d'épisodes). */
+export function htmlToText(s: string): string {
+  const withBreaks = s
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n\n");
+  return stripHtml(withBreaks)
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function formatDuration(raw: string): string {
   if (!raw) return "";
   if (raw.includes(":")) {
@@ -93,7 +104,7 @@ export function parsePodcastFeed(xml: string): PodcastFeed {
     episodes.push({
       guid: text(item["guid"]) || audioUrl || title,
       title,
-      description: stripHtml(text(item["itunes:summary"]) || text(item["description"])),
+      description: htmlToText(text(item["itunes:summary"]) || text(item["description"])),
       pubDate: text(item["pubDate"]),
       duration: formatDuration(text(item["itunes:duration"])),
       durationSec: parseDurationSeconds(text(item["itunes:duration"])),

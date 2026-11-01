@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDurationSeconds, parsePodcastFeed } from "./podcast.parse";
+import { htmlToText, parseDurationSeconds, parsePodcastFeed } from "./podcast.parse";
 
 const feed = (items: string, head = "") => `<?xml version="1.0"?>
 <rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
@@ -13,6 +13,16 @@ const feed = (items: string, head = "") => `<?xml version="1.0"?>
     ${items}
   </channel>
 </rss>`;
+
+describe("htmlToText", () => {
+  it("garde les paragraphes et retours à la ligne, retire les balises", () => {
+    expect(htmlToText("<p>Un</p><p>Deux<br/>trois &amp; quatre</p>")).toBe("Un\n\nDeux\ntrois & quatre");
+  });
+
+  it("ne laisse pas plus d'une ligne vide d'affilée", () => {
+    expect(htmlToText("<p>A</p><p></p><p></p><p>B</p>")).toBe("A\n\nB");
+  });
+});
 
 describe("parsePodcastFeed", () => {
   it("reads channel metadata and decodes entities / CDATA", () => {

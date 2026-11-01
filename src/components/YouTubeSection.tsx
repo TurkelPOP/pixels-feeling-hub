@@ -58,7 +58,7 @@ export function YouTubeSection() {
           </h2>
         </motion.div>
 
-        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">
           {/* LEFT: Native Embedded YouTube Player */}
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}

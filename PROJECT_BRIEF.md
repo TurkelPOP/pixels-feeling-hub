@@ -27,7 +27,7 @@
 - `Podcast`: flux Acast, sélection épisodes, lecture HTML audio, mini-player fixe.
 - `YouTubeSection`: vidéos playlist.
 - `TwitchSection`: live et VODs Twitch.
-- `ScrollProgress`, `Footer`; `FCSubwayButton` existe comme CTA externe.
+- `Footer`.
 
 ## Conventions
 

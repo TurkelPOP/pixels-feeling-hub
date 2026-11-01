@@ -5,16 +5,25 @@ import { Podcast } from "@/components/Podcast";
 import { YouTubeSection } from "@/components/YouTubeSection";
 import { TwitchSection } from "@/components/TwitchSection";
 import { Footer } from "@/components/Footer";
-import { ScrollProgress } from "@/components/ScrollProgress";
-import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, absoluteUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: SITE_TITLE },
-      { name: "description", content: SITE_DESCRIPTION },
-    ],
-  }),
+  head: () => {
+    // Canonical et og:url par page : le root les partagerait sinon avec les pages épisode.
+    const url = absoluteUrl("/");
+    return {
+      meta: [
+        { title: SITE_TITLE },
+        { name: "description", content: SITE_DESCRIPTION },
+        ...(url ? [{ property: "og:url", content: url }] : []),
+        // Dimensions de /og-image.jpg (image par défaut du root) : propres à l'accueil, les pages épisode ont leur pochette.
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { property: "og:image:alt", content: `${SITE_NAME} : le podcast qui joue avec vos émotions` },
+      ],
+      links: url ? [{ rel: "canonical", href: url }] : [],
+    };
+  },
   component: Index,
 });
 
@@ -27,7 +36,6 @@ function Index() {
       >
         Aller au contenu
       </a>
-      <ScrollProgress />
       <Hero />
       <Podcast />
       <YouTubeSection />

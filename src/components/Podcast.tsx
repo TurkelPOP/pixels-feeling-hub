@@ -1,27 +1,20 @@
 /* eslint-disable prettier/prettier */
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { Link as RouterLink } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link, CheckCircle2, Clock, RotateCcw, RotateCw, Rss, Search } from "lucide-react";
+import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link, CheckCircle2, Clock, FileText, Rss, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
+import { episodePath, episodeSlug } from "@/lib/episodes";
+import { PlayerCard } from "@/components/PlayerCard";
 import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
 import { useMediaHistory } from "@/lib/userHistory";
-import {
-  clearPosition,
-  getResumePosition,
-  loadRate,
-  nextRate,
-  saveRate,
-  savePosition,
-} from "@/lib/podcastPlayback";
+import { usePodcastPlayer } from "@/lib/usePodcastPlayer";
 import { PODCAST_FEED_URL } from "@/lib/site";
 
 const SHOW_URL = "https://shows.acast.com/644500d69f1fbe001188cbd6";
 const EPISODES_PER_SEASON = 10;
-const SKIP_BACK_S = 15;
-const SKIP_FORWARD_S = 30;
-const POSITION_SAVE_EVERY_S = 5;
 
 function formatDate(d: string): string {
   if (!d) return "";
@@ -32,13 +25,6 @@ function formatDate(d: string): string {
     month: "short",
     day: "numeric",
   });
-}
-
-// Always HH:MM:SS (e.g. 00:52:10, 01:34:32) so every episode reads the same way.
-function formatTime(s: number): string {
-  const total = isFinite(s) && s > 0 ? Math.floor(s) : 0;
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
 }
 
 export function Podcast() {
@@ -79,21 +65,13 @@ export function Podcast() {
   }, [episodes, seasonMap, activeSeason, query]);
 
   const [selected, setSelected] = useState<Episode | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const autoplayRef = useRef(false);
   const playerRef = useRef<HTMLDivElement | null>(null);
   const [playerOutOfView, setPlayerOutOfView] = useState(false);
   const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
   const [copyFailedGuid, setCopyFailedGuid] = useState<string | null>(null);
-  const [audioError, setAudioError] = useState<string | null>(null);
-  const [rate, setRate] = useState(1);
-  const lastSavedAtRef = useRef(0);
-  const resumedGuidRef = useRef<string | null>(null);
 
-  const { getStatus, markStarted, markCompleted } = useMediaHistory();
+  const { getStatus } = useMediaHistory();
 
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
@@ -101,7 +79,8 @@ export function Podcast() {
   const copyEpisodeLink = async (ep: Episode) => {
     try {
       // Clipboard API is unavailable on insecure origins / denied permission.
-      await navigator.clipboard.writeText(ep.link || SHOW_URL);
+      // Lien vers la page de l'épisode sur ce site.
+      await navigator.clipboard.writeText(`${window.location.origin}${episodePath(ep)}`);
     } catch {
       setCopyFailedGuid(ep.guid);
       clearTimeout(copiedTimer.current);
@@ -114,87 +93,9 @@ export function Podcast() {
   };
 
   const current = selected ?? episodes[0] ?? null;
-
-  const startPlayback = (audio: HTMLAudioElement) => {
-    setAudioError(null);
-    audio
-      .play()
-      .then(() => setPlaying(true))
-      .catch((error: unknown) => {
-        setPlaying(false);
-        // AbortError: play() was interrupted by a newer load/pause, not a failure.
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setAudioError("Lecture impossible. Réessayez ou écoutez l'épisode sur Acast.");
-      });
-  };
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (!current?.audioUrl) {
-      // Don't keep the previous episode loaded behind an unplayable selection.
-      audio.pause();
-      audio.removeAttribute("src");
-      setProgress(0);
-      setDuration(0);
-      return;
-    }
-    if (audio.src !== current.audioUrl) {
-      audio.src = current.audioUrl;
-      lastSavedAtRef.current = 0;
-      setProgress(0);
-      setDuration(0);
-      setAudioError(null);
-      if (autoplayRef.current) startPlayback(audio);
-    }
-  }, [current?.audioUrl]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handlePlay = () => {
-      if (current?.guid) {
-        markStarted(current.guid, "podcast");
-      }
-    };
-
-    const handleEnded = () => {
-      if (current?.guid) {
-        markCompleted(current.guid, "podcast");
-        clearPosition(current.guid);
-      }
-    };
-
-    const handlePause = () => {
-      if (current?.guid && !audio.ended) savePosition(current.guid, audio.currentTime);
-    };
-
-    const handleTimeUpdate = () => {
-      if (current?.guid && Math.abs(audio.currentTime - lastSavedAtRef.current) >= POSITION_SAVE_EVERY_S) {
-        lastSavedAtRef.current = audio.currentTime;
-        savePosition(current.guid, audio.currentTime);
-      }
-      if (audio.duration > 0 && current?.guid) {
-        const pct = (audio.currentTime / audio.duration) * 100;
-        if (pct >= 90) {
-          markCompleted(current.guid, "podcast");
-        }
-      }
-    };
-
-    audio.addEventListener("play", handlePlay);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("pause", handlePause);
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-
-    return () => {
-      audio.removeEventListener("play", handlePlay);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("pause", handlePause);
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-    };
-  }, [current?.guid, markStarted, markCompleted]);
+  const cover = current?.image || data?.image;
+  const player = usePodcastPlayer({ episode: current, cover, showTitle: data?.title, autoplayRef });
+  const { playing, progress, shownDuration } = player;
 
   useEffect(() => {
     const el = playerRef.current;
@@ -206,150 +107,14 @@ export function Podcast() {
     return () => obs.disconnect();
   }, []);
 
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio || !current?.audioUrl) return;
-    if (!audio.src) audio.src = current.audioUrl;
-    if (playing) {
-      audio.pause();
-      setPlaying(false);
-    } else {
-      startPlayback(audio);
-    }
-  };
-
   const selectEpisode = (ep: Episode) => {
     autoplayRef.current = true;
     if (ep.guid === current?.guid) {
-      togglePlay();
+      player.togglePlay();
       return;
     }
     setSelected(ep);
   };
-
-  // Vitesse lue après l'hydratation (localStorage n'existe pas côté serveur).
-  useEffect(() => setRate(loadRate()), []);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    // defaultPlaybackRate survit au changement de `src`, contrairement à playbackRate.
-    audio.defaultPlaybackRate = rate;
-    audio.playbackRate = rate;
-  }, [rate]);
-
-  const cycleRate = () => {
-    const next = nextRate(rate);
-    setRate(next);
-    saveRate(next);
-  };
-
-  const skipBy = (delta: number) => {
-    const audio = audioRef.current;
-    if (!audio || !audio.duration) return;
-    audio.currentTime = Math.min(Math.max(audio.currentTime + delta, 0), audio.duration);
-  };
-
-  const seekTo = (seconds: number) => {
-    const audio = audioRef.current;
-    if (!audio || !duration) return;
-    audio.currentTime = Math.min(Math.max(seconds, 0), duration);
-  };
-
-  // Pointer events cover mouse, touch and pen, and allow dragging the thumb along the bar.
-  const seekFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    seekTo(((e.clientX - rect.left) / rect.width) * duration);
-  };
-
-  const startSeek = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    seekFromPointer(e);
-  };
-
-  const dragSeek = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFromPointer(e);
-  };
-
-  const seekWithKeyboard = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = { ArrowLeft: -10, ArrowDown: -10, ArrowRight: 10, ArrowUp: 10 }[e.key];
-    if (step !== undefined) {
-      e.preventDefault();
-      seekTo(progress + step);
-    } else if (e.key === "Home" || e.key === "End") {
-      e.preventDefault();
-      seekTo(e.key === "Home" ? 0 : duration);
-    }
-  };
-
-  const cover = current?.image || data?.image;
-
-  // Media Session : titre, pochette et boutons sur l'écran verrouillé, les écouteurs et les touches média.
-  useEffect(() => {
-    if (!("mediaSession" in navigator) || !current) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: current.title,
-      artist: "Pixels Perspective",
-      album: data?.title || "Pixels Perspective",
-      artwork: cover ? [{ src: cover }] : [],
-    });
-  }, [current, cover, data?.title]);
-
-  useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    const session = navigator.mediaSession;
-    session.playbackState = playing ? "playing" : "paused";
-    const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
-      ["play", () => togglePlay()],
-      ["pause", () => togglePlay()],
-      ["seekbackward", (d) => skipBy(-(d.seekOffset ?? SKIP_BACK_S))],
-      ["seekforward", (d) => skipBy(d.seekOffset ?? SKIP_FORWARD_S)],
-      ["seekto", (d) => seekTo(d.seekTime ?? 0)],
-    ];
-    for (const [action, handler] of handlers) {
-      try {
-        session.setActionHandler(action, handler);
-      } catch {
-        // Action non gérée par ce navigateur.
-      }
-    }
-    return () => {
-      for (const [action] of handlers) {
-        try {
-          session.setActionHandler(action, null);
-        } catch {
-          // idem
-        }
-      }
-    };
-  });
-
-  useEffect(() => {
-    if (!("mediaSession" in navigator) || !duration || !isFinite(duration)) return;
-    try {
-      navigator.mediaSession.setPositionState({
-        duration,
-        position: Math.min(progress, duration),
-        playbackRate: rate,
-      });
-    } catch {
-      // Valeurs refusées par le navigateur : l'affichage système restera approximatif.
-    }
-  }, [progress, duration, rate]);
-
-  // Raccourcis actifs quand le focus est dans le lecteur : k lecture/pause, j -15 s, l +30 s.
-  const playerShortcuts = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.target instanceof HTMLInputElement) return;
-    if (e.key === "k") togglePlay();
-    else if (e.key === "j") skipBy(-SKIP_BACK_S);
-    else if (e.key === "l") skipBy(SKIP_FORWARD_S);
-    else return;
-    e.preventDefault();
-  };
-  // The audio is only fetched on play (preload="none"): until its metadata arrives,
-  // show the length announced by the feed so the timer reads m:ss from the start.
-  const shownDuration = duration || current?.durationSec || 0;
 
   const seasonTabs: Array<{ key: number | "all"; label: string }> = [
     { key: "all", label: "Toutes" },
@@ -391,178 +156,30 @@ export function Podcast() {
           </div>
         </motion.div>
 
-        <div className="grid lg:grid-cols-[1.1fr_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6">
           {/* LEFT: Player */}
-          <motion.div
-            ref={playerRef}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-            onKeyDown={playerShortcuts}
-            className="glass-strong p-6 glow-magenta"
-          >
-            <div
-              className="crt aspect-square w-full overflow-hidden rounded-card flex items-center justify-center mb-6 border-2 border-black/60"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              <AnimatePresence mode="wait">
-                {cover ? (
-                  <motion.img
-                    key={current?.guid || "cover"}
-                    src={cover}
-                    alt={current?.title || "Pochette du podcast"}
-                    initial={{ opacity: 0, scale: 1.06 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className="absolute inset-0 size-full object-cover"
-                  />
-                ) : (
-                  <Headphones className="size-16 text-white/90" strokeWidth={1.2} />
-                )}
-              </AnimatePresence>
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={current?.guid || "loading"}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p className="text-[11px] hud-label text-accent mb-1">
-                  <span aria-hidden className="blink-soft">▶ </span>En cours de lecture
-                </p>
-                <h3 className="font-semibold text-lg sm:text-2xl line-clamp-2">
-                  {isLoading
-                    ? "Chargement des épisodes…"
-                    : isError
-                      ? "Podcast indisponible"
-                      : isEmpty
-                        ? "Aucun épisode disponible"
-                        : current?.title || "Sélectionnez un épisode"}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {isError
-                    ? "Réessayez dans quelques instants."
-                    : isEmpty
-                      ? "Le flux ne contient aucun épisode pour le moment."
-                      : `${formatDate(current?.pubDate || "")}${current?.duration ? ` · ${current.duration}` : ""}`}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-            <p role="status" className="sr-only">
-              {playing && current ? `Lecture en cours : ${current.title}` : ""}
-            </p>
-            <div className="mt-5 flex items-center gap-3">
-              <button
-                onClick={togglePlay}
-                aria-label={playing ? "Pause" : "Lecture"}
-                disabled={!current?.audioUrl}
-                className="inline-flex items-center justify-center size-12 shrink-0 pixel-btn bg-magenta text-primary-foreground disabled:opacity-50"
-              >
-                {playing ? <Pause className="size-5" /> : <Play className="size-5 ml-0.5" />}
-              </button>
-              <span className="text-[11px] font-mono text-muted-foreground min-w-10 shrink-0 text-right">
-                {formatTime(progress)}
-              </span>
-              <div
-                onPointerDown={startSeek}
-                onPointerMove={dragSeek}
-                onKeyDown={seekWithKeyboard}
-                tabIndex={duration ? 0 : -1}
-                className="relative h-3 flex-1 touch-none bg-black/50 border-2 border-[var(--panel-edge)] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-                role="slider"
-                aria-label="Position de lecture"
-                aria-valuemin={0}
-                aria-valuemax={Math.round(duration)}
-                aria-valuenow={Math.round(progress)}
-                aria-valuetext={`${formatTime(progress)} sur ${formatTime(shownDuration)}`}
-              >
-                <div
-                  className="absolute inset-y-0 left-0 segmented"
-                  style={{
-                    width: duration ? `${(progress / duration) * 100}%` : "0%",
-                    background: "var(--gradient-accent)",
-                  }}
-                />
-              </div>
-              <span className="text-[11px] font-mono text-muted-foreground min-w-10 shrink-0">
-                {formatTime(shownDuration)}
-              </span>
-            </div>
-
-            <div className="mt-4 flex items-center justify-center gap-2" role="group" aria-label="Contrôles de lecture">
-              <button
-                type="button"
-                onClick={() => skipBy(-SKIP_BACK_S)}
-                disabled={!duration}
-                aria-label={`Reculer de ${SKIP_BACK_S} secondes`}
-                title="Reculer de 15 s (j)"
-                className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 px-3 text-[11px] hud-label text-white pixel-btn disabled:opacity-50"
-              >
-                <RotateCcw className="size-4" aria-hidden />
-                {SKIP_BACK_S}
-              </button>
-              <button
-                type="button"
-                onClick={() => skipBy(SKIP_FORWARD_S)}
-                disabled={!duration}
-                aria-label={`Avancer de ${SKIP_FORWARD_S} secondes`}
-                title="Avancer de 30 s (l)"
-                className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 px-3 text-[11px] hud-label text-white pixel-btn disabled:opacity-50"
-              >
-                <RotateCw className="size-4" aria-hidden />
-                {SKIP_FORWARD_S}
-              </button>
-              <button
-                type="button"
-                onClick={cycleRate}
-                aria-label={`Vitesse de lecture : ${rate} fois. Changer la vitesse`}
-                title="Changer la vitesse de lecture"
-                className="inline-flex h-10 min-w-14 items-center justify-center px-3 text-[11px] hud-label text-white pixel-btn"
-              >
-                {rate}×
-              </button>
-            </div>
-
-            {audioError && (
-              <p role="alert" className="mt-3 text-xs text-red-300">
-                {audioError}
-              </p>
-            )}
-
-            <audio
-              ref={audioRef}
-              preload="none"
-              onError={(e) => {
-                // An emptied src (no playable episode) also fires `error`: ignore it.
-                if (!e.currentTarget.getAttribute("src")) return;
-                setPlaying(false);
-                setAudioError("Impossible de charger l'audio de cet épisode.");
-              }}
-              onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)}
-              onLoadedMetadata={(e) => {
-                const audio = e.currentTarget;
-                const d = audio.duration;
-                setDuration(Number.isFinite(d) ? d : 0);
-                // Une seule reprise par épisode chargé, pour ne pas écraser un déplacement manuel.
-                if (current?.guid && resumedGuidRef.current !== current.guid) {
-                  resumedGuidRef.current = current.guid;
-                  const at = getResumePosition(current.guid, Number.isFinite(d) ? d : 0);
-                  if (at > 0) {
-                    audio.currentTime = at;
-                    lastSavedAtRef.current = at;
-                  }
-                }
-              }}
-              onEnded={() => setPlaying(false)}
-              onPause={() => setPlaying(false)}
-              onPlay={() => setPlaying(true)}
-            />
-          </motion.div>
+          <PlayerCard
+            cardRef={playerRef}
+            player={player}
+            episode={current}
+            cover={cover}
+            heading={
+              isLoading
+                ? "Chargement des épisodes…"
+                : isError
+                  ? "Podcast indisponible"
+                  : isEmpty
+                    ? "Aucun épisode disponible"
+                    : current?.title || "Sélectionnez un épisode"
+            }
+            subheading={
+              isError
+                ? "Réessayez dans quelques instants."
+                : isEmpty
+                  ? "Le flux ne contient aucun épisode pour le moment."
+                  : `${formatDate(current?.pubDate || "")}${current?.duration ? ` · ${current.duration}` : ""}`
+            }
+          />
 
           {/* RIGHT: Episode list */}
           <motion.div
@@ -760,6 +377,15 @@ export function Podcast() {
                           </span>
                         </span>
                       </button>
+                      <RouterLink
+                        to="/episode/$slug"
+                        params={{ slug: episodeSlug(ep) }}
+                        aria-label={`Voir la page de l'épisode : ${ep.title}`}
+                        title="Page de l'épisode"
+                        className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100 transition-opacity p-2 hover:bg-white/10"
+                      >
+                        <FileText className="size-3.5 text-muted-foreground" />
+                      </RouterLink>
                       <button
                         type="button"
                         onClick={() => copyEpisodeLink(ep)}
@@ -792,12 +418,8 @@ export function Podcast() {
         progress={progress}
         duration={shownDuration}
         cover={cover}
-        onToggle={togglePlay}
-        onClose={() => {
-          const a = audioRef.current;
-          if (a) a.pause();
-          setPlaying(false);
-        }}
+        onToggle={player.togglePlay}
+        onClose={player.pause}
       />
     </section>
   );

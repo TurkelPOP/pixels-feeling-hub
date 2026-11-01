@@ -134,7 +134,7 @@ export function TwitchSection() {
           </a>
         </motion.div>
 
-        <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
           {/* LEFT: Main Spotlight / Player */}
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
