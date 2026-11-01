@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertCircle, Play, Tv, ExternalLink, Radio, Calendar, Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { getTwitchData, type TwitchVideo } from "@/lib/twitch.functions";
+import { formatCountdown, type NextStream } from "@/lib/twitch.schedule";
 import { useTwitchAuth } from "@/lib/useTwitchAuth";
 import { useMediaHistory } from "@/lib/userHistory";
 
@@ -18,6 +19,61 @@ function TwitchIcon({ className }: { className?: string }) {
     >
       <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.429h-3.429l-3 3v-3H6.857V1.714h13.714z" />
     </svg>
+  );
+}
+
+// Bannière du prochain créneau du planning Twitch, avec compte à rebours.
+function NextLiveBanner({ next }: { next: NextStream }) {
+  // L'heure locale et le compte à rebours n'existent qu'après l'hydratation : le serveur ignore le fuseau du visiteur.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const countdown = now === null ? "" : formatCountdown(next.startTime, now);
+  // Heure de début dépassée sans être en direct : le planning n'est plus à jour, on n'affiche rien.
+  if (now !== null && !countdown) return null;
+
+  const when =
+    now === null
+      ? ""
+      : new Date(next.startTime).toLocaleString("fr-FR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+  return (
+    <div className="p-4 glass flex items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <Calendar className="size-5 shrink-0" style={{ color: "var(--twitch-text)" }} aria-hidden />
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--twitch-text)" }}>
+            Prochain live
+          </p>
+          <p className="text-sm font-semibold text-white line-clamp-1">
+            {next.title || "Rendez-vous sur Twitch"}
+          </p>
+          <p className="text-xs text-white/70 first-letter:uppercase">
+            {when}
+            {next.gameName ? `${when ? " · " : ""}${next.gameName}` : ""}
+          </p>
+        </div>
+      </div>
+      {countdown && (
+        <time
+          dateTime={next.startTime}
+          className="shrink-0 px-3 py-1.5 text-[11px] hud-label text-white pixel-corners whitespace-nowrap"
+          style={{ background: "var(--twitch-solid)" }}
+        >
+          {countdown}
+        </time>
+      )}
+    </div>
   );
 }
 
@@ -100,20 +156,20 @@ export function TwitchSection() {
           <div>
             <div className="flex items-center gap-2.5 mb-2 flex-wrap">
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-white"
-                style={{ background: "var(--twitch)" }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] hud-label text-white pixel-corners"
+                style={{ background: "var(--twitch-solid)" }}
               >
                 <TwitchIcon className="size-3.5" />
                 Twitch
               </span>
               {isLive && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/90 text-white animate-pulse">
-                  <span className="size-2 rounded-full bg-white animate-ping" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] hud-label bg-red-600 text-white pixel-corners blink-soft">
+                  <span className="size-2 bg-white" />
                   En Direct
                 </span>
               )}
               {user && (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-purple-950/80 border border-purple-400/40 text-purple-200 shadow-sm">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 text-xs font-semibold bg-purple-950/80 border-2 border-purple-400/50 text-purple-200">
                   <Sparkles className="size-3.5 text-yellow-300 fill-yellow-300" />
                   Ravi de vous revoir, <strong className="text-white">{user.displayName}</strong> !
                 </span>
@@ -123,10 +179,6 @@ export function TwitchSection() {
               Diffusions Twitch
             </h2>
           </div>
-
-          {data?.fallback && (
-            <p className="text-xs text-muted-foreground">Mode secours : données de démonstration.</p>
-          )}
 
           <a
             href={channelUrl}
@@ -138,25 +190,23 @@ export function TwitchSection() {
           </a>
         </motion.div>
 
-        <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
           {/* LEFT: Main Spotlight / Player */}
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="lg:sticky lg:top-24 self-start flex flex-col gap-3"
+            className="flex flex-col gap-3"
           >
+            {!isLive && data?.nextStream && <NextLiveBanner next={data.nextStream} />}
+
             {/* Live Banner if currently live */}
             {isLive && !playLive && (
-              <div
-                onClick={handleToggleLive}
-                className="cursor-pointer p-4 rounded-2xl glass border border-red-500/30 bg-red-950/20 hover:bg-red-950/40 transition-colors flex items-center justify-between gap-4"
-              >
+              <div className="p-4 glass border-red-500/60! flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="relative flex size-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full size-3 bg-red-500"></span>
+                    <span className="relative inline-flex size-3 bg-red-500 blink-soft"></span>
                   </span>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-red-400">
@@ -169,7 +219,8 @@ export function TwitchSection() {
                 </div>
                 <button
                   type="button"
-                  className="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-red-600 text-white hover:bg-red-500 transition-colors"
+                  onClick={handleToggleLive}
+                  className="shrink-0 px-3.5 py-1.5 text-[11px] hud-label pixel-btn bg-red-600 text-white hover:bg-red-500"
                 >
                   Regarder le Live
                 </button>
@@ -178,15 +229,15 @@ export function TwitchSection() {
 
             {/* Video Player Card */}
             <div
-              className="aspect-video w-full rounded-3xl overflow-hidden border border-border glass-strong relative bg-black"
+              className="aspect-video w-full overflow-hidden rounded-card border-4 border-black/70 outline-2 -outline-offset-2 outline-[var(--panel-edge)] relative bg-black"
               style={{
-                boxShadow: "0 0 40px -10px oklch(0.6 0.22 295 / 0.5)",
+                boxShadow: "4px 4px 0 var(--twitch)",
               }}
             >
               {isLoading ? (
                 <div className="size-full flex items-center justify-center">
                   <div
-                    className="size-10 rounded-full border-2 border-t-transparent animate-spin"
+                    className="size-10 border-4 border-t-transparent animate-spin"
                     style={{ borderColor: "var(--twitch)" }}
                   />
                 </div>
@@ -216,7 +267,7 @@ export function TwitchSection() {
                     setIsPlaying(true);
                     if (activeVideo?.id) markStarted(activeVideo.id, "twitch");
                   }}
-                  className="relative size-full group cursor-pointer text-left"
+                  className="crt size-full group cursor-pointer text-left"
                   aria-label={`Lire la diffusion : ${activeVideo?.title || "Diffusion Twitch"}`}
                 >
                   {activeVideo?.thumbnailUrl && (
@@ -237,14 +288,14 @@ export function TwitchSection() {
                   {/* Top Badges */}
                   <span className="absolute top-4 left-4 flex items-center gap-2">
                     <span
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg"
-                      style={{ background: "var(--twitch)" }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] hud-label text-white pixel-corners"
+                      style={{ background: "var(--twitch-solid)" }}
                     >
                       <TwitchIcon className="size-3" />
                       {playLive ? "EN DIRECT" : "Dernière diffusion"}
                     </span>
                     {activeVideo?.gameName && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-black/60 backdrop-blur text-white/90 border border-white/10">
+                      <span className="px-3 py-1 text-xs font-medium bg-black/70 text-white/90 border-2 border-white/15">
                         {activeVideo.gameName}
                       </span>
                     )}
@@ -253,10 +304,9 @@ export function TwitchSection() {
                   {/* Play Button */}
                   <span className="absolute inset-0 flex items-center justify-center">
                     <span
-                      className="flex items-center justify-center size-16 rounded-full shadow-2xl transition-all duration-300 group-hover:scale-110"
+                      className="flex items-center justify-center size-16 pixel-btn"
                       style={{
                         background: "var(--twitch)",
-                        boxShadow: "0 0 30px oklch(0.6 0.22 295 / 0.7)",
                       }}
                     >
                       <Play className="size-7 text-white fill-white ml-1" />
@@ -300,7 +350,7 @@ export function TwitchSection() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 shrink-0 hover:underline font-semibold"
-                  style={{ color: "var(--twitch)" }}
+                  style={{ color: "var(--twitch-text)" }}
                 >
                   Ouvrir sur Twitch <ExternalLink className="size-3" />
                 </a>
@@ -314,7 +364,7 @@ export function TwitchSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="rounded-3xl glass overflow-hidden flex flex-col"
+            className="glass overflow-hidden flex flex-col lg:contain-size"
           >
             {/* List Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -330,17 +380,17 @@ export function TwitchSection() {
             </div>
 
             {/* Scrollable Items */}
-            <div className="max-h-[640px] overflow-y-auto divide-y divide-border">
+            <div className="max-h-[640px] overflow-y-auto divide-y divide-border lg:max-h-none lg:min-h-0 lg:flex-1">
               {isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
                     <div
                       key={i}
                       className="flex items-center gap-4 px-5 py-4 animate-pulse"
                     >
-                      <div className="w-28 aspect-video rounded-lg bg-muted/40 shrink-0" />
+                      <div className="w-28 aspect-video bg-muted/40 shrink-0" />
                       <div className="flex-1 space-y-2">
-                        <div className="h-4 w-2/3 bg-muted/40 rounded" />
-                        <div className="h-3 w-1/3 bg-muted/30 rounded" />
+                        <div className="h-4 w-2/3 bg-muted/40" />
+                        <div className="h-3 w-1/3 bg-muted/30" />
                       </div>
                     </div>
                   ))
@@ -378,13 +428,13 @@ export function TwitchSection() {
                           isActive
                             ? {
                                 boxShadow:
-                                  "inset 3px 0 0 var(--twitch), 0 0 24px -8px oklch(0.6 0.22 295 / 0.5)",
+                                  "inset 4px 0 0 var(--twitch)",
                               }
                             : undefined
                         }
                       >
                         {/* Thumbnail */}
-                        <span className="relative w-28 aspect-video shrink-0 rounded-lg overflow-hidden flex items-center justify-center bg-black/50">
+                        <span className="relative w-28 aspect-video shrink-0 pixel-corners overflow-hidden flex items-center justify-center bg-black/50">
                           {video.thumbnailUrl ? (
                             <img
                               src={video.thumbnailUrl}
@@ -404,7 +454,7 @@ export function TwitchSection() {
                           )}
 
                           {(isCompleted || isStarted) && (
-                            <span className={`absolute top-1 left-1 rounded-full p-0.5 ${
+                            <span className={`absolute top-1 left-1 p-0.5 ${
                               isCompleted ? "bg-green-500/90 text-white" : "bg-amber-500/90 text-white"
                             }`}>
                               {isCompleted ? <CheckCircle2 className="size-2.5" /> : <Clock className="size-2.5" />}
@@ -424,7 +474,7 @@ export function TwitchSection() {
 
                           {/* Duration Badge */}
                           {video.duration && (
-                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/80 backdrop-blur text-white font-mono">
+                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] bg-black/80 text-white font-mono">
                               {video.duration}
                             </span>
                           )}

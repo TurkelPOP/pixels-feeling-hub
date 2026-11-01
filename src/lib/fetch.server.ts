@@ -59,7 +59,8 @@ const inflight = new Map<string, Promise<unknown>>();
 /**
  * Memoizes `fn` per isolate for `ttlMs` and coalesces concurrent calls, so
  * public server functions don't hit upstream APIs (and burn their quotas)
- * on every page view. Failures are not cached.
+ * on every page view. Failures are not cached; if a refresh fails, the last
+ * good value is served (upstreams like YouTube RSS fail intermittently).
  */
 export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key) as CacheEntry<T> | undefined;
@@ -72,6 +73,11 @@ export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>
     .then((value) => {
       cache.set(key, { value, expires: Date.now() + ttlMs });
       return value;
+    })
+    .catch((error: unknown) => {
+      if (!hit) throw error;
+      console.warn(`[cache] ${key} refresh failed, serving stale value`, (error as Error).message);
+      return hit.value;
     })
     .finally(() => inflight.delete(key));
   inflight.set(key, p);
