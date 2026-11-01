@@ -2,14 +2,26 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link, CheckCircle2, Clock } from "lucide-react";
+import { AlertCircle, Headphones, ExternalLink, Play, Pause, ListMusic, Link, CheckCircle2, Clock, RotateCcw, RotateCw, Rss, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
 import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
 import { useMediaHistory } from "@/lib/userHistory";
+import {
+  clearPosition,
+  getResumePosition,
+  loadRate,
+  nextRate,
+  saveRate,
+  savePosition,
+} from "@/lib/podcastPlayback";
+import { PODCAST_FEED_URL } from "@/lib/site";
 
 const SHOW_URL = "https://shows.acast.com/644500d69f1fbe001188cbd6";
 const EPISODES_PER_SEASON = 10;
+const SKIP_BACK_S = 15;
+const SKIP_FORWARD_S = 30;
+const POSITION_SAVE_EVERY_S = 5;
 
 function formatDate(d: string): string {
   if (!d) return "";
@@ -56,10 +68,15 @@ export function Podcast() {
   }, [episodes]);
 
   const [activeSeason, setActiveSeason] = useState<number | "all">("all");
+  const [query, setQuery] = useState("");
   const filteredEpisodes = useMemo(() => {
-    if (activeSeason === "all") return episodes;
-    return episodes.filter((e) => seasonMap.get(e.guid) === activeSeason);
-  }, [episodes, seasonMap, activeSeason]);
+    const needle = query.trim().toLocaleLowerCase("fr");
+    return episodes.filter(
+      (e) =>
+        (activeSeason === "all" || seasonMap.get(e.guid) === activeSeason) &&
+        (!needle || `${e.title} ${e.description}`.toLocaleLowerCase("fr").includes(needle)),
+    );
+  }, [episodes, seasonMap, activeSeason, query]);
 
   const [selected, setSelected] = useState<Episode | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -72,6 +89,9 @@ export function Podcast() {
   const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
   const [copyFailedGuid, setCopyFailedGuid] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [rate, setRate] = useState(1);
+  const lastSavedAtRef = useRef(0);
+  const resumedGuidRef = useRef<string | null>(null);
 
   const { getStatus, markStarted, markCompleted } = useMediaHistory();
 
@@ -121,6 +141,7 @@ export function Podcast() {
     }
     if (audio.src !== current.audioUrl) {
       audio.src = current.audioUrl;
+      lastSavedAtRef.current = 0;
       setProgress(0);
       setDuration(0);
       setAudioError(null);
@@ -141,10 +162,19 @@ export function Podcast() {
     const handleEnded = () => {
       if (current?.guid) {
         markCompleted(current.guid, "podcast");
+        clearPosition(current.guid);
       }
     };
 
+    const handlePause = () => {
+      if (current?.guid && !audio.ended) savePosition(current.guid, audio.currentTime);
+    };
+
     const handleTimeUpdate = () => {
+      if (current?.guid && Math.abs(audio.currentTime - lastSavedAtRef.current) >= POSITION_SAVE_EVERY_S) {
+        lastSavedAtRef.current = audio.currentTime;
+        savePosition(current.guid, audio.currentTime);
+      }
       if (audio.duration > 0 && current?.guid) {
         const pct = (audio.currentTime / audio.duration) * 100;
         if (pct >= 90) {
@@ -155,11 +185,13 @@ export function Podcast() {
 
     audio.addEventListener("play", handlePlay);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("pause", handlePause);
     audio.addEventListener("timeupdate", handleTimeUpdate);
 
     return () => {
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
     };
   }, [current?.guid, markStarted, markCompleted]);
@@ -195,6 +227,29 @@ export function Podcast() {
     setSelected(ep);
   };
 
+  // Vitesse lue après l'hydratation (localStorage n'existe pas côté serveur).
+  useEffect(() => setRate(loadRate()), []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    // defaultPlaybackRate survit au changement de `src`, contrairement à playbackRate.
+    audio.defaultPlaybackRate = rate;
+    audio.playbackRate = rate;
+  }, [rate]);
+
+  const cycleRate = () => {
+    const next = nextRate(rate);
+    setRate(next);
+    saveRate(next);
+  };
+
+  const skipBy = (delta: number) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    audio.currentTime = Math.min(Math.max(audio.currentTime + delta, 0), audio.duration);
+  };
+
   const seekTo = (seconds: number) => {
     const audio = audioRef.current;
     if (!audio || !duration) return;
@@ -228,6 +283,70 @@ export function Podcast() {
   };
 
   const cover = current?.image || data?.image;
+
+  // Media Session : titre, pochette et boutons sur l'écran verrouillé, les écouteurs et les touches média.
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !current) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: current.title,
+      artist: "Pixels Perspective",
+      album: data?.title || "Pixels Perspective",
+      artwork: cover ? [{ src: cover }] : [],
+    });
+  }, [current, cover, data?.title]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const session = navigator.mediaSession;
+    session.playbackState = playing ? "playing" : "paused";
+    const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
+      ["play", () => togglePlay()],
+      ["pause", () => togglePlay()],
+      ["seekbackward", (d) => skipBy(-(d.seekOffset ?? SKIP_BACK_S))],
+      ["seekforward", (d) => skipBy(d.seekOffset ?? SKIP_FORWARD_S)],
+      ["seekto", (d) => seekTo(d.seekTime ?? 0)],
+    ];
+    for (const [action, handler] of handlers) {
+      try {
+        session.setActionHandler(action, handler);
+      } catch {
+        // Action non gérée par ce navigateur.
+      }
+    }
+    return () => {
+      for (const [action] of handlers) {
+        try {
+          session.setActionHandler(action, null);
+        } catch {
+          // idem
+        }
+      }
+    };
+  });
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !duration || !isFinite(duration)) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        position: Math.min(progress, duration),
+        playbackRate: rate,
+      });
+    } catch {
+      // Valeurs refusées par le navigateur : l'affichage système restera approximatif.
+    }
+  }, [progress, duration, rate]);
+
+  // Raccourcis actifs quand le focus est dans le lecteur : k lecture/pause, j -15 s, l +30 s.
+  const playerShortcuts = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement) return;
+    if (e.key === "k") togglePlay();
+    else if (e.key === "j") skipBy(-SKIP_BACK_S);
+    else if (e.key === "l") skipBy(SKIP_FORWARD_S);
+    else return;
+    e.preventDefault();
+  };
   // The audio is only fetched on play (preload="none"): until its metadata arrives,
   // show the length announced by the feed so the timer reads m:ss from the start.
   const shownDuration = duration || current?.durationSec || 0;
@@ -252,14 +371,24 @@ export function Podcast() {
               Podcast Audio
             </h2>
           </div>
-          <a
-            href={SHOW_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Liste des épisodes <ExternalLink className="size-3.5" />
-          </a>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a
+              href={PODCAST_FEED_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Flux RSS <Rss className="size-3.5" aria-hidden />
+            </a>
+            <a
+              href={SHOW_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Liste des épisodes <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+          </div>
         </motion.div>
 
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-6">
@@ -270,6 +399,7 @@ export function Podcast() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
+            onKeyDown={playerShortcuts}
             className="glass-strong p-6 glow-magenta"
           >
             <div
@@ -364,6 +494,40 @@ export function Podcast() {
               </span>
             </div>
 
+            <div className="mt-4 flex items-center justify-center gap-2" role="group" aria-label="Contrôles de lecture">
+              <button
+                type="button"
+                onClick={() => skipBy(-SKIP_BACK_S)}
+                disabled={!duration}
+                aria-label={`Reculer de ${SKIP_BACK_S} secondes`}
+                title="Reculer de 15 s (j)"
+                className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 px-3 text-[11px] hud-label text-white pixel-btn disabled:opacity-50"
+              >
+                <RotateCcw className="size-4" aria-hidden />
+                {SKIP_BACK_S}
+              </button>
+              <button
+                type="button"
+                onClick={() => skipBy(SKIP_FORWARD_S)}
+                disabled={!duration}
+                aria-label={`Avancer de ${SKIP_FORWARD_S} secondes`}
+                title="Avancer de 30 s (l)"
+                className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 px-3 text-[11px] hud-label text-white pixel-btn disabled:opacity-50"
+              >
+                <RotateCw className="size-4" aria-hidden />
+                {SKIP_FORWARD_S}
+              </button>
+              <button
+                type="button"
+                onClick={cycleRate}
+                aria-label={`Vitesse de lecture : ${rate} fois. Changer la vitesse`}
+                title="Changer la vitesse de lecture"
+                className="inline-flex h-10 min-w-14 items-center justify-center px-3 text-[11px] hud-label text-white pixel-btn"
+              >
+                {rate}×
+              </button>
+            </div>
+
             {audioError && (
               <p role="alert" className="mt-3 text-xs text-red-300">
                 {audioError}
@@ -381,8 +545,18 @@ export function Podcast() {
               }}
               onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)}
               onLoadedMetadata={(e) => {
-                const d = e.currentTarget.duration;
+                const audio = e.currentTarget;
+                const d = audio.duration;
                 setDuration(Number.isFinite(d) ? d : 0);
+                // Une seule reprise par épisode chargé, pour ne pas écraser un déplacement manuel.
+                if (current?.guid && resumedGuidRef.current !== current.guid) {
+                  resumedGuidRef.current = current.guid;
+                  const at = getResumePosition(current.guid, Number.isFinite(d) ? d : 0);
+                  if (at > 0) {
+                    audio.currentTime = at;
+                    lastSavedAtRef.current = at;
+                  }
+                }
               }}
               onEnded={() => setPlaying(false)}
               onPause={() => setPlaying(false)}
@@ -407,6 +581,25 @@ export function Podcast() {
                 )}
               </span>
             </div>
+
+            {episodes.length > 0 && (
+              <div className="px-3 pt-3">
+                <label className="relative block">
+                  <span className="sr-only">Rechercher un épisode</span>
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Rechercher un épisode…"
+                    className="h-10 w-full rounded-btn border-2 border-[var(--panel-edge)] bg-black/40 pl-9 pr-3 text-sm text-white placeholder:text-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  />
+                </label>
+              </div>
+            )}
 
             {/* Season filter */}
             {seasons.length > 0 && (
@@ -468,6 +661,10 @@ export function Podcast() {
               ) : isEmpty ? (
                 <div className="px-5 py-10 text-center text-sm text-muted-foreground">
                   Aucun épisode disponible pour le moment.
+                </div>
+              ) : filteredEpisodes.length === 0 ? (
+                <div className="px-5 py-10 text-center text-sm text-muted-foreground" role="status">
+                  Aucun épisode ne correspond à votre recherche.
                 </div>
               ) : (
                 filteredEpisodes.map((ep, i) => {

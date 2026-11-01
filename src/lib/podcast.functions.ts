@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { cached, fetchWithTimeout, readTextLimited } from "./fetch.server";
 import { parsePodcastFeed } from "./podcast.parse";
+import { PODCAST_FEED_URL as FEED_URL } from "./site";
 
-const FEED_URL = "https://feeds.acast.com/public/shows/644500d69f1fbe001188cbd6";
 const CACHE_TTL_MS = 10 * 60_000;
 const UNAVAILABLE = "Le podcast est momentanément indisponible.";
 

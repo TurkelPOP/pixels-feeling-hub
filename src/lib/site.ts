@@ -10,6 +10,9 @@ export const SITE_URL = ((import.meta.env.VITE_SITE_URL as string | undefined) ?
   "",
 );
 
+// Flux RSS public du podcast (Acast) : lu côté serveur et proposé tel quel pour s'abonner.
+export const PODCAST_FEED_URL = "https://feeds.acast.com/public/shows/644500d69f1fbe001188cbd6";
+
 export function absoluteUrl(path: string): string | undefined {
   return SITE_URL ? `${SITE_URL}${path}` : undefined;
 }
