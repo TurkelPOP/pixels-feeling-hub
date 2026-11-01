@@ -6,7 +6,12 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Self-hosting (e.g. alwaysdata): `NITRO_PRESET=node-server npm run build` produces a
+// standalone Node server in .output/. Left undefined otherwise so Lovable keeps its defaults.
+const selfHostPreset = process.env.NITRO_PRESET;
+
 export default defineConfig({
+  ...(selfHostPreset ? { nitro: { preset: selfHostPreset } } : {}),
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
