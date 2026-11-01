@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertCircle, Play, Tv, ExternalLink, Radio, Calendar, Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { getTwitchData, type TwitchVideo } from "@/lib/twitch.functions";
+import { formatCountdown, type NextStream } from "@/lib/twitch.schedule";
 import { useTwitchAuth } from "@/lib/useTwitchAuth";
 import { useMediaHistory } from "@/lib/userHistory";
 
@@ -18,6 +19,61 @@ function TwitchIcon({ className }: { className?: string }) {
     >
       <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.429h-3.429l-3 3v-3H6.857V1.714h13.714z" />
     </svg>
+  );
+}
+
+// Bannière du prochain créneau du planning Twitch, avec compte à rebours.
+function NextLiveBanner({ next }: { next: NextStream }) {
+  // L'heure locale et le compte à rebours n'existent qu'après l'hydratation : le serveur ignore le fuseau du visiteur.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const countdown = now === null ? "" : formatCountdown(next.startTime, now);
+  // Heure de début dépassée sans être en direct : le planning n'est plus à jour, on n'affiche rien.
+  if (now !== null && !countdown) return null;
+
+  const when =
+    now === null
+      ? ""
+      : new Date(next.startTime).toLocaleString("fr-FR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+  return (
+    <div className="p-4 glass flex items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <Calendar className="size-5 shrink-0" style={{ color: "var(--twitch-text)" }} aria-hidden />
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--twitch-text)" }}>
+            Prochain live
+          </p>
+          <p className="text-sm font-semibold text-white line-clamp-1">
+            {next.title || "Rendez-vous sur Twitch"}
+          </p>
+          <p className="text-xs text-white/70 first-letter:uppercase">
+            {when}
+            {next.gameName ? `${when ? " · " : ""}${next.gameName}` : ""}
+          </p>
+        </div>
+      </div>
+      {countdown && (
+        <time
+          dateTime={next.startTime}
+          className="shrink-0 px-3 py-1.5 text-[11px] hud-label text-white pixel-corners whitespace-nowrap"
+          style={{ background: "var(--twitch-solid)" }}
+        >
+          {countdown}
+        </time>
+      )}
+    </div>
   );
 }
 
@@ -143,6 +199,8 @@ export function TwitchSection() {
             transition={{ duration: 0.7 }}
             className="flex flex-col gap-3"
           >
+            {!isLive && data?.nextStream && <NextLiveBanner next={data.nextStream} />}
+
             {/* Live Banner if currently live */}
             {isLive && !playLive && (
               <div className="p-4 glass border-red-500/60! flex items-center justify-between gap-4">

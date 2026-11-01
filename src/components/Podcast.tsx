@@ -8,9 +8,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getPodcastFeed, type Episode } from "@/lib/podcast.functions";
 import { episodePath, episodeSlug } from "@/lib/episodes";
 import { PlayerCard } from "@/components/PlayerCard";
-import { StickyPlayer, PlayingBars } from "@/components/StickyPlayer";
+import { PlayingBars } from "@/components/StickyPlayer";
 import { useMediaHistory } from "@/lib/userHistory";
-import { usePodcastPlayer } from "@/lib/usePodcastPlayer";
+import { usePlayer } from "@/lib/PlayerProvider";
 import { PODCAST_FEED_URL } from "@/lib/site";
 
 const SHOW_URL = "https://shows.acast.com/644500d69f1fbe001188cbd6";
@@ -64,10 +64,6 @@ export function Podcast() {
     );
   }, [episodes, seasonMap, activeSeason, query]);
 
-  const [selected, setSelected] = useState<Episode | null>(null);
-  const autoplayRef = useRef(false);
-  const playerRef = useRef<HTMLDivElement | null>(null);
-  const [playerOutOfView, setPlayerOutOfView] = useState(false);
   const [copiedGuid, setCopiedGuid] = useState<string | null>(null);
   const [copyFailedGuid, setCopyFailedGuid] = useState<string | null>(null);
 
@@ -92,29 +88,12 @@ export function Podcast() {
     copiedTimer.current = setTimeout(() => setCopiedGuid(null), 2000);
   };
 
-  const current = selected ?? episodes[0] ?? null;
+  // Le lecteur est commun à tout le site (PlayerProvider) : sans lecture en cours, on présente le dernier épisode.
+  const { episode: loaded, play, player } = usePlayer();
+  const current = loaded ?? episodes[0] ?? null;
   const cover = current?.image || data?.image;
-  const player = usePodcastPlayer({ episode: current, cover, showTitle: data?.title, autoplayRef });
-  const { playing, progress, shownDuration } = player;
-
-  useEffect(() => {
-    const el = playerRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => setPlayerOutOfView(!entry.isIntersecting), {
-      threshold: 0.15,
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  const selectEpisode = (ep: Episode) => {
-    autoplayRef.current = true;
-    if (ep.guid === current?.guid) {
-      player.togglePlay();
-      return;
-    }
-    setSelected(ep);
-  };
+  const { playing } = player;
+  const selectEpisode = (ep: Episode) => play(ep);
 
   const seasonTabs: Array<{ key: number | "all"; label: string }> = [
     { key: "all", label: "Toutes" },
@@ -159,8 +138,6 @@ export function Podcast() {
         <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6">
           {/* LEFT: Player */}
           <PlayerCard
-            cardRef={playerRef}
-            player={player}
             episode={current}
             cover={cover}
             heading={
@@ -411,16 +388,6 @@ export function Podcast() {
         </div>
       </div>
 
-      <StickyPlayer
-        visible={playing && playerOutOfView && !!current}
-        title={current?.title || ""}
-        playing={playing}
-        progress={progress}
-        duration={shownDuration}
-        cover={cover}
-        onToggle={player.togglePlay}
-        onClose={player.pause}
-      />
     </section>
   );
 }

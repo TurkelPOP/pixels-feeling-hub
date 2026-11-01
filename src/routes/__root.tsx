@@ -12,6 +12,9 @@ import { MotionConfig } from "framer-motion";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { ContinueCountdown } from "../components/ContinueCountdown";
+import { KonamiCode } from "../components/KonamiCode";
+import { PlayerProvider } from "../lib/PlayerProvider";
 import { TwitchAuthProvider } from "../lib/useTwitchAuth";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import {
@@ -38,6 +41,7 @@ function NotFoundComponent() {
         <p className="mt-2 text-sm text-muted-foreground">
           La page que vous cherchez n'existe pas ou a été déplacée.
         </p>
+        <ContinueCountdown />
         <div className="mt-6">
           <Link
             to="/"
@@ -120,6 +124,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { rel: "stylesheet", href: appCss },
         { rel: "icon", href: "/favicon.png", type: "image/png" },
         { rel: "apple-touch-icon", href: "/pp-logo.png" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
         {
           rel: "preload",
           href: "/fonts/homebasesuper3dital-webfont.woff2",
@@ -129,6 +134,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         },
       ],
       scripts: [
+        {
+          // Applique avant l'affichage le réglage « Effet CRT » du visiteur, pour éviter un flash de lignes.
+          children: 'try{if(localStorage.getItem("pp_crt")==="off")document.documentElement.dataset.crt="off"}catch(e){}',
+        },
         {
           type: "application/ld+json",
           children: JSON.stringify({ ...SITE_JSON_LD, url: SITE_URL || undefined }),
@@ -144,7 +153,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -164,7 +173,10 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <TwitchAuthProvider>
         <MotionConfig reducedMotion="user">
-          <Outlet />
+          <PlayerProvider>
+            <Outlet />
+            <KonamiCode />
+          </PlayerProvider>
         </MotionConfig>
       </TwitchAuthProvider>
     </QueryClientProvider>

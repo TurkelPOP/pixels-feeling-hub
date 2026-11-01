@@ -1,6 +1,8 @@
 /* eslint-disable prettier/prettier */
 import { motion } from "framer-motion";
 
+import { CrtToggle } from "@/components/CrtToggle";
+
 // High-precision official SVG icons for all social networks
 function TwitchIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -157,6 +159,8 @@ export function Footer() {
             </motion.li>
           ))}
         </ul>
+
+        <CrtToggle />
 
         <p className="text-[11px] hud-label text-muted-foreground text-center">
           © {new Date().getFullYear()} Pixels Perspective. Tous droits réservés.

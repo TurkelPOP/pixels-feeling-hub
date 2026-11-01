@@ -4,12 +4,12 @@
 
 - React 19 + TypeScript, Vite 7.
 - TanStack Start (SSR), Router, React Query.
-- Tailwind CSS 4, Radix UI, Framer Motion, Lucide.
+- Tailwind CSS 4, Framer Motion, Lucide.
 - Nitro build via `@lovable.dev/vite-tanstack-config`; target Cloudflare par défaut.
 
 ## Architecture
 
-- Site vitrine SSR à page unique pour Pixels Perspective.
+- Site vitrine SSR pour Pixels Perspective : une page d'accueil et une page par épisode.
 - Routes fichier-based dans `src/routes`; composants métier dans `src/components`.
 - Fonctions serveur dans `src/lib/*.functions.ts`; elles appellent services externes via `src/lib/fetch.server.ts` (timeout, taille max, cache mémoire par isolate, validation d'URL).
 - `src/server.ts` ajoute les en-têtes de sécurité (HSTS, nosniff, Referrer-Policy, Permissions-Policy, COOP).
@@ -19,15 +19,19 @@
 ## Routes
 
 - `/`: page principale, compose Hero, Podcast, YouTube, Twitch, Footer.
-- Route racine: shell HTML, métadonnées, QueryClientProvider, 404 et error boundary.
+- `/episode/$slug`: page d'un épisode (SSR). Slug = titre simplifié + empreinte du guid (`src/lib/episodes.ts`) ; ancien titre → 301 vers l'adresse à jour, inconnu → 404. Métadonnées, canonical et JSON-LD `PodcastEpisode` par page.
+- `/sitemap.xml` et `/robots.txt`: routes serveur. Sans `VITE_SITE_URL`, le sitemap répond 404 et robots n'a pas de ligne `Sitemap`.
+- Route racine: shell HTML, métadonnées par défaut, providers (React Query, auth Twitch, lecteur), 404 avec compte à rebours « Continuer ? » et error boundary. Le canonical et `og:url` sont posés par chaque page, pas par la racine.
 
 ## Composants importants
 
 - `Hero`: navigation ancrée responsive.
-- `Podcast`: flux Acast, sélection épisodes, lecture HTML audio, mini-player fixe.
+- `PlayerProvider` (`src/lib/PlayerProvider.tsx`): lecteur unique monté à la racine (élément `<audio>` + mini-lecteur). La lecture continue quand on change de page. `usePodcastPlayer` porte la logique (reprise de position, vitesse, historique, Media Session).
+- `PlayerCard`: le lecteur rétro affiché sur l'accueil et sur les pages épisode. Il pilote le lecteur commun si son épisode est chargé, sinon son bouton lecture le lance.
+- `Podcast`: flux Acast, liste d'épisodes avec recherche et saisons réelles (`itunes:season`), liens vers les pages épisode.
 - `YouTubeSection`: vidéos playlist.
-- `TwitchSection`: live et VODs Twitch.
-- `Footer`.
+- `TwitchSection`: live, VODs et bannière « Prochain live » (planning Twitch, absente si la chaîne n'en publie pas).
+- `Footer` (avec l'interrupteur `CrtToggle`), `KonamiCode` (easter egg), `ContinueCountdown` (page 404).
 
 ## Conventions
 
@@ -49,7 +53,8 @@
 - Podcast: RSS Acast.
 - YouTube: `YOUTUBE_API_KEY` pour Data API, fallback RSS de playlist.
 - Twitch: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, optionnel `TWITCH_CHANNEL`; Helix/OAuth, fallback statique.
-- Aucune base de données (seul localStorage côté navigateur).
+- Aucune base de données (seul localStorage côté navigateur : historique, position de lecture par épisode `pp_podcast_positions`, vitesse `pp_podcast_rate`, effet CRT `pp_crt`).
+- PWA minimale : `public/manifest.webmanifest` (installable, pas de service worker ni de hors-ligne).
 
 ## Auth
 
@@ -73,7 +78,8 @@
 ## Pièges connus
 
 - `.agents` est exclu du lint; `eslint .` passe (warnings seulement).
-- Aucun test automatisé configuré.
-- Le flux Podcast peut échouer sans état d’erreur visible.
-- Données Twitch fallback sont statiques avec dates reconstruites à l’exécution.
-- Saisons podcast sont artificielles: lots de 10 épisodes, pas métadonnées source.
+- Tests : `bun run test` (vitest, `src/**`) et CI GitHub Actions (typecheck, tests, build).
+- Fichiers du dépôt en CRLF : conserver les fins de ligne en éditant.
+- Données Twitch fallback (sans identifiants) sont statiques avec dates reconstruites à l'exécution.
+- Saisons podcast : réelles si le flux les fournit, sinon lots de 10 épisodes.
+- Le planning Twitch renvoie 404 tant que la chaîne n'en a pas publié : ce n'est pas une erreur.

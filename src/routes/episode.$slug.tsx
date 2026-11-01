@@ -8,7 +8,6 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { episodeSlug, findEpisodeBySlug, isoDuration, linkify, truncate } from "@/lib/episodes";
 import { getPodcastFeed } from "@/lib/podcast.functions";
 import { PODCAST_FEED_URL, SITE_DESCRIPTION, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/site";
-import { usePodcastPlayer } from "@/lib/usePodcastPlayer";
 
 function formatDate(d: string): string {
   const date = new Date(d);
@@ -104,8 +103,6 @@ export const Route = createFileRoute("/episode/$slug")({
 function EpisodePage() {
   const { episode, show, newer, older } = Route.useLoaderData();
   const cover = episode.image || show.image;
-  // Même lecteur que sur l'accueil : reprise de position, vitesse et Media Session partagées.
-  const player = usePodcastPlayer({ episode, cover, showTitle: show.title });
 
   const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -148,8 +145,8 @@ function EpisodePage() {
         </nav>
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          {/* Même lecteur que sur l'accueil, commun à tout le site : la lecture continue quand on change de page. */}
           <PlayerCard
-            player={player}
             episode={episode}
             cover={cover}
             heading={episode.title}

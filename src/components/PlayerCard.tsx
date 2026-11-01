@@ -1,10 +1,11 @@
 /* eslint-disable prettier/prettier */
 import { AnimatePresence, motion } from "framer-motion";
 import { Headphones, Pause, Play, RotateCcw, RotateCw } from "lucide-react";
-import type { Ref } from "react";
+import { useEffect, useRef } from "react";
 
 import type { Episode } from "@/lib/podcast.functions";
-import { SKIP_BACK_S, SKIP_FORWARD_S, type PodcastPlayer } from "@/lib/usePodcastPlayer";
+import { useEpisodePlayer, usePlayer } from "@/lib/PlayerProvider";
+import { SKIP_BACK_S, SKIP_FORWARD_S } from "@/lib/usePodcastPlayer";
 
 // Always HH:MM:SS (e.g. 00:52:10, 01:34:32) so every episode reads the same way.
 export function formatTime(s: number): string {
@@ -14,20 +15,38 @@ export function formatTime(s: number): string {
 }
 
 type Props = {
-  player: PodcastPlayer;
+  /** Épisode affiché : le lecteur commun ne le pilote que s'il est chargé, sinon le bouton lecture le lance. */
   episode: Episode | null;
   cover?: string;
   heading: string;
   subheading: string;
   /** h3 dans la liste de l'accueil, h1 sur la page d'un épisode. */
   headingLevel?: "h1" | "h3";
-  cardRef?: Ref<HTMLDivElement>;
 };
 
 /** Le lecteur rétro : pochette CRT, titre, lecture, barre segmentée, ±secondes et vitesse. */
-export function PlayerCard({ player, episode, cover, heading, subheading, headingLevel = "h3", cardRef }: Props) {
-  const { playing, progress, duration, shownDuration, rate, audioError, audioProps } = player;
+export function PlayerCard({ episode, cover, heading, subheading, headingLevel = "h3" }: Props) {
+  const { view: player, active } = useEpisodePlayer(episode);
+  const { setCardVisible } = usePlayer();
+  const { playing, progress, duration, shownDuration, rate, audioError } = player;
   const Heading = headingLevel;
+
+  // Tant que la carte du morceau en cours est à l'écran, le mini-lecteur reste caché.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!active || !el) {
+      setCardVisible(false);
+      return;
+    }
+    setCardVisible(true);
+    const obs = new IntersectionObserver(([entry]) => setCardVisible(entry.isIntersecting), { threshold: 0.15 });
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+      setCardVisible(false);
+    };
+  }, [active, setCardVisible]);
 
   // Pointer events cover mouse, touch and pen, and allow dragging the thumb along the bar.
   const seekFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -198,7 +217,6 @@ export function PlayerCard({ player, episode, cover, heading, subheading, headin
         </p>
       )}
 
-      <audio {...audioProps} />
     </motion.div>
   );
 }

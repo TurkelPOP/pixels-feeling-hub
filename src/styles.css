@@ -227,6 +227,25 @@
   }
 }
 
+/* Effet CRT coupé par le visiteur (interrupteur du pied de page, mémorisé dans localStorage). */
+html[data-crt="off"] .crt::after {
+  display: none;
+}
+
+/* Pluie de pixels du code Konami. */
+@keyframes pixel-fall {
+  from {
+    transform: translateY(-20px);
+  }
+  to {
+    transform: translateY(105vh);
+  }
+}
+
+.pixel-fall {
+  animation: pixel-fall linear forwards;
+}
+
 /* Small game-HUD label. Homebase is unreadable at label sizes, so Inter bold caps. */
 @utility hud-label {
   font-family: "Inter", system-ui, sans-serif;

@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { cached, fetchWithTimeout } from "./fetch.server";
 import { resolveChannelLogin } from "./twitch.server";
+import { pickNextStream, type HelixScheduleSegment, type NextStream } from "./twitch.schedule";
 
 export interface TwitchVideo {
   id: string;
@@ -37,6 +38,8 @@ export interface TwitchData {
   displayName: string;
   profileImageUrl?: string;
   stream: TwitchStreamInfo;
+  /** Prochain créneau du planning Twitch, absent si la chaîne n'en publie pas. */
+  nextStream?: NextStream;
   videos: TwitchVideo[];
   fallback: boolean;
 }
@@ -219,7 +222,7 @@ async function fetchTwitchData(
   const user = users.data?.[0];
   if (!user) throw new Error(`Twitch user "${channelLogin}" not found`);
 
-  const [streams, vods] = await Promise.all([
+  const [streams, vods, schedule] = await Promise.all([
     helix<{ data?: HelixStream[] }>("streams", { user_id: user.id }, clientId, token),
     helix<{ data?: HelixVideo[] }>(
       "videos",
@@ -227,6 +230,13 @@ async function fetchTwitchData(
       clientId,
       token,
     ),
+    // 404 tant que la chaîne n'a publié aucun planning : ce n'est pas une panne.
+    helix<{ data?: { segments?: HelixScheduleSegment[] } }>(
+      "schedule",
+      { broadcaster_id: user.id, first: "10" },
+      clientId,
+      token,
+    ).catch(() => undefined),
   ]);
 
   const live = streams.data?.[0];
@@ -266,6 +276,7 @@ async function fetchTwitchData(
     displayName: user.display_name,
     profileImageUrl: user.profile_image_url,
     stream,
+    nextStream: pickNextStream(schedule?.data?.segments),
     videos,
     fallback: false,
   };
