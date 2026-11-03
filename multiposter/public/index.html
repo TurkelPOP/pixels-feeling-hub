@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Multiposter · Pixels Perspective</title>
+  <link rel="icon" href="/assets/logo.png">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#compose"><img src="/assets/logo.png" alt="" width="32" height="32"><span>Multiposter</span></a>
+    <nav>
+      <a href="#compose" data-view="compose">Nouveau post</a>
+      <a href="#queue" data-view="queue">Planning</a>
+      <a href="#accounts" data-view="accounts">Comptes</a>
+    </nav>
+    <form method="post" action="/logout"><button class="btn ghost small" type="submit">Déconnexion</button></form>
+  </header>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <main>
+    <!-- Rédaction -->
+    <section id="view-compose" class="view">
+      <h1 id="compose-title">Nouveau post</h1>
+      <div class="compose-grid">
+        <div class="card">
+          <h2>Publier sur</h2>
+          <div id="account-picker" class="chips"></div>
+          <p id="no-accounts" class="muted" hidden>Aucun compte connecté. <a href="#accounts">Connecte tes réseaux</a>.</p>
+
+          <div id="title-row" hidden>
+            <label for="title">Titre YouTube</label>
+            <input id="title" maxlength="100" placeholder="Par défaut : la première ligne du texte">
+          </div>
+
+          <label for="text">Texte</label>
+          <textarea id="text" rows="8" placeholder="Écris ton post…"></textarea>
+          <div id="counters" class="counters"></div>
+
+          <details id="overrides-box">
+            <summary>Adapter le texte par réseau</summary>
+            <div id="overrides"></div>
+          </details>
+
+          <label>Médias</label>
+          <div id="dropzone" class="dropzone" tabindex="0">
+            <input id="file" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" hidden>
+            <span>Glisse tes images / vidéos ici ou <u>clique pour choisir</u></span>
+          </div>
+          <div id="media-list" class="media-list"></div>
+        </div>
+
+        <div class="card side">
+          <h2>Quand ?</h2>
+          <label for="when">Date et heure</label>
+          <input id="when" type="datetime-local">
+          <div class="quick-times">
+            <button class="btn ghost small" data-quick="60">+1 h</button>
+            <button class="btn ghost small" data-quick="tomorrow9">Demain 9 h</button>
+            <button class="btn ghost small" data-quick="tomorrow18">Demain 18 h</button>
+          </div>
+          <div id="validation" class="validation"></div>
+          <div class="actions">
+            <button class="btn primary" id="btn-schedule">Programmer</button>
+            <button class="btn accent" id="btn-now">Publier maintenant</button>
+            <button class="btn ghost" id="btn-draft">Enregistrer en brouillon</button>
+            <button class="btn ghost" id="btn-reset">Vider le formulaire</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Planning -->
+    <section id="view-queue" class="view" hidden>
+      <h1>Planning</h1>
+      <div class="filters" id="filters">
+        <button class="chip active" data-filter="upcoming">À venir</button>
+        <button class="chip" data-filter="draft">Brouillons</button>
+        <button class="chip" data-filter="done">Publiés</button>
+        <button class="chip" data-filter="failed">Échecs</button>
+        <button class="chip" data-filter="all">Tout</button>
+      </div>
+      <div id="queue"></div>
+    </section>
+
+    <!-- Comptes -->
+    <section id="view-accounts" class="view" hidden>
+      <h1>Comptes connectés</h1>
+      <div id="flows" class="flows"></div>
+      <div id="accounts" class="account-list"></div>
+    </section>
+  </main>
+
+  <script src="/assets/app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "pixels-multiposter",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Programmation et publication multi-réseaux (YouTube, TikTok, Instagram, Facebook, Threads, X) auto-hébergée.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.0",
+    "hono": "^4.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3"
+  }
+}

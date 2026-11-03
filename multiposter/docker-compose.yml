@@ -1,0 +1,14 @@
+services:
+  multiposter:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - multiposter-data:/data
+    ports:
+      - "127.0.0.1:3210:3210"
+
+volumes:
+  multiposter-data:
