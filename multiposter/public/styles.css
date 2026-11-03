@@ -181,3 +181,9 @@ body.login { display: grid; place-items: center; padding: 1rem; }
   .topbar nav { order: 3; flex-basis: 100%; }
   .topbar form { margin-left: auto; }
 }
+
+.flow.zernio { grid-column: 1 / -1; border-color: rgba(63, 216, 239, 0.35); background: linear-gradient(135deg, rgba(63, 216, 239, 0.1), rgba(139, 63, 240, 0.12)), var(--card); }
+.flow.zernio p { margin: 0.3rem 0 0; }
+.row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.via { font-size: 0.72rem; color: var(--cyan); border: 1px dashed rgba(63, 216, 239, 0.5); border-radius: 999px; padding: 0.05rem 0.45rem; }
+.via.direct { color: var(--muted); border-color: var(--border); }

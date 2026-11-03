@@ -147,10 +147,10 @@ export const instagram: Publisher = {
   id: "instagram",
   label: "Instagram",
   maxText: 2_200,
-  validate({ text, media }) {
+  validate({ text, media, viaZernio }) {
     if (!media.length) return "Instagram : au moins une image ou une vidéo est obligatoire.";
     if (media.length > 10) return "Instagram : 10 médias maximum par carrousel.";
-    if (media.some((m) => m.kind === "image" && m.mime !== "image/jpeg"))
+    if (!viaZernio && media.some((m) => m.kind === "image" && m.mime !== "image/jpeg"))
       return "Instagram : les images doivent être en JPEG (exporte en JPG depuis Canva).";
     if (countChars(text) > 2_200) return "Instagram : légende limitée à 2 200 caractères.";
     return null;

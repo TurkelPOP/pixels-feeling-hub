@@ -12,7 +12,7 @@ const opt = (name: string) => process.env[name]?.trim() || undefined;
 export const config = {
   port: Number(process.env.PORT ?? 3210),
   /** URL publique HTTPS de l'app (callbacks OAuth + médias lus par Meta). Sans slash final. */
-  publicUrl: required("PUBLIC_URL").replace(/\/+$/, ""),
+  publicUrl: (opt("PUBLIC_URL") ?? `http://localhost:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
   adminPassword: required("ADMIN_PASSWORD"),
   /** Clé de chiffrement des tokens et de signature des cookies (32+ caractères). */
   appSecret: required("APP_SECRET"),
@@ -20,6 +20,10 @@ export const config = {
   timezone: process.env.TZ_DISPLAY ?? "Europe/Paris",
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
 
+  zernio: {
+    apiKey: opt("ZERNIO_API_KEY"),
+    baseUrl: (opt("ZERNIO_BASE_URL") ?? "https://zernio.com/api").replace(/\/+$/, ""),
+  },
   meta: { appId: opt("META_APP_ID"), appSecret: opt("META_APP_SECRET") },
   threads: { appId: opt("THREADS_APP_ID"), appSecret: opt("THREADS_APP_SECRET") },
   x: { clientId: opt("X_CLIENT_ID"), clientSecret: opt("X_CLIENT_SECRET") },

@@ -85,6 +85,10 @@ function badge(provider) {
   return h("span", { class: "badge", style: `--c:${p.color}` }, p.label);
 }
 
+function viaTag(a) {
+  return a.via === "zernio" ? h("span", { class: "via" }, "via Zernio") : h("span", { class: "via direct" }, "direct");
+}
+
 function avatar(a) {
   return a.avatarUrl
     ? h("img", { class: "avatar", src: a.avatarUrl, alt: "", referrerpolicy: "no-referrer", loading: "lazy" })
@@ -116,8 +120,37 @@ async function loadAccounts() {
   renderPicker();
 }
 
+function zernioCard() {
+  const sync = async (btn) => {
+    btn.disabled = true;
+    btn.textContent = "Import…";
+    try {
+      const { count } = await api("/zernio/sync", { method: "POST" });
+      toast(`${count} compte(s) importé(s) depuis Zernio.`);
+      await loadAccounts();
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Importer mes comptes Zernio";
+    }
+  };
+  return h(
+    "div",
+    { class: "card flow zernio" },
+    h("div", {}, h("strong", {}, "Zernio · API unifiée"),
+      h("p", { class: "muted small" }, "Connecte tes 6 réseaux une seule fois sur Zernio, sans créer d'app développeur ni passer d'audit TikTok/YouTube.")),
+    state.meta.zernio
+      ? h("div", { class: "row" },
+          h("button", { class: "btn primary small", onclick: (e) => sync(e.currentTarget) }, "Importer mes comptes Zernio"),
+          h("a", { class: "btn ghost small", href: "https://zernio.com/dashboard", target: "_blank", rel: "noopener" }, "Ouvrir Zernio ↗"))
+      : h("p", { class: "muted small" }, "Non configuré : ajoute ZERNIO_API_KEY dans .env (voir README)."),
+  );
+}
+
 function renderAccounts() {
   $("#flows").replaceChildren(
+    zernioCard(),
     ...state.meta.flows.map((f) =>
       h(
         "div",
@@ -135,8 +168,9 @@ function renderAccounts() {
       "div",
       { class: "card account" },
       avatar(a),
-      h("div", { class: "grow" }, h("strong", {}, a.name), " ", badge(a.provider),
-        expiring ? h("p", { class: "error small" }, "Token bientôt expiré : reconnecte ce compte.") : null),
+      h("div", { class: "grow" }, h("strong", {}, a.name), " ", badge(a.provider), " ", viaTag(a),
+        expiring ? h("p", { class: "error small" }, "Token bientôt expiré : reconnecte ce compte.") : null,
+        a.needsReconnection ? h("p", { class: "error small" }, "Zernio signale que ce compte doit être reconnecté sur zernio.com.") : null),
       h("button", {
         class: "btn ghost small danger",
         onclick: async () => {
@@ -174,7 +208,7 @@ function renderPicker() {
         },
         avatar(a),
         h("span", {}, a.name),
-        h("small", {}, PROVIDER[a.provider]?.label),
+        h("small", {}, PROVIDER[a.provider]?.label, a.via === "zernio" ? " · Zernio" : ""),
       ),
     ),
   );

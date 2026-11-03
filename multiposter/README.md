@@ -15,6 +15,31 @@ Une app auto-hébergée pour écrire un post une fois, puis le programmer ou le 
 Stack : Node 22.18+ (TypeScript exécuté directement, SQLite intégré à Node), Hono, interface
 en HTML/JS sans build. Deux dépendances seulement.
 
+## Deux façons de connecter les réseaux
+
+| | **Via Zernio** (API unifiée, recommandé pour démarrer) | **En direct** |
+| --- | --- | --- |
+| Mise en place | une clé API + connexion des comptes sur zernio.com | une app développeur par réseau |
+| TikTok / YouTube en public | oui, tout de suite | seulement après l'audit de TikTok / Google |
+| Serveur joignable en HTTPS | non | oui |
+| Coût | abonnement Zernio | gratuit (sauf l'API X) |
+
+Les deux modes peuvent cohabiter, par exemple TikTok et YouTube via Zernio, Facebook,
+Instagram et Threads en direct. Chaque compte affiche « via Zernio » ou « direct ».
+
+### Via Zernio
+
+1. Crée un compte sur <https://zernio.com>. Late (getlate.dev) a été renommé Zernio.
+2. Connecte tes réseaux sur leur tableau de bord.
+3. Crée une clé API et mets-la dans `.env` : `ZERNIO_API_KEY=...`.
+4. Dans l'app, va dans **Comptes → Importer mes comptes Zernio**.
+
+Ton app garde la programmation, les brouillons et les relances. À l'heure prévue, elle envoie
+les médias à Zernio puis lui demande de publier tout de suite. Le statut de chaque réseau et le
+lien du post s'affichent comme d'habitude. Un média n'est envoyé qu'une fois, même s'il part sur
+6 réseaux. Les limites de chaque réseau sont vérifiées avant l'envoi. En passant par Zernio, les
+images PNG sont acceptées sur Instagram.
+
 ## Démarrage rapide
 
 ```bash

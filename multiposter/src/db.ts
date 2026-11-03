@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 );
 `);
 
+// Migrations légères (colonnes ajoutées après la v1).
+for (const sql of ["ALTER TABLE media ADD COLUMN zernio_url TEXT", "ALTER TABLE media ADD COLUMN zernio_at INTEGER"]) {
+  try {
+    db.exec(sql);
+  } catch {
+    /* colonne déjà présente */
+  }
+}
+
 export type Provider = "youtube" | "tiktok" | "instagram" | "facebook" | "threads" | "x";
 
 export interface Account {
