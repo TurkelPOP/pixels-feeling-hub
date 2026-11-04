@@ -33,6 +33,21 @@ JPG depuis Canva, voici ce que chaque réseau en fait :
 | TikTok | ❌ vidéo uniquement dans l'app | — | — |
 | YouTube | ❌ vidéo uniquement | — | — |
 
+### Options par réseau dans l'éditeur
+
+Dès que tu coches un compte, une carte d'options apparaît sous les médias. Elle s'adapte au contenu
+(import Canva ou glisser-déposer) :
+
+- **Statut** : « Prêt », ou ce qui bloque et comment le régler.
+- **Format** proposé selon les médias : post, carrousel, Reel, vidéo… Pour Instagram, tu peux
+  choisir **Story** à la place, ou **« Publier aussi la 1re slide en story »**.
+- **Médias envoyés** : clique sur une miniature pour l'inclure ou l'exclure sur ce réseau. La
+  sélection automatique suit ce que le réseau accepte : les 4 premières images pour X, la vidéo pour
+  YouTube et TikTok. « Revenir à la sélection automatique » annule tes choix.
+- **YouTube** : titre et visibilité (publique, non répertoriée, privée).
+- **TikTok** : qui peut voir la vidéo, et si les commentaires, duos et collages sont autorisés.
+- **Texte différent pour ce réseau**, si besoin.
+
 Les limites sont vérifiées avant l'envoi : un post qui ne respecte pas les règles d'un réseau est
 bloqué dans l'éditeur, avec le message correspondant.
 

@@ -2,6 +2,7 @@ import { alert, appLink } from "./alerts.ts";
 import { db, getAccount, updateTokens, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
 import { publishers } from "./providers/index.ts";
+import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 
 const TICK_MS = 20_000;
 let running = false;
@@ -39,7 +40,7 @@ async function publishTarget(targetId: number): Promise<void> {
 
   const t = db
     .prepare(
-      `SELECT t.id, t.post_id, t.account_id, t.text_override, p.text, p.title, p.media_ids
+      `SELECT t.id, t.post_id, t.account_id, t.text_override, t.options, p.text, p.title, p.media_ids
        FROM post_targets t JOIN posts p ON p.id = t.post_id WHERE t.id = ?`,
     )
     .get(targetId) as Record<string, any>;
@@ -49,10 +50,11 @@ async function publishTarget(targetId: number): Promise<void> {
     if (!account) throw new Error("Compte déconnecté");
     const pub = publishers[account.provider];
     const text = (t.text_override ?? t.text) as string;
-    const media = getMediaList(JSON.parse(t.media_ids));
-    const invalid = pub.validate({ text, media });
+    const options = sanitizeOptions(JSON.parse(t.options || "{}"));
+    const media = effectiveMedia(getMediaList(JSON.parse(t.media_ids)), options);
+    const invalid = pub.validate({ text, media, options });
     if (invalid) throw new Error(invalid);
-    const result = await pub.publish({ account: await freshAccount(account), text, title: t.title, media });
+    const result = await pub.publish({ account: await freshAccount(account), text, title: t.title, media, options });
     db.prepare(
       "UPDATE post_targets SET status = 'done', external_url = ?, error = NULL, published_at = ? WHERE id = ?",
     ).run(result.url ?? null, Date.now(), targetId);

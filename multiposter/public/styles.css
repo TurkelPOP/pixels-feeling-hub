@@ -295,3 +295,33 @@ dialog.sheet::backdrop { background: rgba(8, 5, 14, 0.7); backdrop-filter: blur(
 .switch input:focus-visible + .slider { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .switch input:disabled + .slider { opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) { .slider, .slider::after { transition: none; } }
+
+/* Options par réseau */
+#targets-box { display: grid; gap: 0.5rem; margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+#targets-box > p { margin: 0; }
+.targets-title { margin: 0; }
+.target-cards { display: grid; gap: 0.7rem; }
+.tcard { display: grid; gap: 0.55rem; padding: 0.8rem 0.9rem; border-radius: 12px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--border); border-left: 3px solid var(--c); min-width: 0; }
+.tcard.has-error { border-color: color-mix(in srgb, var(--err) 55%, transparent); border-left-color: var(--err); }
+.tcard header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.tstatus { margin-left: auto; font-size: 0.78rem; font-weight: 700; border-radius: 999px; padding: 0.1rem 0.55rem; }
+.tstatus.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.tstatus.bad { color: var(--err); background: color-mix(in srgb, var(--err) 14%, transparent); margin-left: 0; flex-basis: 100%; border-radius: 8px; font-weight: 600; }
+.tformat { margin: 0; font-weight: 600; font-size: 0.92rem; }
+.tfield { display: grid; gap: 0.3rem; margin: 0; font-weight: 600; font-size: 0.85rem; }
+.tfield select, .tfield input { font-weight: 400; }
+.tcheck { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0; font-weight: 500; font-size: 0.88rem; cursor: pointer; }
+.tcheck input { width: auto; accent-color: var(--cyan); }
+.tchecks { display: flex; flex-wrap: wrap; gap: 1rem; }
+.tmedia { display: grid; gap: 0.35rem; }
+.tlabel { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+.tthumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.tthumb { position: relative; width: 48px; height: 60px; padding: 0; border-radius: 6px; overflow: hidden; cursor: pointer; border: 2px solid transparent; background: #000; opacity: 0.35; filter: grayscale(0.7); }
+.tthumb.on { opacity: 1; filter: none; border-color: var(--cyan); }
+.tthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tvid { display: grid; place-items: center; height: 100%; color: var(--fg); }
+.tnum { position: absolute; right: 2px; bottom: 2px; font-size: 0.62rem; font-weight: 700; background: rgba(0, 0, 0, 0.7); color: #fff; border-radius: 4px; padding: 0 3px; }
+.linklike { justify-self: start; font: inherit; font-size: 0.82rem; color: var(--cyan); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.toverride summary { font-size: 0.85rem; }
+.toverride textarea { margin-top: 0.4rem; }
+.toverride { margin-top: 0; }

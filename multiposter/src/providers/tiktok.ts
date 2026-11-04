@@ -61,7 +61,8 @@ export const tiktok: Publisher = {
   maxText: 2_200,
   refreshMarginMs: 60 * 60_000,
   validate({ text, media }) {
-    if (videos(media).length !== 1 || images(media).length) return "TikTok : exactement une vidéo, sans image.";
+    if (!videos(media).length) return "TikTok n'accepte que les vidéos : ajoute une vidéo ou décoche TikTok.";
+    if (videos(media).length > 1 || images(media).length) return "TikTok : une seule vidéo, sans image (choisis-la dans « Médias envoyés »).";
     if (countChars(text) > 2_200) return "TikTok : 2 200 caractères maximum.";
     return null;
   },
@@ -69,22 +70,28 @@ export const tiktok: Publisher = {
     const t = await token({ grant_type: "refresh_token", refresh_token: account.refreshToken! });
     return { accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: Date.now() + t.expires_in * 1000 };
   },
-  async publish({ account, text, media }) {
+  async publish({ account, text, media, options }) {
     const v = videos(media)[0];
     const auth = { Authorization: `Bearer ${account.accessToken}` };
 
     const creator = await json(`${API}/post/publish/creator_info/query/`, postJson({}, auth));
-    const options: string[] = creator.data.privacy_level_options ?? [];
-    const wanted = process.env.TIKTOK_PRIVACY ?? "PUBLIC_TO_EVERYONE";
+    const allowed: string[] = creator.data.privacy_level_options ?? [];
+    const wanted = options.privacy?.includes("_") ? options.privacy : (process.env.TIKTOK_PRIVACY ?? "PUBLIC_TO_EVERYONE");
     // Une app non auditée par TikTok ne peut publier qu'en privé (SELF_ONLY).
-    const privacy = options.includes(wanted) ? wanted : (options[0] ?? "SELF_ONLY");
+    const privacy = allowed.includes(wanted) ? wanted : (allowed[0] ?? "SELF_ONLY");
 
     const { chunkSize, count } = chunking(v.size);
     const init = await json(
       `${API}/post/publish/video/init/`,
       postJson(
         {
-          post_info: { title: text, privacy_level: privacy, disable_comment: false, disable_duet: false, disable_stitch: false },
+          post_info: {
+            title: text,
+            privacy_level: privacy,
+            disable_comment: options.allowComment === false || !!creator.data.comment_disabled,
+            disable_duet: options.allowDuet === false || !!creator.data.duet_disabled,
+            disable_stitch: options.allowStitch === false || !!creator.data.stitch_disabled,
+          },
           source_info: { source: "FILE_UPLOAD", video_size: v.size, chunk_size: chunkSize, total_chunk_count: count },
         },
         auth,

@@ -14,6 +14,7 @@ import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db.ts";
 import { getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
+import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, startCanvaWatcher } from "./canva.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { startCleanup } from "./cleanup.ts";
@@ -287,7 +288,7 @@ api.put("/media", async (c) => {
 function serializePost(p: Record<string, any>) {
   const targets = db
     .prepare(
-      `SELECT t.id, t.account_id, t.text_override, t.status, t.external_url, t.error, t.attempts, t.published_at,
+      `SELECT t.id, t.account_id, t.text_override, t.options, t.status, t.external_url, t.error, t.attempts, t.published_at,
               a.provider, a.name, a.avatar_url
        FROM post_targets t LEFT JOIN accounts a ON a.id = t.account_id WHERE t.post_id = ? ORDER BY a.provider`,
     )
@@ -315,6 +316,7 @@ function serializePost(p: Record<string, any>) {
       name: t.name ?? "Compte supprimé",
       avatarUrl: t.avatar_url,
       textOverride: t.text_override,
+      options: JSON.parse(t.options || "{}"),
       status: t.status,
       url: t.external_url,
       error: t.error,
@@ -337,6 +339,8 @@ interface PostBody {
   mediaIds?: string[];
   accountIds?: number[];
   overrides?: Record<string, string | null>;
+  /** Options par compte (format, médias, visibilité…). */
+  options?: Record<string, unknown>;
   scheduledAt?: number | null;
   action?: "draft" | "schedule" | "now";
 }
@@ -352,7 +356,8 @@ function validateBody(b: PostBody): Record<number, string> {
       continue;
     }
     const text = b.overrides?.[id] ?? b.text ?? "";
-    const err = publishers[acc.provider].validate({ text, media });
+    const options = sanitizeOptions(b.options?.[id]);
+    const err = publishers[acc.provider].validate({ text, media: effectiveMedia(media, options), options });
     if (err) errors[id] = err;
   }
   return errors;
@@ -390,11 +395,12 @@ function savePost(b: PostBody, existingId?: number): { id?: number; error?: stri
           .run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, now).lastInsertRowid,
       );
     }
-    const ins = db.prepare("INSERT INTO post_targets (post_id, account_id, text_override) VALUES (?, ?, ?)");
+    const ins = db.prepare("INSERT INTO post_targets (post_id, account_id, text_override, options) VALUES (?, ?, ?, ?)");
     for (const acc of accountIds) {
       if (!getAccount(acc)) continue;
       const o = b.overrides?.[acc];
-      ins.run(id, acc, typeof o === "string" && o !== b.text ? o : null);
+      const opts = sanitizeOptions(b.options?.[acc]);
+      ins.run(id, acc, typeof o === "string" && o !== b.text ? o : null, Object.keys(opts).length ? JSON.stringify(opts) : null);
     }
     db.exec("COMMIT");
   } catch (e) {
@@ -448,7 +454,7 @@ api.post("/posts/:id/duplicate", (c) => {
       .run(p.text, p.title, p.media_ids, now, now).lastInsertRowid,
   );
   db.prepare(
-    "INSERT INTO post_targets (post_id, account_id, text_override) SELECT ?, account_id, text_override FROM post_targets WHERE post_id = ?",
+    "INSERT INTO post_targets (post_id, account_id, text_override, options) SELECT ?, account_id, text_override, options FROM post_targets WHERE post_id = ?",
   ).run(newId, id);
   rollupStatus(newId);
   return c.json({ id: newId });

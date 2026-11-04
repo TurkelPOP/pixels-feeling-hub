@@ -61,23 +61,24 @@ export const youtube: Publisher = {
   maxText: 5_000,
   refreshMarginMs: 5 * 60_000,
   validate({ media }) {
-    if (videos(media).length !== 1 || images(media).length) return "YouTube : exactement une vidéo, sans image.";
+    if (!videos(media).length) return "YouTube n'accepte que les vidéos : ajoute une vidéo ou décoche YouTube.";
+    if (videos(media).length > 1 || images(media).length) return "YouTube : une seule vidéo, sans image (choisis-la dans « Médias envoyés »).";
     return null;
   },
   async refresh(account) {
     const t = await token({ grant_type: "refresh_token", refresh_token: account.refreshToken! });
     return { accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: Date.now() + t.expires_in * 1000 };
   },
-  async publish({ account, text, title, media }) {
+  async publish({ account, text, title, media, options }) {
     const v = videos(media)[0];
     const auth = `Bearer ${account.accessToken}`;
-    const finalTitle = (title.trim() || text.split("\n")[0].trim() || v.filename).replace(/[<>]/g, "").slice(0, 100);
+    const finalTitle = (options.title || title.trim() || text.split("\n")[0].trim() || v.filename).replace(/[<>]/g, "").slice(0, 100);
     const init = await request(
       "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
       postJson(
         {
           snippet: { title: finalTitle, description: text.replace(/[<>]/g, "").slice(0, 5_000), categoryId: CATEGORY },
-          status: { privacyStatus: PRIVACY, selfDeclaredMadeForKids: false },
+          status: { privacyStatus: options.privacy && !options.privacy.includes("_") ? options.privacy : PRIVACY, selfDeclaredMadeForKids: false },
         },
         { Authorization: auth, "X-Upload-Content-Type": v.mime, "X-Upload-Content-Length": String(v.size) },
       ),

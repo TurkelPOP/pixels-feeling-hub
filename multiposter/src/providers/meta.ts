@@ -1,6 +1,7 @@
 // Facebook Pages + Instagram professionnel, via la Graph API et Facebook Login.
 import { openAsBlob } from "node:fs";
 
+import { alert } from "../alerts.ts";
 import { callbackUrl, config } from "../config.ts";
 import { form, json, waitFor } from "../http.ts";
 import type { MediaFile } from "../media.ts";
@@ -143,6 +144,14 @@ async function igWaitReady(containerId: string, token: string) {
   );
 }
 
+async function publishStory(igId: string, token: string, m: MediaFile) {
+  const params: Record<string, string> =
+    m.kind === "image" ? { media_type: "STORIES", image_url: m.publicUrl } : { media_type: "STORIES", video_url: m.publicUrl };
+  const id = await igContainer(igId, token, params);
+  await igWaitReady(id, token);
+  await json(`${G}/${igId}/media_publish`, form({ creation_id: id, access_token: token }));
+}
+
 function igItemParams(m: MediaFile, carousel: boolean): Record<string, string> {
   if (m.kind === "image") return { image_url: m.publicUrl, ...(carousel ? { is_carousel_item: "true" } : {}) };
   return carousel
@@ -154,7 +163,16 @@ export const instagram: Publisher = {
   id: "instagram",
   label: "Instagram",
   maxText: 2_200,
-  validate({ text, media }) {
+  validate({ text, media, options }) {
+    if (options.format === "story") {
+      if (!media.length) return "Story Instagram : choisis au moins une image ou une vidéo.";
+      if (media.length > 10) return "Story Instagram : 10 médias maximum.";
+      if (media.some((m) => m.kind === "image" && m.mime !== "image/jpeg"))
+        return "Instagram : les images doivent être en JPEG (exporte en JPG depuis Canva).";
+      return null;
+    }
+    if (options.alsoStory && media[0]?.kind === "image" && media[0].mime !== "image/jpeg")
+      return "Instagram : la story doit être une image JPEG ou une vidéo.";
     if (!media.length) return "Instagram : au moins une image ou une vidéo est obligatoire.";
     if (media.length > 10) return "Instagram : 10 médias maximum par carrousel.";
     if (media.some((m) => m.kind === "image" && m.mime !== "image/jpeg"))
@@ -162,9 +180,14 @@ export const instagram: Publisher = {
     if (countChars(text) > 2_200) return "Instagram : légende limitée à 2 200 caractères.";
     return null;
   },
-  async publish({ account, text, media }) {
+  async publish({ account, text, media, options }) {
     const igId = account.externalId;
     const token = account.accessToken!;
+    const storiesUrl = `https://www.instagram.com/stories/${account.meta.username ?? ""}/`;
+    if (options.format === "story") {
+      for (const m of media) await publishStory(igId, token, m);
+      return { url: storiesUrl };
+    }
     let creationId: string;
     if (media.length === 1) {
       creationId = await igContainer(igId, token, { ...igItemParams(media[0], false), caption: text });
@@ -181,6 +204,13 @@ export const instagram: Publisher = {
     }
     const pub = await json(`${G}/${igId}/media_publish`, form({ creation_id: creationId, access_token: token }));
     const info = await json(`${G}/${pub.id}?fields=permalink&access_token=${encodeURIComponent(token)}`).catch(() => ({}));
+    if (options.alsoStory && media[0]) {
+      // Le post est publié : un échec de la story ne doit pas le faire republier en double.
+      await publishStory(igId, token, media[0]).catch((e) => {
+        console.error("[instagram] story :", e);
+        void alert(`⚠️ Post Instagram publié, mais la story de la cover a échoué : ${e instanceof Error ? e.message : e}`);
+      });
+    }
     return { url: info.permalink };
   },
 };

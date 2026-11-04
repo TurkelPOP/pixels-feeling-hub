@@ -31,19 +31,11 @@
           <div id="account-picker" class="chips"></div>
           <p id="no-accounts" class="muted" hidden>Aucun compte connecté. <a href="#accounts">Connecte tes réseaux</a>.</p>
 
-          <div id="title-row" hidden>
-            <label for="title">Titre YouTube</label>
-            <input id="title" maxlength="100" placeholder="Par défaut : la première ligne du texte">
-          </div>
+          <input id="title" type="hidden">
 
           <label for="text">Texte</label>
           <textarea id="text" rows="8" placeholder="Écris ton post…"></textarea>
           <div id="counters" class="counters"></div>
-
-          <details id="overrides-box">
-            <summary>Adapter le texte par réseau</summary>
-            <div id="overrides"></div>
-          </details>
 
           <label>Médias</label>
           <div id="dropzone" class="dropzone" tabindex="0">
@@ -54,6 +46,12 @@
             <button class="btn ghost small" id="btn-canva" type="button">Importer depuis Canva</button>
           </div>
           <div id="media-list" class="media-list"></div>
+
+          <div id="targets-box" hidden>
+            <h2 class="targets-title">Options par réseau</h2>
+            <p class="muted small">Elles s'adaptent aux médias ajoutés : format proposé, médias envoyés, réglages propres à chaque réseau.</p>
+            <div id="target-cards" class="target-cards"></div>
+          </div>
         </div>
 
         <div class="card side">

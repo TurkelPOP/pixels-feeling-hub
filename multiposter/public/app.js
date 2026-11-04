@@ -29,6 +29,8 @@ const state = {
   editingId: null,
   selected: new Set(),
   overrides: {},
+  targetOptions: {},
+  errors: {},
   media: [],
   uploading: 0,
   canva: { status: null, items: [], continuation: null, query: "" },
@@ -358,7 +360,6 @@ function maxFor(provider) {
 function renderComposeMeta() {
   const text = $("#text").value;
   const accs = selectedAccounts();
-  $("#title-row").hidden = !accs.some((a) => a.provider === "youtube");
 
   const providers = [...new Set(accs.map((a) => a.provider))];
   $("#counters").replaceChildren(
@@ -370,26 +371,186 @@ function renderComposeMeta() {
     }),
   );
 
-  // Champs d'adaptation par compte (on garde les valeurs déjà saisies).
-  const box = $("#overrides");
-  const existing = new Map([...box.querySelectorAll("textarea")].map((t) => [Number(t.dataset.id), t]));
-  box.replaceChildren(
-    ...accs.map((a) => {
-      let ta = existing.get(a.id);
-      if (!ta) {
-        ta = h("textarea", { rows: 3, "data-id": a.id, placeholder: "Laisser vide pour utiliser le texte principal" });
-        ta.value = state.overrides[a.id] ?? "";
-        ta.addEventListener("input", () => {
-          if (ta.value.trim()) state.overrides[a.id] = ta.value;
-          else delete state.overrides[a.id];
-          renderComposeMeta();
-        });
-      }
-      return h("div", { class: "override" }, h("label", {}, badge(a.provider), " ", a.name), ta);
-    }),
-  );
-  $("#overrides-box").hidden = accs.length === 0;
+  renderTargetCards();
   scheduleValidation();
+}
+
+// ---------- Options par réseau ----------
+
+const PRIVACY_YT = [["public", "Publique"], ["unlisted", "Non répertoriée"], ["private", "Privée"]];
+const PRIVACY_TT = [["PUBLIC_TO_EVERYONE", "Tout le monde"], ["FOLLOWER_OF_CREATOR", "Abonnés"], ["MUTUAL_FOLLOW_FRIENDS", "Amis"], ["SELF_ONLY", "Moi uniquement"]];
+const plural = (n, word) => `${n} ${word}${n > 1 ? "s" : ""}`;
+
+/** Médias proposés par défaut à un réseau, selon ce qu'il accepte. */
+function defaultMediaIds(provider, media) {
+  const vids = media.filter((m) => m.kind === "video");
+  const imgs = media.filter((m) => m.kind === "image");
+  if (provider === "youtube" || provider === "tiktok") return vids.slice(0, 1).map((m) => m.id);
+  if (provider === "x") return (vids.length ? vids.slice(0, 1) : imgs.slice(0, 4)).map((m) => m.id);
+  if (provider === "instagram") return media.slice(0, 10).map((m) => m.id);
+  if (provider === "facebook") return (vids.length && imgs.length ? imgs : media).map((m) => m.id);
+  return media.slice(0, 20).map((m) => m.id);
+}
+
+function optionsFor(a) {
+  const o = (state.targetOptions[a.id] ??= {});
+  const ids = new Set(state.media.map((m) => m.id));
+  if (o.media) o.media = o.media.filter((id) => ids.has(id));
+  // Tant que tu n'as pas choisi toi-même, la sélection suit les médias ajoutés.
+  if (!o._manual) o.media = defaultMediaIds(a.provider, state.media);
+  if (a.provider === "youtube") o.privacy ??= "public";
+  if (a.provider === "tiktok") {
+    o.privacy ??= "PUBLIC_TO_EVERYONE";
+    o.allowComment ??= true;
+    o.allowDuet ??= true;
+    o.allowStitch ??= true;
+  }
+  if (a.provider === "instagram") o.format ??= "feed";
+  return o;
+}
+
+const chosenMedia = (o) => state.media.filter((m) => !o.media || o.media.includes(m.id));
+
+function formatSummary(a, o) {
+  const m = chosenMedia(o);
+  const imgs = m.filter((x) => x.kind === "image").length, vids = m.length - imgs;
+  switch (a.provider) {
+    case "instagram":
+      if (o.format === "story") return `Story : ${plural(m.length, "média")} publié${m.length > 1 ? "s" : ""} l'un après l'autre`;
+      return m.length > 1 ? `Carrousel de ${m.length}` : vids ? "Reel" : imgs ? "Post photo" : "—";
+    case "facebook":
+      return vids ? "Vidéo" : imgs ? (imgs > 1 ? `Post avec ${imgs} photos` : "Post photo") : "Post texte";
+    case "threads":
+      return m.length > 1 ? `Carrousel de ${m.length}` : vids ? "Vidéo" : imgs ? "Image" : "Texte seul";
+    case "x":
+      return vids ? "Vidéo" : imgs ? plural(imgs, "image") : "Texte seul";
+    case "youtube":
+      return vids ? "Vidéo (Short si verticale et < 3 min)" : "—";
+    case "tiktok":
+      return vids ? "Vidéo" : "—";
+  }
+  return "";
+}
+
+function field(label, control) {
+  return h("label", { class: "tfield" }, h("span", {}, label), control);
+}
+
+function select(options, value, onChange) {
+  const el = h("select", {}, ...options.map(([v, l]) => h("option", { value: v }, l)));
+  el.value = value;
+  el.addEventListener("change", () => onChange(el.value));
+  return el;
+}
+
+function checkbox(label, checked, onChange) {
+  const input = h("input", { type: "checkbox" });
+  input.checked = checked;
+  input.addEventListener("change", () => onChange(input.checked));
+  return h("label", { class: "tcheck" }, input, h("span", {}, label));
+}
+
+let cardsKey = "";
+
+function renderTargetCards() {
+  const accs = selectedAccounts();
+  $("#targets-box").hidden = accs.length === 0;
+  // Ne reconstruit les cartes que si les comptes ou les médias changent (pour ne pas perdre la saisie).
+  const key = JSON.stringify([accs.map((a) => a.id), state.media.map((m) => m.id), accs.map((a) => state.targetOptions[a.id]?.format)]);
+  if (key === cardsKey) return paintCardStatus();
+  cardsKey = key;
+  $("#target-cards").replaceChildren(...accs.map(targetCard));
+  paintCardStatus();
+}
+
+function changed(rebuild = false) {
+  if (rebuild) cardsKey = "";
+  renderComposeMeta();
+}
+
+function targetCard(a) {
+  const o = optionsFor(a);
+  const body = [];
+  const head = h("header", {}, badge(a.provider), h("strong", {}, a.name), h("span", { class: "tstatus" }));
+  // Réseau vidéo sans vidéo dans le post : seul le message utile est affiché.
+  if ((a.provider === "youtube" || a.provider === "tiktok") && state.media.length && !state.media.some((m) => m.kind === "video")) {
+    return h("article", { class: "tcard compact", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head);
+  }
+
+  // Format
+  if (a.provider === "instagram" && state.media.length) {
+    body.push(field("Format", select([["feed", "Publication (post, carrousel ou Reel)"], ["story", "Story"]], o.format, (v) => { o.format = v; changed(true); })));
+    if (o.format === "feed") body.push(checkbox("Publier aussi la 1re slide en story", !!o.alsoStory, (v) => { o.alsoStory = v; changed(); }));
+  }
+  body.push(h("p", { class: "tformat" }, formatSummary(a, o)));
+
+  // Médias envoyés à ce réseau
+  if (state.media.length) {
+    const sel = new Set(chosenMedia(o).map((m) => m.id));
+    body.push(
+      h("div", { class: "tmedia" },
+        h("span", { class: "tlabel" }, `Médias envoyés : ${sel.size} / ${state.media.length}`),
+        h("div", { class: "tthumbs" },
+          ...state.media.map((m, i) => {
+            const b = h("button", { type: "button", class: `tthumb ${sel.has(m.id) ? "on" : ""}`, title: `${i + 1}. ${m.filename}`, "aria-pressed": String(sel.has(m.id)) },
+              m.kind === "video" ? h("span", { class: "tvid" }, "▶") : h("img", { src: m.url, alt: "" }),
+              h("span", { class: "tnum" }, String(i + 1)));
+            b.addEventListener("click", () => {
+              const cur = new Set(chosenMedia(o).map((x) => x.id));
+              cur.has(m.id) ? cur.delete(m.id) : cur.add(m.id);
+              o.media = state.media.filter((x) => cur.has(x.id)).map((x) => x.id);
+              o._manual = true;
+              changed(true);
+            });
+            return b;
+          })),
+        o._manual
+          ? h("button", { type: "button", class: "linklike", onclick: () => { o._manual = false; changed(true); } }, "Revenir à la sélection automatique")
+          : null),
+    );
+  }
+
+  // Réglages propres au réseau
+  if (a.provider === "youtube") {
+    const t = h("input", { maxlength: 100, placeholder: "Par défaut : la 1re ligne du texte" });
+    t.value = o.title ?? "";
+    t.addEventListener("input", () => { o.title = t.value; $("#title").value = t.value; scheduleValidation(); });
+    body.push(field("Titre de la vidéo", t));
+    body.push(field("Visibilité", select(PRIVACY_YT, o.privacy, (v) => { o.privacy = v; })));
+    body.push(h("p", { class: "muted small" }, "Tant que Google n'a pas validé ton app, YouTube met la vidéo en privé."));
+  }
+  if (a.provider === "tiktok") {
+    body.push(field("Qui peut voir la vidéo", select(PRIVACY_TT, o.privacy, (v) => { o.privacy = v; })));
+    body.push(h("div", { class: "tchecks" },
+      checkbox("Commentaires", o.allowComment, (v) => { o.allowComment = v; }),
+      checkbox("Duo", o.allowDuet, (v) => { o.allowDuet = v; }),
+      checkbox("Collage", o.allowStitch, (v) => { o.allowStitch = v; })));
+    body.push(h("p", { class: "muted small" }, "Tant que TikTok n'a pas audité ton app, la vidéo est publiée en « Moi uniquement »."));
+  }
+
+  // Texte différent
+  const ta = h("textarea", { rows: 3, placeholder: "Laisser vide pour utiliser le texte principal" });
+  ta.value = state.overrides[a.id] ?? "";
+  ta.addEventListener("input", () => {
+    if (ta.value.trim()) state.overrides[a.id] = ta.value;
+    else delete state.overrides[a.id];
+    renderComposeMeta();
+  });
+  const details = h("details", { class: "toverride" }, h("summary", {}, "Texte différent pour ce réseau"), ta);
+  if (state.overrides[a.id]) details.open = true;
+  body.push(details);
+
+  return h("article", { class: "tcard", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head, ...body);
+}
+
+function paintCardStatus() {
+  document.querySelectorAll(".tcard").forEach((card) => {
+    const err = state.errors[card.dataset.id];
+    const s = card.querySelector(".tstatus");
+    s.className = `tstatus ${err ? "bad" : "ok"}`;
+    s.textContent = err ? err : "Prêt";
+    card.classList.toggle("has-error", !!err);
+  });
 }
 
 let validateTimer;
@@ -406,6 +567,8 @@ function scheduleValidation() {
 }
 
 function renderErrors(errors = {}) {
+  state.errors = errors;
+  paintCardStatus();
   const items = Object.entries(errors).map(([id, msg]) => {
     const a = state.accounts.find((x) => x.id === Number(id));
     return h("li", {}, a ? `${a.name} — ` : "", msg);
@@ -434,7 +597,7 @@ function renderMedia() {
     ),
     ...(state.uploading ? [h("div", { class: "media-item uploading" }, h("progress", { id: "upload-progress", max: 100 }), h("small", {}, "Envoi…"))] : []),
   );
-  scheduleValidation();
+  renderComposeMeta();
 }
 
 function moveMedia(i, d) {
@@ -486,6 +649,12 @@ function payload(action) {
     mediaIds: state.media.map((m) => m.id),
     accountIds: [...state.selected],
     overrides: state.overrides,
+    options: Object.fromEntries(
+      [...state.selected].map((id) => {
+        const { _manual, ...o } = state.targetOptions[id] ?? {};
+        return [id, o];
+      }),
+    ),
     scheduledAt: when ? new Date(when).getTime() : null,
   };
 }
@@ -511,10 +680,12 @@ function resetCompose() {
   state.editingId = null;
   state.selected = new Set();
   state.overrides = {};
+  state.targetOptions = {};
+  state.errors = {};
   state.media = [];
+  cardsKey = "";
   $("#text").value = "";
   $("#title").value = "";
-  $("#overrides").replaceChildren();
   $("#when").value = toLocalInput(Date.now() + 3600e3);
   $("#compose-title").textContent = "Nouveau post";
   renderPicker();
@@ -533,6 +704,7 @@ function editPost(p) {
     if (!state.accounts.some((a) => a.id === t.accountId)) continue;
     state.selected.add(t.accountId);
     if (t.textOverride) state.overrides[t.accountId] = t.textOverride;
+    if (t.options && Object.keys(t.options).length) state.targetOptions[t.accountId] = { ...t.options, _manual: !!t.options.media };
   }
   if (p.scheduledAt && p.scheduledAt > Date.now()) $("#when").value = toLocalInput(p.scheduledAt);
   renderPicker();

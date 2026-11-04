@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 `);
 
 // Migrations légères (colonnes ajoutées après la première version).
-for (const sql of ["ALTER TABLE posts ADD COLUMN source TEXT"]) {
+for (const sql of ["ALTER TABLE posts ADD COLUMN source TEXT", "ALTER TABLE post_targets ADD COLUMN options TEXT"]) {
   try {
     db.exec(sql);
   } catch {
