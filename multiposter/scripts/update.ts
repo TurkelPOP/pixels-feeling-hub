@@ -17,9 +17,12 @@ const VERSION_FILE = join(DATA, "version.json");
 const PROTECTED = [".env", "data/", "node_modules/"];
 /** Dossiers entièrement synchronisés : un fichier retiré du dépôt est supprimé ici aussi. */
 const SYNCED_DIRS = ["src/", "public/", "scripts/"];
-const UA = { "User-Agent": "multiposter-updater" };
+// Dépôt privé : renseigne GITHUB_TOKEN (jeton en lecture seule) dans .env.
+const UA: Record<string, string> = { "User-Agent": "multiposter-updater" };
+if (process.env.GITHUB_TOKEN) UA.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 
-const isProtected = (rel: string) => PROTECTED.some((p) => rel === p || rel.startsWith(p));
+// « data/ » protège tout le dossier ; « .env » protège ce seul fichier (pas .env.example).
+const isProtected = (rel: string) => PROTECTED.some((p) => (p.endsWith("/") ? rel.startsWith(p) : rel === p));
 
 /** Lecteur ZIP minimal (méthodes « stockée » et « deflate »), sans dépendance. */
 function unzip(buf: Buffer): Map<string, Buffer> {
@@ -73,6 +76,8 @@ async function main() {
   console.log(`\n=== Mise à jour de Multiposter ===\nSource : github.com/${REPO} (branche ${BRANCH})\n`);
 
   const res = await fetch(`https://api.github.com/repos/${REPO}/commits/${encodeURIComponent(BRANCH)}`, { headers: UA });
+  if (res.status === 404 || res.status === 401)
+    throw new Error("dépôt introuvable : s'il est privé, ajoute GITHUB_TOKEN (jeton GitHub en lecture seule) dans .env.");
   if (!res.ok) throw new Error(`GitHub ne répond pas (HTTP ${res.status}). Vérifie ta connexion Internet.`);
   const commit = (await res.json()) as { sha: string; commit: { message: string; committer: { date: string } } };
   const current = existsSync(VERSION_FILE) ? JSON.parse(readFileSync(VERSION_FILE, "utf8")) : null;
@@ -84,7 +89,10 @@ async function main() {
   console.log(`Nouvelle version du ${when} : ${commit.commit.message.split("\n")[0]}`);
 
   console.log("Téléchargement…");
-  const zipRes = await fetch(`https://codeload.github.com/${REPO}/zip/${commit.sha}`, { headers: UA });
+  const zipUrl = process.env.GITHUB_TOKEN
+    ? `https://api.github.com/repos/${REPO}/zipball/${commit.sha}`
+    : `https://codeload.github.com/${REPO}/zip/${commit.sha}`;
+  const zipRes = await fetch(zipUrl, { headers: UA });
   if (!zipRes.ok) throw new Error(`Téléchargement impossible (HTTP ${zipRes.status}).`);
   const entries = unzip(Buffer.from(await zipRes.arrayBuffer()));
 

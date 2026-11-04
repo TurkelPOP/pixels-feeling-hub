@@ -143,6 +143,7 @@ sur ces fichiers du dossier `multiposter` :
 | --- | --- |
 | **Demarrer Multiposter** | Au premier lancement, installe l'app et te demande un mot de passe. Ensuite, lance l'app et l'ouvre dans le navigateur. Si l'app tourne déjà, ouvre simplement le navigateur. |
 | **Arreter Multiposter** | Arrête l'app, y compris quand elle tourne en arrière-plan. |
+| **Mettre a jour Multiposter** | Télécharge la dernière version depuis GitHub et remplace les fichiers de l'app. `.env`, `data` et `node_modules` ne sont jamais touchés. Propose ensuite de relancer l'app. |
 
 **Démarrage automatique avec Windows** : désactivé par défaut. L'interrupteur « Lancer
 Multiposter au démarrage de Windows », en haut de l'onglet **Comptes**, l'active ou le désactive
