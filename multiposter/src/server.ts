@@ -254,7 +254,7 @@ function serializePost(p: Record<string, any>) {
 
 api.get("/posts", (c) => {
   const rows = db
-    .prepare("SELECT * FROM posts ORDER BY COALESCE(scheduled_at, updated_at) DESC LIMIT 300")
+    .prepare("SELECT * FROM posts ORDER BY COALESCE(scheduled_at, created_at) DESC LIMIT 1000")
     .all() as Record<string, any>[];
   return c.json(rows.map(serializePost));
 });

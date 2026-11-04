@@ -23,6 +23,7 @@ const state = {
   accounts: [],
   posts: [],
   filter: "upcoming",
+  search: "",
   mode: "list",
   month: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
   editingId: null,
@@ -500,35 +501,89 @@ function editPost(p) {
 let pollTimer;
 async function loadPosts() {
   state.posts = await api("/posts");
-  renderQueue();
+  updateDraftIndicators();
+  if (!$("#view-queue").hidden) renderQueue();
   clearTimeout(pollTimer);
   if (state.posts.some((p) => p.status === "publishing" || (p.status === "scheduled" && p.scheduledAt < Date.now() + 60e3))) {
     pollTimer = setTimeout(() => !$("#view-queue").hidden && loadPosts(), 5000);
   }
 }
 
+const norm = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const drafts = () => state.posts.filter((p) => p.status === "draft");
+
+/** Compteurs et rappel des brouillons pas encore programmés (dont ceux oubliés les jours précédents). */
+function updateDraftIndicators() {
+  const all = drafts();
+  const old = all.filter((p) => p.createdAt < startOfToday());
+  const badge = $("#draft-badge");
+  badge.hidden = !all.length;
+  badge.textContent = String(all.length);
+  badge.classList.toggle("warn", old.length > 0);
+  badge.title = old.length ? `${all.length} brouillon(s), dont ${old.length} des jours précédents` : `${all.length} brouillon(s)`;
+  $("#draft-count").textContent = all.length ? String(all.length) : "";
+  const banner = $("#draft-banner");
+  if (!old.length || state.filter === "draft") return banner.replaceChildren();
+  banner.replaceChildren(
+    h("div", { class: "banner" },
+      h("span", {}, `${old.length} brouillon${old.length > 1 ? "s" : ""} des jours précédents ${old.length > 1 ? "n'ont" : "n'a"} pas encore été programmé${old.length > 1 ? "s" : ""}.`),
+      h("button", { class: "btn ghost small", type: "button", onclick: () => { state.mode = "list"; state.filter = "draft"; renderQueue(); } }, "Les voir")),
+  );
+}
+
+function dayLabel(ms) {
+  const d = new Date(ms); d.setHours(0, 0, 0, 0);
+  const diff = Math.round((startOfToday() - d.getTime()) / 86400e3);
+  if (diff === 0) return "Aujourd'hui";
+  if (diff === 1) return "Hier";
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "full" }).format(ms);
+}
+
 function filtered() {
   const f = state.filter;
+  const q = norm(state.search);
   const ps = state.posts.filter((p) =>
+    (!q || norm(`${p.text} ${p.title} ${p.source ?? ""} ${p.targets.map((t) => t.name).join(" ")}`).includes(q)) && (
     f === "all" ? true
       : f === "upcoming" ? p.status === "scheduled" || p.status === "publishing"
       : f === "failed" ? p.status === "failed" || p.status === "partial"
-      : p.status === f,
+      : p.status === f),
   );
-  return f === "upcoming" ? ps.sort((a, b) => a.scheduledAt - b.scheduledAt) : ps;
+  if (f === "upcoming") return ps.sort((a, b) => a.scheduledAt - b.scheduledAt);
+  if (f === "draft") return ps.sort((a, b) => b.createdAt - a.createdAt);
+  return ps;
 }
 
 function renderQueue() {
+  let qTimer;
+  $("#queue-search").addEventListener("input", (e) => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => {
+      state.search = e.target.value.trim();
+      if (state.search && state.mode === "calendar") state.mode = "list";
+      if (state.search && state.filter === "upcoming") state.filter = "all";
+      renderQueue();
+    }, 200);
+  });
+
   document.querySelectorAll(".segmented .seg").forEach((b) => b.classList.toggle("active", b.dataset.mode === state.mode));
   $("#filters").hidden = state.mode === "calendar";
   if (state.mode === "calendar") return renderCalendar();
   document.querySelectorAll("#filters .chip").forEach((c) => c.classList.toggle("active", c.dataset.filter === state.filter));
+  updateDraftIndicators();
   const posts = filtered();
-  if (!posts.length) return $("#queue").replaceChildren(h("p", { class: "muted" }, "Rien ici pour l'instant."));
+  if (!posts.length) {
+    return $("#queue").replaceChildren(h("p", { class: "muted" },
+      state.search ? `Aucun post ne correspond à « ${state.search} ».` : state.filter === "draft" ? "Aucun brouillon en attente." : "Rien ici pour l'instant."));
+  }
 
   const groups = new Map();
   for (const p of posts) {
-    const key = p.scheduledAt ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "full" }).format(p.scheduledAt) : "Sans date";
+    // Les brouillons sont rangés par jour de création, pour retrouver ceux des jours passés.
+    const key = state.filter === "draft" || (!p.scheduledAt && p.status === "draft")
+      ? `Brouillons · ${dayLabel(p.createdAt)}`
+      : p.scheduledAt ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "full" }).format(p.scheduledAt) : "Sans date";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
   }
@@ -561,12 +616,13 @@ function renderCalendar() {
   const start = new Date(year, month, 1 - ((first.getDay() + 6) % 7)); // lundi de la 1re semaine
   const byDay = new Map();
   for (const p of state.posts) {
-    if (!p.scheduledAt) continue;
-    const k = dayKey(new Date(p.scheduledAt));
+    const when = p.scheduledAt ?? (p.status === "draft" ? p.createdAt : null);
+    if (!when) continue;
+    const k = dayKey(new Date(when));
     if (!byDay.has(k)) byDay.set(k, []);
     byDay.get(k).push(p);
   }
-  const drafts = state.posts.filter((p) => !p.scheduledAt && p.status === "draft").length;
+  const draftCount = drafts().length;
   const today = dayKey(new Date());
   const monthLabel = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(first);
   const move = (n) => {
@@ -578,7 +634,8 @@ function renderCalendar() {
   for (let i = 0; i < 42; i++) {
     const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
     if (i === 35 && d.getMonth() !== month) break; // 5 semaines suffisent
-    const posts = (byDay.get(dayKey(d)) ?? []).sort((a, b) => a.scheduledAt - b.scheduledAt);
+    const at = (p) => p.scheduledAt ?? p.createdAt;
+    const posts = (byDay.get(dayKey(d)) ?? []).sort((a, b) => at(a) - at(b));
     cells.push(
       h("div", { class: `cal-day ${d.getMonth() !== month ? "out" : ""} ${dayKey(d) === today ? "today" : ""}` },
         h("div", { class: "cal-day-head" },
@@ -586,7 +643,7 @@ function renderCalendar() {
           h("button", { class: "cal-add", type: "button", title: "Nouveau post ce jour-là", "aria-label": `Nouveau post le ${d.toLocaleDateString("fr-FR")}`, onclick: () => composeOn(d) }, "+")),
         ...posts.map((p) =>
           h("button", { class: `cal-post status-${p.status}`, type: "button", title: p.text.slice(0, 200), onclick: () => openFromCalendar(p) },
-            h("span", { class: "cal-time" }, fmtTime(p.scheduledAt)),
+            h("span", { class: "cal-time" }, p.scheduledAt ? fmtTime(p.scheduledAt) : "Brouillon"),
             h("span", { class: "cal-dots" }, ...[...new Set(p.targets.map((t) => t.provider))].map((pr) =>
               h("i", { style: `--c:${PROVIDER[pr]?.color ?? "#888"}`, title: PROVIDER[pr]?.label }))),
             h("span", { class: "cal-text" }, p.title || p.source || p.text.split("\n")[0] || "(sans texte)")),
@@ -601,7 +658,7 @@ function renderCalendar() {
       h("strong", { class: "cal-month" }, monthLabel),
       h("button", { class: "btn ghost small", type: "button", onclick: () => move(1), "aria-label": "Mois suivant" }, "→"),
       h("button", { class: "btn ghost small", type: "button", onclick: () => { const n = new Date(); state.month = new Date(n.getFullYear(), n.getMonth(), 1); renderCalendar(); } }, "Aujourd'hui"),
-      drafts ? h("button", { class: "chip", type: "button", onclick: () => { state.mode = "list"; state.filter = "draft"; renderQueue(); } }, `${drafts} brouillon${drafts > 1 ? "s" : ""} sans date`) : null,
+      draftCount ? h("button", { class: "chip", type: "button", onclick: () => { state.mode = "list"; state.filter = "draft"; renderQueue(); } }, `${draftCount} brouillon${draftCount > 1 ? "s" : ""} à programmer`) : null,
     ),
     h("div", { class: "cal-scroll" },
       h("div", { class: "cal" },
@@ -626,7 +683,9 @@ function postCard(p) {
     h(
       "header",
       {},
-      h("span", { class: "time" }, p.scheduledAt ? fmtTime(p.scheduledAt) : "—"),
+      p.status === "draft" && !p.scheduledAt
+        ? h("span", { class: `time draft-age ${p.createdAt < startOfToday() ? "old" : ""}` }, `Brouillon créé ${relTime(p.createdAt)}`)
+        : h("span", { class: "time" }, p.scheduledAt ? fmtTime(p.scheduledAt) : "—"),
       h("span", { class: `status ${p.status}` }, STATUS[p.status] ?? p.status),
     ),
     p.source ? h("span", { class: "source" }, p.source) : null,
@@ -653,7 +712,9 @@ function postCard(p) {
     h(
       "footer",
       {},
-      p.status === "draft" || p.status === "scheduled" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
+      p.status === "draft"
+        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, "Relire et programmer")
+        : p.status === "scheduled" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
       p.status === "failed" || p.status === "partial"
         ? h("button", { class: "btn primary small", onclick: () => act(() => api(`/posts/${p.id}/retry`, { method: "POST" }), "Nouvel essai lancé.") }, "Réessayer les échecs")
         : null,
@@ -836,6 +897,9 @@ async function init() {
 
   renderComposeMeta();
   route();
+  // Charge le planning tout de suite pour afficher le compteur de brouillons dans le menu.
+  loadPosts().catch(() => {});
+  setInterval(() => loadPosts().catch(() => {}), 5 * 60_000);
 }
 
 init().catch((e) => toast(e.message, "err"));

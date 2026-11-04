@@ -13,7 +13,7 @@
     <a class="brand" href="#compose"><img src="/assets/logo.png" alt="" width="32" height="32"><span>Multiposter</span></a>
     <nav>
       <a href="#compose" data-view="compose">Nouveau post</a>
-      <a href="#queue" data-view="queue">Planning</a>
+      <a href="#queue" data-view="queue">Planning <span class="nav-badge" id="draft-badge" hidden></span></a>
       <a href="#accounts" data-view="accounts">Comptes</a>
     </nav>
     <form method="post" action="/logout"><button class="btn ghost small" type="submit">Déconnexion</button></form>
@@ -87,11 +87,13 @@
       </div>
       <div class="filters" id="filters">
         <button class="chip active" data-filter="upcoming">À venir</button>
-        <button class="chip" data-filter="draft">Brouillons</button>
+        <button class="chip" data-filter="draft">Brouillons <span class="count" id="draft-count"></span></button>
         <button class="chip" data-filter="done">Publiés</button>
         <button class="chip" data-filter="failed">Échecs</button>
         <button class="chip" data-filter="all">Tout</button>
       </div>
+      <input id="queue-search" class="queue-search" type="search" placeholder="Rechercher un post (texte, NEWZ 1, Good News…)" aria-label="Rechercher un post">
+      <div id="draft-banner"></div>
       <div id="queue"></div>
     </section>
 
