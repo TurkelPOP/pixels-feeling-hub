@@ -2,9 +2,10 @@
 // que ta tâche planifiée met à jour, puis les exporter en JPG/PNG/MP4 dans la médiathèque.
 import { Hono } from "hono";
 
+import { alert, appLink } from "./alerts.ts";
 import { callbackUrl, config } from "./config.ts";
 import { pkcePair, randomId, seal, unseal } from "./crypto.ts";
-import { db } from "./db.ts";
+import { db, getAccount } from "./db.ts";
 import { form, json, postJson, request, sleep } from "./http.ts";
 import { saveUpload } from "./media.ts";
 
@@ -13,7 +14,14 @@ const SCOPES = "design:meta:read design:content:read profile:read";
 
 db.exec(`CREATE TABLE IF NOT EXISTS integrations (
   id TEXT PRIMARY KEY, name TEXT, access_token TEXT, refresh_token TEXT, expires_at INTEGER
-)`);
+);
+CREATE TABLE IF NOT EXISTS canva_rules (
+  id INTEGER PRIMARY KEY, pattern TEXT NOT NULL, account_ids TEXT NOT NULL DEFAULT '[]',
+  format TEXT NOT NULL DEFAULT 'jpg', text TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS canva_drafts (
+  design_id TEXT PRIMARY KEY, updated_at INTEGER NOT NULL, post_id INTEGER
+);`);
 
 export const canvaConfigured = () => !!(config.canva.clientId && config.canva.clientSecret);
 
@@ -196,3 +204,129 @@ canvaApi.post("/designs/:id/import", async (c) => {
     return c.json({ error: e instanceof Error ? e.message : "Import impossible" }, 502);
   }
 });
+
+// ---------- Brouillons automatiques ----------
+// Quand un design dont le titre contient le mot d'une règle (ex. « NEWZ ») vient d'être modifié,
+// par toi ou par ta tâche planifiée, l'app l'exporte et prépare un brouillon prêt à relire.
+
+const WATCH_MS = Number(process.env.CANVA_WATCH_MINUTES ?? 10) * 60_000;
+/** Délai sans modification avant de considérer un design comme terminé. */
+const STABLE_MS = Number(process.env.CANVA_STABLE_MINUTES ?? 10) * 60_000;
+
+interface Rule {
+  id: number;
+  pattern: string;
+  accountIds: number[];
+  format: Format;
+  text: string;
+  createdAt: number;
+}
+
+function listRules(): Rule[] {
+  return (db.prepare("SELECT * FROM canva_rules ORDER BY id").all() as Record<string, any>[]).map((r) => ({
+    id: r.id,
+    pattern: r.pattern,
+    accountIds: JSON.parse(r.account_ids),
+    format: r.format,
+    text: r.text,
+    createdAt: r.created_at,
+  }));
+}
+
+let watching = false;
+
+/** Vérifie les designs récents et crée ou met à jour les brouillons. Renvoie le nombre traité. */
+export async function checkCanvaRules(): Promise<number> {
+  if (watching || !stored()?.access) return 0;
+  const rules = listRules();
+  if (!rules.length) return 0;
+  watching = true;
+  let done = 0;
+  try {
+    const r = await canvaGet("/designs?sort_by=modified_descending&ownership=any");
+    const now = Date.now();
+    for (const d of r.items ?? []) {
+      const updated = (d.updated_at ?? 0) * 1000;
+      if (updated < now - 3 * 86_400_000) break; // liste triée : le reste est plus ancien
+      if (updated > now - STABLE_MS) continue; // encore en cours de modification
+      const title: string = d.title || "Sans titre";
+      // On ignore les designs modifiés plus de 6 h avant la création de la règle.
+      const rule = rules.find((x) => title.toLowerCase().includes(x.pattern.toLowerCase()) && updated > x.createdAt - 6 * 3_600_000);
+      if (!rule) continue;
+      const seen = db.prepare("SELECT updated_at, post_id FROM canva_drafts WHERE design_id = ?").get(d.id) as
+        | { updated_at: number; post_id: number | null }
+        | undefined;
+      if (seen && seen.updated_at >= updated) continue;
+
+      const horizontal = (d.thumbnail?.width ?? 0) > (d.thumbnail?.height ?? 0);
+      const media = await importDesign(d.id, rule.format, horizontal);
+      const mediaIds = JSON.stringify(media.map((m) => m.id));
+      const source = `Canva · ${title}`;
+      const existing = seen?.post_id
+        ? (db.prepare("SELECT id, status FROM posts WHERE id = ?").get(seen.post_id) as { id: number; status: string } | undefined)
+        : undefined;
+
+      let postId: number;
+      let verb: string;
+      if (existing && (existing.status === "draft" || existing.status === "scheduled")) {
+        // Le design a changé depuis : on remplace les pages du post pas encore publié
+        // (il garde son texte, ses comptes et son heure de programmation).
+        db.prepare("UPDATE posts SET media_ids = ?, updated_at = ? WHERE id = ?").run(mediaIds, now, existing.id);
+        postId = existing.id;
+        verb = "mis à jour";
+      } else {
+        const text = rule.text.replaceAll("{titre}", title);
+        postId = Number(
+          db
+            .prepare(
+              "INSERT INTO posts (text, title, media_ids, scheduled_at, status, source, created_at, updated_at) VALUES (?, '', ?, NULL, 'draft', ?, ?, ?)",
+            )
+            .run(text, mediaIds, source, now, now).lastInsertRowid,
+        );
+        const ins = db.prepare("INSERT INTO post_targets (post_id, account_id) VALUES (?, ?)");
+        for (const acc of rule.accountIds) if (getAccount(acc)) ins.run(postId, acc);
+        verb = "créé";
+      }
+      db.prepare(
+        "INSERT INTO canva_drafts (design_id, updated_at, post_id) VALUES (?, ?, ?) ON CONFLICT (design_id) DO UPDATE SET updated_at = excluded.updated_at, post_id = excluded.post_id",
+      ).run(d.id, updated, postId);
+      done++;
+      void alert(`📝 Brouillon ${verb} depuis Canva : « ${title} » (${media.length} fichier${media.length > 1 ? "s" : ""}). À relire et programmer : ${appLink("queue")}`);
+    }
+  } catch (e) {
+    console.error("[canva] vérification des règles :", e instanceof Error ? e.message : e);
+  } finally {
+    watching = false;
+  }
+  return done;
+}
+
+export function startCanvaWatcher() {
+  setInterval(() => void checkCanvaRules(), WATCH_MS).unref?.();
+  setTimeout(() => void checkCanvaRules(), 30_000).unref?.();
+}
+
+canvaApi.get("/rules", (c) => c.json(listRules()));
+
+canvaApi.post("/rules", async (c) => {
+  const b = await c.req.json<{ pattern?: string; accountIds?: number[]; format?: string; text?: string }>();
+  const pattern = (b.pattern ?? "").trim();
+  if (pattern.length < 2) return c.json({ error: "Indique un mot du titre (au moins 2 caractères)." }, 400);
+  const format = b.format && b.format in FORMATS ? b.format : "jpg";
+  const ids = (b.accountIds ?? []).map(Number).filter((id) => getAccount(id));
+  db.prepare("INSERT INTO canva_rules (pattern, account_ids, format, text, created_at) VALUES (?, ?, ?, ?, ?)").run(
+    pattern.slice(0, 100),
+    JSON.stringify(ids),
+    format,
+    (b.text ?? "").slice(0, 5000),
+    Date.now(),
+  );
+  return c.json({ ok: true });
+});
+
+canvaApi.delete("/rules/:id", (c) => {
+  db.prepare("DELETE FROM canva_rules WHERE id = ?").run(Number(c.req.param("id")));
+  return c.json({ ok: true });
+});
+
+canvaApi.post("/rules/run", async (c) => c.json({ count: await checkCanvaRules() }));

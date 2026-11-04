@@ -1,3 +1,4 @@
+import { alert, appLink } from "./alerts.ts";
 import { db, getAccount, updateTokens, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
 import { publishers } from "./providers/index.ts";
@@ -58,6 +59,9 @@ async function publishTarget(targetId: number): Promise<void> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[publish] cible ${targetId} :`, msg);
+    const acc = getAccount(t.account_id);
+    const excerpt = String(t.text_override ?? t.text).split("\n")[0].slice(0, 80);
+    void alert(`⚠️ Échec de publication${acc ? ` sur ${publishers[acc.provider].label} (${acc.name})` : ""}\n« ${excerpt} »\n${msg}\n${appLink("queue")}`);
     db.prepare("UPDATE post_targets SET status = 'failed', error = ? WHERE id = ?").run(msg.slice(0, 1000), targetId);
   } finally {
     rollupStatus(t.post_id);

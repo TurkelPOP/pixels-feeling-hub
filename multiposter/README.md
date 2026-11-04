@@ -7,7 +7,11 @@ Une app auto-hébergée pour écrire un post une fois, puis le programmer ou le 
   de chaque réseau est affiché en direct.
 - Images, carrousels et vidéos (jusqu'à 1 Go par défaut), envoyés en streaming.
 - Programmation à la minute près, avec des raccourcis (+1 h, demain 9 h, demain 18 h).
+- Planning en liste ou en **calendrier mensuel**. Un clic sur un jour crée un post à cette date.
 - Brouillons, modification, duplication, et « Réessayer les échecs » réseau par réseau.
+- Import direct depuis **Canva**, avec des **brouillons préparés automatiquement** quand ta tâche
+  planifiée met à jour tes designs.
+- **Alertes Discord / Slack / ntfy** en cas d'échec ou quand un brouillon Canva est prêt.
 - Chaque réseau est publié séparément : si X échoue, Instagram part quand même.
 - Les tokens sont chiffrés (AES-256-GCM) dans une base SQLite locale et renouvelés tout seuls.
 - Accès protégé par mot de passe, avec blocage de 15 min après 5 essais ratés.
@@ -42,6 +46,21 @@ Un clic exporte toutes les pages du design, dans l'ordre, et les ajoute aux méd
 - **MP4** pour un design vidéo (vertical 1080p, ou horizontal si le design est en paysage).
 
 La recherche filtre par titre, et « Ouvrir ↗ » ouvre le design dans Canva pour une retouche.
+
+### Brouillons automatiques
+
+Dans **Comptes → Canva**, crée une règle, par exemple : « titre contenant **NEWZ** → Instagram et
+Facebook, en JPG, avec le texte `📰 {titre} : les actus de la semaine` ».
+
+Toutes les 10 minutes, l'app regarde tes designs Canva modifiés récemment. Quand un design
+correspond à une règle et n'a plus bougé depuis 10 minutes (ta tâche planifiée a fini), l'app
+exporte ses pages et crée un **brouillon** avec les comptes de la règle. Tu reçois une alerte si
+elle est configurée. Tu n'as plus qu'à relire, ajuster le texte et programmer.
+
+Si le design est encore modifié avant la publication, les pages du post sont remplacées, et le
+post garde son texte, ses comptes et son heure. Une fois le post publié, la modification suivante
+du design crée un nouveau brouillon, pratique pour un carrousel refait chaque semaine.
+« Vérifier maintenant » lance la vérification sans attendre.
 
 Mise en place :
 
@@ -181,7 +200,14 @@ L'éditeur affiche les erreurs en direct dès que tu sélectionnes un compte.
   éviter de le publier deux fois. Il passe en « Échec » avec un message, et tu choisis de
   le réessayer ou non.
 - Un post programmé pendant que l'app était éteinte part dès qu'elle redémarre.
-- Sauvegarde : il suffit de copier le dossier `data/` (base SQLite et médias).
+- Sauvegarde : il suffit de copier le dossier `data/` (base SQLite et médias), en gardant le même
+  `APP_SECRET`, sinon les tokens ne peuvent plus être déchiffrés.
+- Nettoyage automatique, une fois par jour :
+  - les fichiers envoyés puis jamais utilisés sont supprimés au bout de 2 jours ;
+  - les médias des posts publiés sont supprimés après `MEDIA_RETENTION_DAYS` jours (90 par défaut) ;
+  - les brouillons et les posts programmés gardent toujours leurs médias.
+- Alertes : renseigne `ALERT_WEBHOOK_URL` avec un webhook Discord (gratuit) pour être prévenu
+  sur ton téléphone si une publication échoue.
 
 ## Développement
 
@@ -195,5 +221,6 @@ Organisation du code :
 - `src/server.ts` : routes HTTP, authentification, API JSON.
 - `src/scheduler.ts` : boucle de publication et statuts.
 - `src/providers/*.ts` : un fichier par réseau (OAuth et publication).
-- `src/canva.ts` : connexion à Canva, liste des designs et export.
+- `src/canva.ts` : connexion à Canva, liste des designs, export et brouillons automatiques.
+- `src/alerts.ts` : alertes par webhook. `src/cleanup.ts` : nettoyage des médias.
 - `public/` : l'interface (HTML, CSS, JS).

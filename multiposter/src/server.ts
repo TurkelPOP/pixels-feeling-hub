@@ -13,7 +13,8 @@ import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db.ts";
 import { getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
-import { canvaApi, canvaRoutes } from "./canva.ts";
+import { canvaApi, canvaRoutes, startCanvaWatcher } from "./canva.ts";
+import { startCleanup } from "./cleanup.ts";
 import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
 
 const app = new Hono();
@@ -224,6 +225,7 @@ function serializePost(p: Record<string, any>) {
     text: p.text,
     title: p.title,
     status: p.status,
+    source: p.source ?? null,
     scheduledAt: p.scheduled_at,
     createdAt: p.created_at,
     media: getMediaList(JSON.parse(p.media_ids)).map((m) => ({
@@ -386,6 +388,8 @@ app.route("/api", api);
 app.get("/", requireAuth, async (c) => c.html(await readFile(resolve(PUBLIC, "index.html"), "utf8")));
 
 startScheduler();
+startCanvaWatcher();
+startCleanup();
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`Multiposter prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
 });

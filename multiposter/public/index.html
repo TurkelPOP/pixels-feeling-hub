@@ -78,7 +78,13 @@
 
     <!-- Planning -->
     <section id="view-queue" class="view" hidden>
-      <h1>Planning</h1>
+      <div class="queue-head">
+        <h1>Planning</h1>
+        <div class="segmented" role="group" aria-label="Affichage">
+          <button class="seg active" data-mode="list" type="button">Liste</button>
+          <button class="seg" data-mode="calendar" type="button">Calendrier</button>
+        </div>
+      </div>
       <div class="filters" id="filters">
         <button class="chip active" data-filter="upcoming">À venir</button>
         <button class="chip" data-filter="draft">Brouillons</button>

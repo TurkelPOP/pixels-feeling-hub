@@ -20,6 +20,8 @@ export const config = {
   timezone: process.env.TZ_DISPLAY ?? "Europe/Paris",
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
 
+  /** Webhook Discord / Slack / ntfy pour les alertes (facultatif). */
+  alertWebhookUrl: opt("ALERT_WEBHOOK_URL"),
   canva: { clientId: opt("CANVA_CLIENT_ID"), clientSecret: opt("CANVA_CLIENT_SECRET") },
   meta: { appId: opt("META_APP_ID"), appSecret: opt("META_APP_SECRET") },
   threads: { appId: opt("THREADS_APP_ID"), appSecret: opt("THREADS_APP_SECRET") },

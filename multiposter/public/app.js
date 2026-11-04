@@ -23,6 +23,8 @@ const state = {
   accounts: [],
   posts: [],
   filter: "upcoming",
+  mode: "list",
+  month: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
   editingId: null,
   selected: new Set(),
   overrides: {},
@@ -139,15 +141,103 @@ function canvaCard() {
               },
             }, "Déconnecter"))
         : h("a", { class: "btn primary small", href: "/oauth/canva/start" }, "Connecter Canva"),
+    s?.connected ? rulesBox() : null,
   );
 }
 
 async function loadCanvaStatus() {
   try {
     state.canva.status = await api("/canva/status");
+    state.canva.rules = state.canva.status.connected ? await api("/canva/rules") : [];
   } catch {
     state.canva.status = { configured: false, connected: false };
+    state.canva.rules = [];
   }
+}
+
+const FORMAT_LABEL = { jpg: "JPG", png: "PNG", mp4: "MP4" };
+
+function rulesBox() {
+  const rules = state.canva.rules ?? [];
+  const picked = new Set();
+  const pattern = h("input", { id: "rule-pattern", placeholder: "Mot du titre, ex. NEWZ", maxlength: 100 });
+  const format = h("select", { id: "rule-format" },
+    h("option", { value: "jpg" }, "JPG"), h("option", { value: "png" }, "PNG"), h("option", { value: "mp4" }, "MP4"));
+  const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design" });
+  const chips = h("div", { class: "chips" },
+    ...state.accounts.map((a) => {
+      const chip = h("button", { type: "button", class: "chip account-chip small-chip", style: `--c:${PROVIDER[a.provider]?.color}` },
+        h("span", {}, PROVIDER[a.provider]?.label), h("small", {}, a.name));
+      chip.addEventListener("click", () => {
+        picked.has(a.id) ? picked.delete(a.id) : picked.add(a.id);
+        chip.classList.toggle("active", picked.has(a.id));
+      });
+      return chip;
+    }));
+  const reload = async () => {
+    await loadCanvaStatus();
+    renderAccounts();
+  };
+  return h(
+    "div",
+    { class: "rules" },
+    h("h3", {}, "Brouillons automatiques"),
+    h("p", { class: "muted small" },
+      "Quand un design dont le titre contient ce mot est modifié (par toi ou ta tâche planifiée), l'app l'exporte et prépare un brouillon. S'il est encore modifié avant publication, les pages du post sont remplacées."),
+    rules.length
+      ? h("ul", { class: "rule-list" },
+          ...rules.map((r) => {
+            const names = r.accountIds.map((id) => state.accounts.find((a) => a.id === id)).filter(Boolean)
+              .map((a) => PROVIDER[a.provider]?.label).join(", ");
+            return h("li", {},
+              h("span", {}, "Titre contenant ", h("strong", {}, `« ${r.pattern} »`), ` → ${names || "aucun compte"} · ${FORMAT_LABEL[r.format]}`),
+              h("button", {
+                class: "btn ghost small danger", type: "button",
+                onclick: async () => {
+                  if (!confirm(`Supprimer la règle « ${r.pattern} » ?`)) return;
+                  await api(`/canva/rules/${r.id}`, { method: "DELETE" });
+                  reload();
+                },
+              }, "Supprimer"));
+          }))
+      : h("p", { class: "muted small" }, "Aucune règle pour l'instant."),
+    h("div", { class: "rule-form" },
+      h("div", { class: "row" }, pattern, format),
+      chips,
+      text,
+      h("div", { class: "row" },
+        h("button", {
+          class: "btn primary small", type: "button",
+          onclick: async () => {
+            try {
+              await api("/canva/rules", { method: "POST", body: JSON.stringify({ pattern: pattern.value, format: format.value, text: text.value, accountIds: [...picked] }) });
+              toast("Règle ajoutée.");
+              reload();
+            } catch (e) {
+              toast(e.message, "err");
+            }
+          },
+        }, "Ajouter la règle"),
+        rules.length
+          ? h("button", {
+              class: "btn ghost small", type: "button",
+              onclick: async (e) => {
+                const b = e.currentTarget;
+                b.disabled = true;
+                b.textContent = "Vérification…";
+                try {
+                  const { count } = await api("/canva/rules/run", { method: "POST" });
+                  toast(count ? `${count} brouillon(s) préparé(s) depuis Canva.` : "Aucun nouveau design à préparer.");
+                } catch (err) {
+                  toast(err.message, "err");
+                } finally {
+                  b.disabled = false;
+                  b.textContent = "Vérifier maintenant";
+                }
+              },
+            }, "Vérifier maintenant")
+          : null)),
+  );
 }
 
 function renderAccounts() {
@@ -429,6 +519,9 @@ function filtered() {
 }
 
 function renderQueue() {
+  document.querySelectorAll(".segmented .seg").forEach((b) => b.classList.toggle("active", b.dataset.mode === state.mode));
+  $("#filters").hidden = state.mode === "calendar";
+  if (state.mode === "calendar") return renderCalendar();
   document.querySelectorAll("#filters .chip").forEach((c) => c.classList.toggle("active", c.dataset.filter === state.filter));
   const posts = filtered();
   if (!posts.length) return $("#queue").replaceChildren(h("p", { class: "muted" }, "Rien ici pour l'instant."));
@@ -444,6 +537,79 @@ function renderQueue() {
   );
 }
 
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+function composeOn(day) {
+  resetCompose();
+  const d = new Date(day);
+  d.setHours(18, 0, 0, 0);
+  $("#when").value = toLocalInput(d.getTime() > Date.now() ? d.getTime() : Date.now() + 3600e3);
+  location.hash = "#compose";
+}
+
+function openFromCalendar(p) {
+  if (p.status === "draft" || p.status === "scheduled") return editPost(p);
+  state.mode = "list";
+  state.filter = "all";
+  renderQueue();
+  requestAnimationFrame(() => document.getElementById(`post-${p.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+}
+
+function renderCalendar() {
+  const first = state.month;
+  const year = first.getFullYear(), month = first.getMonth();
+  const start = new Date(year, month, 1 - ((first.getDay() + 6) % 7)); // lundi de la 1re semaine
+  const byDay = new Map();
+  for (const p of state.posts) {
+    if (!p.scheduledAt) continue;
+    const k = dayKey(new Date(p.scheduledAt));
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(p);
+  }
+  const drafts = state.posts.filter((p) => !p.scheduledAt && p.status === "draft").length;
+  const today = dayKey(new Date());
+  const monthLabel = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(first);
+  const move = (n) => {
+    state.month = new Date(year, month + n, 1);
+    renderCalendar();
+  };
+
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    if (i === 35 && d.getMonth() !== month) break; // 5 semaines suffisent
+    const posts = (byDay.get(dayKey(d)) ?? []).sort((a, b) => a.scheduledAt - b.scheduledAt);
+    cells.push(
+      h("div", { class: `cal-day ${d.getMonth() !== month ? "out" : ""} ${dayKey(d) === today ? "today" : ""}` },
+        h("div", { class: "cal-day-head" },
+          h("span", { class: "cal-num" }, String(d.getDate())),
+          h("button", { class: "cal-add", type: "button", title: "Nouveau post ce jour-là", "aria-label": `Nouveau post le ${d.toLocaleDateString("fr-FR")}`, onclick: () => composeOn(d) }, "+")),
+        ...posts.map((p) =>
+          h("button", { class: `cal-post status-${p.status}`, type: "button", title: p.text.slice(0, 200), onclick: () => openFromCalendar(p) },
+            h("span", { class: "cal-time" }, fmtTime(p.scheduledAt)),
+            h("span", { class: "cal-dots" }, ...[...new Set(p.targets.map((t) => t.provider))].map((pr) =>
+              h("i", { style: `--c:${PROVIDER[pr]?.color ?? "#888"}`, title: PROVIDER[pr]?.label }))),
+            h("span", { class: "cal-text" }, p.title || p.source || p.text.split("\n")[0] || "(sans texte)")),
+        ),
+      ),
+    );
+  }
+
+  $("#queue").replaceChildren(
+    h("div", { class: "cal-bar" },
+      h("button", { class: "btn ghost small", type: "button", onclick: () => move(-1), "aria-label": "Mois précédent" }, "←"),
+      h("strong", { class: "cal-month" }, monthLabel),
+      h("button", { class: "btn ghost small", type: "button", onclick: () => move(1), "aria-label": "Mois suivant" }, "→"),
+      h("button", { class: "btn ghost small", type: "button", onclick: () => { const n = new Date(); state.month = new Date(n.getFullYear(), n.getMonth(), 1); renderCalendar(); } }, "Aujourd'hui"),
+      drafts ? h("button", { class: "chip", type: "button", onclick: () => { state.mode = "list"; state.filter = "draft"; renderQueue(); } }, `${drafts} brouillon${drafts > 1 ? "s" : ""} sans date`) : null,
+    ),
+    h("div", { class: "cal-scroll" },
+      h("div", { class: "cal" },
+        ...["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."].map((w) => h("div", { class: "cal-wd" }, w)),
+        ...cells)),
+  );
+}
+
 function postCard(p) {
   const act = async (fn, okMsg) => {
     try {
@@ -456,13 +622,14 @@ function postCard(p) {
   };
   return h(
     "article",
-    { class: `card post status-${p.status}` },
+    { class: `card post status-${p.status}`, id: `post-${p.id}` },
     h(
       "header",
       {},
       h("span", { class: "time" }, p.scheduledAt ? fmtTime(p.scheduledAt) : "—"),
       h("span", { class: `status ${p.status}` }, STATUS[p.status] ?? p.status),
     ),
+    p.source ? h("span", { class: "source" }, p.source) : null,
     p.title ? h("strong", {}, p.title) : null,
     h("p", { class: "post-text" }, p.text || h("em", { class: "muted" }, "(sans texte)")),
     p.media.length
@@ -652,6 +819,13 @@ async function init() {
     dz.classList.remove("over");
     addFiles([...e.dataTransfer.files]);
   });
+
+  document.querySelectorAll(".segmented .seg").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.mode = b.dataset.mode;
+      renderQueue();
+    }),
+  );
 
   document.querySelectorAll("#filters .chip").forEach((c) =>
     c.addEventListener("click", () => {

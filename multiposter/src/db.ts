@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 );
 `);
 
+// Migrations légères (colonnes ajoutées après la première version).
+for (const sql of ["ALTER TABLE posts ADD COLUMN source TEXT"]) {
+  try {
+    db.exec(sql);
+  } catch {
+    /* colonne déjà présente */
+  }
+}
+
 export type Provider = "youtube" | "tiktok" | "instagram" | "facebook" | "threads" | "x";
 
 export interface Account {
