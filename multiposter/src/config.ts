@@ -21,10 +21,6 @@ export const config = {
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
 
   canva: { clientId: opt("CANVA_CLIENT_ID"), clientSecret: opt("CANVA_CLIENT_SECRET") },
-  zernio: {
-    apiKey: opt("ZERNIO_API_KEY"),
-    baseUrl: (opt("ZERNIO_BASE_URL") ?? "https://zernio.com/api").replace(/\/+$/, ""),
-  },
   meta: { appId: opt("META_APP_ID"), appSecret: opt("META_APP_SECRET") },
   threads: { appId: opt("THREADS_APP_ID"), appSecret: opt("THREADS_APP_SECRET") },
   x: { clientId: opt("X_CLIENT_ID"), clientSecret: opt("X_CLIENT_SECRET") },

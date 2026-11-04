@@ -1,7 +1,6 @@
 import { db, getAccount, updateTokens, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
 import { publishers } from "./providers/index.ts";
-import { isZernio, publishViaZernio } from "./providers/zernio.ts";
 
 const TICK_MS = 20_000;
 let running = false;
@@ -50,13 +49,9 @@ async function publishTarget(targetId: number): Promise<void> {
     const pub = publishers[account.provider];
     const text = (t.text_override ?? t.text) as string;
     const media = getMediaList(JSON.parse(t.media_ids));
-    const viaZernio = isZernio(account);
-    const invalid = pub.validate({ text, media, viaZernio });
+    const invalid = pub.validate({ text, media });
     if (invalid) throw new Error(invalid);
-    const input = { text, title: t.title as string, media };
-    const result = viaZernio
-      ? await publishViaZernio({ ...input, account })
-      : await pub.publish({ ...input, account: await freshAccount(account) });
+    const result = await pub.publish({ account: await freshAccount(account), text, title: t.title, media });
     db.prepare(
       "UPDATE post_targets SET status = 'done', external_url = ?, error = NULL, published_at = ? WHERE id = ?",
     ).run(result.url ?? null, Date.now(), targetId);

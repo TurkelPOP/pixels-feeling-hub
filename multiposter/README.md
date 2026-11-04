@@ -15,30 +15,20 @@ Une app auto-hébergée pour écrire un post une fois, puis le programmer ou le 
 Stack : Node 22.18+ (TypeScript exécuté directement, SQLite intégré à Node), Hono, interface
 en HTML/JS sans build. Deux dépendances seulement.
 
-## Deux façons de connecter les réseaux
+## Ce que ça coûte
 
-| | **Via Zernio** (API unifiée, recommandé pour démarrer) | **En direct** |
+L'app n'utilise aucun prestataire : elle parle directement aux API officielles de chaque réseau.
+
+| Réseau | Coût de l'API | À savoir |
 | --- | --- | --- |
-| Mise en place | une clé API + connexion des comptes sur zernio.com | une app développeur par réseau |
-| TikTok / YouTube en public | oui, tout de suite | seulement après l'audit de TikTok / Google |
-| Serveur joignable en HTTPS | non | oui |
-| Coût | abonnement Zernio | gratuit (sauf l'API X) |
+| Facebook, Instagram, Threads | gratuit | L'app Meta reste en mode « Développement » pour ton usage perso, sans revue. |
+| YouTube | gratuit | Quota d'environ 6 vidéos par jour. Vidéos en privé tant que l'audit Google (gratuit) n'est pas validé. |
+| TikTok | gratuit | Vidéos en privé tant que l'audit TikTok (gratuit) n'est pas validé. |
+| Canva | gratuit | Intégration perso, sans validation. |
+| X | **payant à l'usage** | X n'a plus d'offre gratuite. Il faut acheter des crédits : environ 1,5 centime par post, et nettement plus si le post contient un lien. Vérifie les tarifs sur le portail développeur. |
 
-Les deux modes peuvent cohabiter, par exemple TikTok et YouTube via Zernio, Facebook,
-Instagram et Threads en direct. Chaque compte affiche « via Zernio » ou « direct ».
-
-### Via Zernio
-
-1. Crée un compte sur <https://zernio.com>. Late (getlate.dev) a été renommé Zernio.
-2. Connecte tes réseaux sur leur tableau de bord.
-3. Crée une clé API et mets-la dans `.env` : `ZERNIO_API_KEY=...`.
-4. Dans l'app, va dans **Comptes → Importer mes comptes Zernio**.
-
-Ton app garde la programmation, les brouillons et les relances. À l'heure prévue, elle envoie
-les médias à Zernio puis lui demande de publier tout de suite. Le statut de chaque réseau et le
-lien du post s'affichent comme d'habitude. Un média n'est envoyé qu'une fois, même s'il part sur
-6 réseaux. Les limites de chaque réseau sont vérifiées avant l'envoi. En passant par Zernio, les
-images PNG sont acceptées sur Instagram.
+Il te faut aussi un endroit où l'app tourne en continu : ton propre ordinateur ou NAS (gratuit,
+avec un tunnel Cloudflare gratuit pour le HTTPS), ou un petit VPS (quelques euros par mois).
 
 ## Importer depuis Canva
 
@@ -145,8 +135,8 @@ Le token dure 60 jours et l'app le renouvelle toute seule.
 1. Sur <https://developer.x.com>, crée un projet et une app, puis active **OAuth 2.0**
    (type *Web App, Automated App or Bot*). Coche *Read and write*.
 2. Déclare l'URL de retour `…/oauth/x/callback`.
-3. L'accès en écriture à l'API X est payant au-delà d'un petit quota mensuel : regarde les offres
-   actuelles sur le portail développeur.
+3. L'API X est payante à l'usage : il faut acheter des crédits sur le portail développeur
+   avant de pouvoir publier (environ 1,5 centime par post, plus cher avec un lien).
 4. Si tu as X Premium, mets `X_MAX_CHARS=25000`.
 
 ### YouTube

@@ -14,7 +14,6 @@ import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db
 import { getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { canvaApi, canvaRoutes } from "./canva.ts";
-import { syncZernioAccounts, zernioConfigured } from "./providers/zernio.ts";
 import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
 
 const app = new Hono();
@@ -177,7 +176,6 @@ api.use("*", requireAuth);
 api.get("/meta", (c) =>
   c.json({
     timezone: config.timezone,
-    zernio: zernioConfigured(),
     flows: Object.values(flows).map((f) => ({ id: f.id, label: f.label, providers: f.providers, configured: f.configured() })),
     publishers: Object.values(publishers).map((p) => ({ id: p.id, label: p.label, maxText: p.maxText })),
   }),
@@ -192,22 +190,9 @@ api.get("/accounts", (c) =>
       avatarUrl: a.avatarUrl,
       expiresAt: a.expiresAt,
       canRefresh: !!a.refreshToken || a.provider === "threads",
-      via: a.meta.via === "zernio" ? "zernio" : "direct",
-      needsReconnection: !!a.meta.needsReconnection,
     })),
   ),
 );
-
-api.post("/zernio/sync", async (c) => {
-  if (!zernioConfigured()) return c.json({ error: "ZERNIO_API_KEY manquante dans .env" }, 400);
-  try {
-    const accounts = await syncZernioAccounts();
-    accounts.forEach(upsertAccount);
-    return c.json({ count: accounts.length });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : "Synchronisation impossible" }, 502);
-  }
-});
 
 api.delete("/accounts/:id", (c) => {
   deleteAccount(Number(c.req.param("id")));
@@ -293,7 +278,7 @@ function validateBody(b: PostBody): Record<number, string> {
       continue;
     }
     const text = b.overrides?.[id] ?? b.text ?? "";
-    const err = publishers[acc.provider].validate({ text, media, viaZernio: acc.meta.via === "zernio" });
+    const err = publishers[acc.provider].validate({ text, media });
     if (err) errors[id] = err;
   }
   return errors;

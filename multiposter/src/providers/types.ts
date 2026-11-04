@@ -19,7 +19,7 @@ export interface Publisher {
   label: string;
   maxText: number;
   /** Renvoie un message d'erreur si le contenu ne convient pas à ce réseau. */
-  validate(input: { text: string; media: MediaFile[]; viaZernio?: boolean }): string | null;
+  validate(input: { text: string; media: MediaFile[] }): string | null;
   publish(input: PublishInput): Promise<PublishResult>;
   /** Renouvelle les tokens si nécessaire. */
   refresh?(account: Account): Promise<{ accessToken: string; refreshToken?: string | null; expiresAt: number | null }>;
