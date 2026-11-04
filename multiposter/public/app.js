@@ -108,7 +108,10 @@ function route() {
     history.replaceState(null, "", `#${view}`);
   }
   if (view === "queue") loadPosts();
-  if (view === "accounts") loadAccounts();
+  if (view === "accounts") {
+    loadAccounts();
+    renderSystem();
+  }
 }
 window.addEventListener("hashchange", route);
 
@@ -238,6 +241,46 @@ function rulesBox() {
               },
             }, "Vérifier maintenant")
           : null)),
+  );
+}
+
+async function renderSystem() {
+  let sys;
+  try {
+    sys = await api("/system");
+  } catch {
+    return;
+  }
+  if (!sys.autostart.supported) return $("#system").replaceChildren();
+  const input = h("input", { type: "checkbox", id: "autostart", role: "switch" });
+  input.checked = sys.autostart.enabled;
+  const status = h("span", { class: "muted small" });
+  const paint = () => {
+    status.textContent = input.checked
+      ? "Activé : l'app démarrera en arrière-plan à chaque ouverture de session Windows."
+      : "Désactivé : l'app ne tourne que quand tu la lances avec « Demarrer Multiposter ».";
+  };
+  paint();
+  input.addEventListener("change", async () => {
+    input.disabled = true;
+    try {
+      const r = await api("/system/autostart", { method: "PUT", body: JSON.stringify({ enabled: input.checked }) });
+      input.checked = r.autostart.enabled;
+      toast(input.checked ? "Démarrage automatique activé." : "Démarrage automatique désactivé.");
+    } catch (e) {
+      input.checked = !input.checked;
+      toast(e.message, "err");
+    } finally {
+      input.disabled = false;
+      paint();
+    }
+  });
+  $("#system").replaceChildren(
+    h("div", { class: "card system" },
+      h("label", { class: "switch-row", for: "autostart" },
+        h("span", { class: "switch" }, input, h("span", { class: "slider", "aria-hidden": "true" })),
+        h("strong", {}, "Lancer Multiposter au démarrage de Windows")),
+      status),
   );
 }
 

@@ -15,6 +15,7 @@ import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db
 import { getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { canvaApi, canvaRoutes, startCanvaWatcher } from "./canva.ts";
+import { autostartStatus, setAutostart } from "./autostart.ts";
 import { startCleanup } from "./cleanup.ts";
 import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
 
@@ -182,6 +183,17 @@ api.get("/meta", (c) =>
     publishers: Object.values(publishers).map((p) => ({ id: p.id, label: p.label, maxText: p.maxText })),
   }),
 );
+
+api.get("/system", (c) => c.json({ autostart: autostartStatus() }));
+
+api.put("/system/autostart", async (c) => {
+  const { enabled } = await c.req.json<{ enabled?: boolean }>();
+  try {
+    return c.json({ autostart: await setAutostart(!!enabled) });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "Réglage impossible" }, 400);
+  }
+});
 
 api.get("/accounts", (c) =>
   c.json(

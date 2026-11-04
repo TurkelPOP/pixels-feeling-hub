@@ -89,8 +89,12 @@ sur ces fichiers du dossier `multiposter` :
 | --- | --- |
 | **Demarrer Multiposter** | Au premier lancement, installe l'app et te demande un mot de passe. Ensuite, lance l'app et l'ouvre dans le navigateur. Si l'app tourne déjà, ouvre simplement le navigateur. |
 | **Arreter Multiposter** | Arrête l'app, y compris quand elle tourne en arrière-plan. |
-| **Lancement automatique - activer** | Démarre l'app en arrière-plan, sans fenêtre, à chaque ouverture de session Windows. Le journal est dans `data\multiposter.log`. |
-| **Lancement automatique - desactiver** | Retire ce démarrage automatique. |
+
+**Démarrage automatique avec Windows** : désactivé par défaut. L'interrupteur « Lancer
+Multiposter au démarrage de Windows », en haut de l'onglet **Comptes**, l'active ou le désactive
+en un clic. Une fois activé, l'app démarre en arrière-plan, sans fenêtre, à chaque ouverture de
+session, et son journal est dans `data\multiposter.log`. Désactiver ne coupe pas l'app en cours :
+utilise « Arreter Multiposter » pour ça.
 
 Pour que les posts partent à l'heure, le PC doit être allumé et ne pas se mettre en veille
 (Paramètres → Système → Alimentation → Mise en veille : « Jamais » sur secteur).
