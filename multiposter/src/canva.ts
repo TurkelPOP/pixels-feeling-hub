@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 
 import { alert, appLink } from "./alerts.ts";
-import { callbackUrl, config } from "./config.ts";
+import { accountsPage, callbackUrl, config } from "./config.ts";
 import { pkcePair, randomId, seal, unseal } from "./crypto.ts";
 import { db, getAccount } from "./db.ts";
 import { form, json, postJson, request, sleep } from "./http.ts";
@@ -137,7 +137,7 @@ canvaRoutes.get("/oauth/canva/callback", async (c) => {
   const row = db.prepare("DELETE FROM oauth_states WHERE state = ? AND provider = 'canva' RETURNING verifier").get(state ?? "") as
     | { verifier: string }
     | undefined;
-  const back = (msg: string, ok = false) => c.redirect(`/#accounts?${ok ? "ok" : "err"}=${encodeURIComponent(msg)}`);
+  const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
   if (!row) return back("Lien de connexion Canva expiré, recommence.");
   if (error || !code) return back(`Connexion Canva annulée : ${error_description ?? error ?? "pas de code"}`);
   try {

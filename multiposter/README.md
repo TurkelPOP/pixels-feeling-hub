@@ -51,10 +51,26 @@ Dès que tu coches un compte, une carte d'options apparaît sous les médias. El
 Les limites sont vérifiées avant l'envoi : un post qui ne respecte pas les règles d'un réseau est
 bloqué dans l'éditeur, avec le message correspondant.
 
-**Rendre uniquement les images accessibles en ligne (Instagram, Threads).** Mets dans `.env` :
-`MEDIA_PUBLIC_URL=https://…` (une adresse qui ne transmet que le chemin `/media` vers
-`http://127.0.0.1:3210/media`, par exemple avec Tailscale Funnel). L'interface de l'app reste
-alors accessible uniquement depuis ton PC.
+### App sur ton PC : n'ouvrir que /oauth et /media (Tailscale Funnel, gratuit)
+
+Facebook, Instagram, Threads, YouTube, TikTok et X renvoient la connexion vers une adresse HTTPS,
+et Instagram et Threads téléchargent eux-mêmes les images. On ouvre donc **uniquement** ces deux
+chemins, et l'interface reste sur `http://127.0.0.1:3210`.
+
+1. Installe Tailscale (<https://tailscale.com/download/windows>) et connecte-toi (offre gratuite, usage non commercial).
+2. Dans PowerShell :
+   ```
+   tailscale funnel --bg --set-path /oauth http://127.0.0.1:3210/oauth
+   tailscale funnel --bg --set-path /media http://127.0.0.1:3210/media
+   tailscale funnel status
+   ```
+   La première fois, Tailscale affiche un lien pour activer Funnel : ouvre-le, accepte, puis relance la commande.
+   `tailscale funnel status` affiche ton adresse, du type `https://ton-pc.tailXXXX.ts.net`.
+3. Dans `.env` : `PUBLIC_URL=https://ton-pc.tailXXXX.ts.net` (sans `/` à la fin), puis redémarre l'app.
+   L'interface reste sur `http://127.0.0.1:3210` (`APP_URL`), et Canva continue de revenir en local.
+4. Dans **Comptes → Accès pour Facebook, Instagram et Threads → Vérifier**, les deux lignes doivent être vertes.
+
+Pour tout refermer : `tailscale funnel reset`.
 
 ## Ce que ça coûte
 

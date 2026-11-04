@@ -19,6 +19,8 @@ export const config = {
   /** URL publique HTTPS de l'app (callbacks OAuth + médias lus par Meta). Sans slash final. */
   publicUrl: (opt("PUBLIC_URL") ?? `http://localhost:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
   /** Adresse publique des seuls médias (Instagram/Threads viennent les télécharger). Par défaut : PUBLIC_URL. */
+  /** Adresse de l'interface (toujours sur ce PC). */
+  appUrl: (opt("APP_URL") ?? `http://127.0.0.1:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
   mediaPublicUrl: (opt("MEDIA_PUBLIC_URL") ?? opt("PUBLIC_URL") ?? `http://localhost:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
   adminPassword: required("ADMIN_PASSWORD"),
   /** Clé de chiffrement des tokens et de signature des cookies (32+ caractères). */
@@ -42,4 +44,12 @@ if (config.appSecret.length < 32) throw new Error("APP_SECRET doit faire au moin
 export const mediaDir = resolve(config.dataDir, "media");
 mkdirSync(mediaDir, { recursive: true });
 
-export const callbackUrl = (provider: string) => `${config.publicUrl}/oauth/${provider}/callback`;
+/**
+ * Adresse de retour OAuth. Canva accepte http://127.0.0.1 : il reste en local. Les autres réseaux
+ * reviennent sur PUBLIC_URL (HTTPS), où seul le chemin /oauth a besoin d'être ouvert.
+ */
+export const callbackUrl = (provider: string) =>
+  `${provider === "canva" ? config.appUrl : config.publicUrl}/oauth/${provider}/callback`;
+
+/** Après une connexion, on revient toujours sur l'interface locale. */
+export const accountsPage = (msg: string, ok: boolean) => `${config.appUrl}/#accounts?${ok ? "ok" : "err"}=${encodeURIComponent(msg)}`;

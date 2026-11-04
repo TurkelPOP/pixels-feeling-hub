@@ -325,3 +325,8 @@ dialog.sheet::backdrop { background: rgba(8, 5, 14, 0.7); backdrop-filter: blur(
 .toverride summary { font-size: 0.85rem; }
 .toverride textarea { margin-top: 0.4rem; }
 .toverride { margin-top: 0; }
+
+.check-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; font-size: 0.9rem; }
+.check-list .ok { color: var(--ok); }
+.check-list .bad { color: var(--err); }
+.card.system p { margin: 0; overflow-wrap: anywhere; }

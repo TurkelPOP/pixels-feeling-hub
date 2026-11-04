@@ -9,7 +9,7 @@ import { serve } from "@hono/node-server";
 import { Hono, type Context, type Next } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 
-import { config, mediaDir } from "./config.ts";
+import { accountsPage, config, mediaDir } from "./config.ts";
 import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db.ts";
 import { getMediaList, saveUpload } from "./media.ts";
@@ -35,6 +35,7 @@ const allowedHosts = new Set(
     "127.0.0.1",
     "[::1]",
     new URL(config.publicUrl).hostname,
+    new URL(config.appUrl).hostname,
     new URL(config.mediaPublicUrl).hostname,
     ...(process.env.ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()),
   ].filter(Boolean),
@@ -97,9 +98,12 @@ async function requireAuth(c: Context, next: Next) {
 const failedLogins = new Map<string, { count: number; until: number }>();
 const sha = (s: string) => createHash("sha256").update(s).digest();
 
-// Le lanceur Windows ouvre /open : on renvoie vers l'adresse publique quand il y en a une,
-// pour que les connexions aux réseaux se fassent sur la bonne adresse.
-app.get("/open", (c) => c.redirect(`${config.publicUrl}/`));
+// Le lanceur Windows ouvre /open, qui mène à l'interface.
+app.get("/open", (c) => c.redirect(`${config.appUrl}/`));
+
+// Petits points de contrôle pour vérifier que /oauth et /media sont bien joignables depuis Internet.
+app.get("/oauth/ping", (c) => c.text("multiposter-ok"));
+app.get("/media/ping", (c) => c.text("multiposter-ok"));
 
 app.get("/login", async (c) => c.html(await readFile(resolve(PUBLIC, "login.html"), "utf8")));
 
@@ -218,7 +222,7 @@ app.get("/oauth/:flow/callback", async (c) => {
   const row = db.prepare("DELETE FROM oauth_states WHERE state = ? RETURNING provider, verifier").get(state ?? "") as
     | { provider: string; verifier: string | null }
     | undefined;
-  const back = (msg: string, ok = false) => c.redirect(`/#accounts?${ok ? "ok" : "err"}=${encodeURIComponent(msg)}`);
+  const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
   if (!flow || !row || row.provider !== flow.id) return back("Lien de connexion expiré, recommence.");
   if (error || !code) return back(`Connexion annulée : ${error_description ?? error ?? "pas de code"}`);
   try {
@@ -244,7 +248,23 @@ api.get("/meta", (c) =>
   }),
 );
 
-api.get("/system", (c) => c.json({ autostart: autostartStatus() }));
+api.get("/system", (c) => c.json({ autostart: autostartStatus(), publicUrl: config.publicUrl, mediaPublicUrl: config.mediaPublicUrl }));
+
+/** Vérifie depuis Internet que les réseaux pourront joindre /oauth et /media. */
+api.get("/system/public-check", async (c) => {
+  const probe = async (url: string) => {
+    if (/^http:\/\/(127\.0\.0\.1|localhost)/.test(url)) return { ok: false, reason: "adresse locale : à remplacer par l'adresse Tailscale" };
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      const t = await r.text();
+      return t.includes("multiposter-ok") ? { ok: true } : { ok: false, reason: `réponse inattendue (HTTP ${r.status})` };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : "injoignable" };
+    }
+  };
+  const [oauth, media] = await Promise.all([probe(`${config.publicUrl}/oauth/ping`), probe(`${config.mediaPublicUrl}/media/ping`)]);
+  return c.json({ oauth, media });
+});
 
 api.put("/system/autostart", async (c) => {
   const { enabled } = await c.req.json<{ enabled?: boolean }>();

@@ -248,6 +248,30 @@ function rulesBox() {
   );
 }
 
+function publicCard(sys) {
+  const out = h("ul", { class: "check-list" });
+  const run = async (btn) => {
+    btn.disabled = true;
+    btn.textContent = "Vérification…";
+    try {
+      const r = await api("/system/public-check");
+      const line = (label, x) => h("li", { class: x.ok ? "ok" : "bad" }, `${x.ok ? "✓" : "✗"} ${label}${x.ok ? " : joignable depuis Internet" : ` : ${x.reason}`}`);
+      out.replaceChildren(line("Retour de connexion des réseaux (/oauth)", r.oauth), line("Images pour Instagram et Threads (/media)", r.media));
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Vérifier";
+    }
+  };
+  return h("div", { class: "card system" },
+    h("strong", {}, "Accès pour Facebook, Instagram et Threads"),
+    h("p", { class: "muted small" },
+      `Ces réseaux doivent joindre deux chemins de l'app depuis Internet : le retour de connexion et les images. L'interface, elle, reste uniquement sur ce PC. Adresse publique actuelle : ${sys.publicUrl}`),
+    h("div", { class: "row" }, h("button", { class: "btn ghost small", type: "button", onclick: (e) => run(e.currentTarget) }, "Vérifier")),
+    out);
+}
+
 async function renderSystem() {
   let sys;
   try {
@@ -255,7 +279,8 @@ async function renderSystem() {
   } catch {
     return;
   }
-  if (!sys.autostart.supported) return $("#system").replaceChildren();
+  const cards = [publicCard(sys)];
+  if (!sys.autostart.supported) return $("#system").replaceChildren(...cards);
   const input = h("input", { type: "checkbox", id: "autostart", role: "switch" });
   input.checked = sys.autostart.enabled;
   const status = h("span", { class: "muted small" });
@@ -280,6 +305,7 @@ async function renderSystem() {
     }
   });
   $("#system").replaceChildren(
+    ...cards,
     h("div", { class: "card system" },
       h("label", { class: "switch-row", for: "autostart" },
         h("span", { class: "switch" }, input, h("span", { class: "slider", "aria-hidden": "true" })),
