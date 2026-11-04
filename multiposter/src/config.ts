@@ -1,5 +1,10 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
+
+// Charge le fichier .env du dossier de l'app (sans écraser les variables déjà définies,
+// par exemple celles passées par Docker).
+const envFile = resolve(import.meta.dirname, "../.env");
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 function required(name: string): string {
   const v = process.env[name]?.trim();
