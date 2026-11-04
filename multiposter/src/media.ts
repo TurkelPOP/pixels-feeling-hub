@@ -43,7 +43,7 @@ function toMedia(r: Record<string, any>): MediaFile {
     size: r.size,
     kind: ALLOWED[r.mime],
     path: mediaPath(r.id, r.mime),
-    publicUrl: `${config.publicUrl}/media/${r.id}.${ext(r.mime)}`,
+    publicUrl: `${config.mediaPublicUrl}/media/${r.id}.${ext(r.mime)}`,
   };
 }
 

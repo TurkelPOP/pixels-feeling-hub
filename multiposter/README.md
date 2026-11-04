@@ -19,6 +19,28 @@ Une app auto-hébergée pour écrire un post une fois, puis le programmer ou le 
 Stack : Node 22.18+ (TypeScript exécuté directement, SQLite intégré à Node), Hono, interface
 en HTML/JS sans build. Deux dépendances seulement.
 
+## Formats publiés
+
+Les carrousels NEWZ et Good News font 7 pages au format portrait 4:5 (1080 × 1350). Exportés en
+JPG depuis Canva, voici ce que chaque réseau en fait :
+
+| Réseau | Carrousel NEWZ (7 images JPG) | Texte | Ce qui doit être en ligne |
+| --- | --- | --- | --- |
+| Instagram | ✅ carrousel de 7 (10 max, JPEG obligatoire) | 2 200 caractères, 30 hashtags max | les images (Instagram les télécharge) |
+| Facebook | ✅ post avec 7 photos | sans limite pratique | rien : l'app envoie les fichiers directement |
+| Threads | ✅ carrousel de 7 (20 max) | **500 caractères** : la description de la tâche est prévue pour | les images (Threads les télécharge) |
+| X | ❌ 4 images maximum | 280 caractères | — |
+| TikTok | ❌ vidéo uniquement dans l'app | — | — |
+| YouTube | ❌ vidéo uniquement | — | — |
+
+Les limites sont vérifiées avant l'envoi : un post qui ne respecte pas les règles d'un réseau est
+bloqué dans l'éditeur, avec le message correspondant.
+
+**Rendre uniquement les images accessibles en ligne (Instagram, Threads).** Mets dans `.env` :
+`MEDIA_PUBLIC_URL=https://…` (une adresse qui ne transmet que le chemin `/media` vers
+`http://127.0.0.1:3210/media`, par exemple avec Tailscale Funnel). L'interface de l'app reste
+alors accessible uniquement depuis ton PC.
+
 ## Ce que ça coûte
 
 L'app n'utilise aucun prestataire : elle parle directement aux API officielles de chaque réseau.
@@ -49,8 +71,9 @@ La recherche filtre par titre, et « Ouvrir ↗ » ouvre le design dans Canva po
 
 ### Brouillons automatiques
 
-Dans **Comptes → Canva**, crée une règle, par exemple : « titre contenant **NEWZ** → Instagram et
-Facebook, en JPG, avec le texte `📰 {titre} : les actus de la semaine` ».
+Dans **Comptes → Canva**, crée une règle, par exemple : « titre commençant par **NEWZ** → Instagram,
+Facebook et Threads, en JPG ». « Commence par » prend NEWZ 1 à 4 et ignore les copies
+(« Copie de Good News » ne correspond pas à la règle « Good News »).
 
 Toutes les 10 minutes, l'app regarde tes designs Canva modifiés récemment. Quand un design
 correspond à une règle et n'a plus bougé depuis 10 minutes (ta tâche planifiée a fini), l'app

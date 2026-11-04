@@ -18,6 +18,8 @@ export const config = {
   port: Number(process.env.PORT ?? 3210),
   /** URL publique HTTPS de l'app (callbacks OAuth + médias lus par Meta). Sans slash final. */
   publicUrl: (opt("PUBLIC_URL") ?? `http://localhost:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
+  /** Adresse publique des seuls médias (Instagram/Threads viennent les télécharger). Par défaut : PUBLIC_URL. */
+  mediaPublicUrl: (opt("MEDIA_PUBLIC_URL") ?? opt("PUBLIC_URL") ?? `http://localhost:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
   adminPassword: required("ADMIN_PASSWORD"),
   /** Clé de chiffrement des tokens et de signature des cookies (32+ caractères). */
   appSecret: required("APP_SECRET"),

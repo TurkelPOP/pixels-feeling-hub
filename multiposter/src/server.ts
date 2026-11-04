@@ -34,6 +34,7 @@ const allowedHosts = new Set(
     "127.0.0.1",
     "[::1]",
     new URL(config.publicUrl).hostname,
+    new URL(config.mediaPublicUrl).hostname,
     ...(process.env.ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()),
   ].filter(Boolean),
 );

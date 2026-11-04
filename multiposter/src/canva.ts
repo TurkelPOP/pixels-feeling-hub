@@ -172,8 +172,9 @@ canvaApi.delete("/", (c) => {
 });
 
 canvaApi.get("/designs", async (c) => {
-  const q = new URLSearchParams({ sort_by: "modified_descending", ownership: "any" });
+  // Canva n'accepte que le tri par pertinence quand une recherche est faite.
   const query = c.req.query("query")?.trim();
+  const q = new URLSearchParams({ sort_by: query ? "relevance" : "modified_descending", ownership: "any" });
   if (query) q.set("query", query.slice(0, 255));
   const cont = c.req.query("continuation");
   if (cont) q.set("continuation", cont);
@@ -257,7 +258,8 @@ export async function checkCanvaRules(): Promise<number> {
       if (updated > now - STABLE_MS) continue; // encore en cours de modification
       const title: string = d.title || "Sans titre";
       // On ignore les designs modifiés plus de 6 h avant la création de la règle.
-      const rule = rules.find((x) => title.toLowerCase().includes(x.pattern.toLowerCase()) && updated > x.createdAt - 6 * 3_600_000);
+      // « Commence par » : « NEWZ » prend NEWZ 1 à 4, « Good News » ignore « Copie de Good News ».
+      const rule = rules.find((x) => title.trim().toLowerCase().startsWith(x.pattern.toLowerCase()) && updated > x.createdAt - 6 * 3_600_000);
       if (!rule) continue;
       // Un brouillon par design ET par jour : les designs NEWZ sont réécrits chaque matin avec
       // de nouveaux sujets, le brouillon de la veille garde donc ses propres pages.

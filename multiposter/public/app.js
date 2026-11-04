@@ -166,7 +166,7 @@ const FORMAT_LABEL = { jpg: "JPG", png: "PNG", mp4: "MP4" };
 function rulesBox() {
   const rules = state.canva.rules ?? [];
   const picked = new Set();
-  const pattern = h("input", { id: "rule-pattern", placeholder: "Mot du titre, ex. NEWZ", maxlength: 100 });
+  const pattern = h("input", { id: "rule-pattern", placeholder: "Début du titre, ex. NEWZ ou Good News", maxlength: 100 });
   const format = h("select", { id: "rule-format" },
     h("option", { value: "jpg" }, "JPG"), h("option", { value: "png" }, "PNG"), h("option", { value: "mp4" }, "MP4"));
   const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design, {date} = jour" });
@@ -189,14 +189,14 @@ function rulesBox() {
     { class: "rules" },
     h("h3", {}, "Brouillons automatiques"),
     h("p", { class: "muted small" },
-      "Quand un design dont le titre contient ce mot est modifié (par toi ou ta tâche planifiée), l'app l'exporte et prépare un brouillon. Un brouillon par design et par jour : celui de la veille garde ses images, même quand le design est réécrit le lendemain."),
+      "Quand un design dont le titre commence par ce mot est modifié (par toi ou ta tâche planifiée), l'app l'exporte et prépare un brouillon. Un brouillon par design et par jour : celui de la veille garde ses images, même quand le design est réécrit le lendemain."),
     rules.length
       ? h("ul", { class: "rule-list" },
           ...rules.map((r) => {
             const names = r.accountIds.map((id) => state.accounts.find((a) => a.id === id)).filter(Boolean)
               .map((a) => PROVIDER[a.provider]?.label).join(", ");
             return h("li", {},
-              h("span", {}, "Titre contenant ", h("strong", {}, `« ${r.pattern} »`), ` → ${names || "aucun compte"} · ${FORMAT_LABEL[r.format]}`),
+              h("span", {}, "Titre commençant par ", h("strong", {}, `« ${r.pattern} »`), ` → ${names || "aucun compte"} · ${FORMAT_LABEL[r.format]}`),
               h("button", {
                 class: "btn ghost small danger", type: "button",
                 onclick: async () => {

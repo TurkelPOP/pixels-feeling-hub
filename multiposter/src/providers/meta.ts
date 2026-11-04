@@ -1,4 +1,6 @@
 // Facebook Pages + Instagram professionnel, via la Graph API et Facebook Login.
+import { openAsBlob } from "node:fs";
+
 import { callbackUrl, config } from "../config.ts";
 import { form, json, waitFor } from "../http.ts";
 import type { MediaFile } from "../media.ts";
@@ -98,17 +100,22 @@ export const facebook: Publisher = {
     const page = account.externalId;
     const token = account.accessToken!;
     const vids = videos(media);
+    // Facebook accepte l'envoi direct du fichier : pas besoin que l'app soit joignable en ligne.
     if (vids.length) {
-      const r = await json(
-        `${G}/${page}/videos`,
-        form({ file_url: vids[0].publicUrl, description: text, access_token: token }),
-        10 * 60_000,
-      );
+      const fd = new FormData();
+      fd.append("description", text);
+      fd.append("access_token", token);
+      fd.append("source", await openAsBlob(vids[0].path, { type: vids[0].mime }), vids[0].filename);
+      const r = await json(`https://graph-video.facebook.com/${V}/${page}/videos`, { method: "POST", body: fd }, 30 * 60_000);
       return { url: `https://www.facebook.com/${page}/videos/${r.id}` };
     }
     const attached: string[] = [];
     for (const img of images(media)) {
-      const r = await json(`${G}/${page}/photos`, form({ url: img.publicUrl, published: "false", access_token: token }));
+      const fd = new FormData();
+      fd.append("published", "false");
+      fd.append("access_token", token);
+      fd.append("source", await openAsBlob(img.path, { type: img.mime }), img.filename);
+      const r = await json(`${G}/${page}/photos`, { method: "POST", body: fd }, 5 * 60_000);
       attached.push(r.id);
     }
     const body: Record<string, string> = { message: text, access_token: token };
