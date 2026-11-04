@@ -41,6 +41,8 @@ function h(tag, attrs = {}, ...children) {
   for (const [k, v] of Object.entries(attrs)) {
     if (v == null || v === false) continue;
     if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    // Liens : uniquement http(s) ou internes (jamais javascript:, même venant d'une API).
+    else if ((k === "href" || k === "src") && !/^(https?:|\/|#|data:image\/|blob:)/i.test(String(v))) continue;
     else if (k === "class") el.className = v;
     else if (k === "style") el.style.cssText = v;
     else el.setAttribute(k, v === true ? "" : v);

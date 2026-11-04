@@ -18,13 +18,6 @@
     <p class="error" id="err" hidden></p>
     <button class="btn primary" type="submit">Se connecter</button>
   </form>
-  <script>
-    const e = new URLSearchParams(location.search).get("e");
-    if (e) {
-      const el = document.getElementById("err");
-      el.hidden = false;
-      el.textContent = e === "wait" ? "Trop d'essais, réessaie dans 15 minutes." : "Mot de passe incorrect.";
-    }
-  </script>
+  <script src="/assets/login.js"></script>
 </body>
 </html>

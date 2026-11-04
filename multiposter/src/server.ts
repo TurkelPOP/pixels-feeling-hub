@@ -26,18 +26,58 @@ const SESSION_DAYS = 30;
 /** Cookie « Secure » sauf en accès local (http://127.0.0.1), où le navigateur le refuserait. */
 const isLocalRequest = (c: Context) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(c.req.header("host") ?? "");
 
+// Adresses par lesquelles l'app accepte d'être appelée. Bloque le « DNS rebinding » : un site
+// malveillant ouvert dans ton navigateur ne peut pas se faire passer pour 127.0.0.1.
+const allowedHosts = new Set(
+  [
+    "localhost",
+    "127.0.0.1",
+    "[::1]",
+    new URL(config.publicUrl).hostname,
+    ...(process.env.ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()),
+  ].filter(Boolean),
+);
+const hostOf = (c: Context) => (c.req.header("host") ?? "").toLowerCase().replace(/:\d+$/, "");
+
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+].join("; ");
+
 app.use("*", async (c, next) => {
+  if (!allowedHosts.has(hostOf(c))) return c.text("Adresse non autorisée", 421);
   await next();
   c.header("X-Content-Type-Options", "nosniff");
   c.header("Referrer-Policy", "no-referrer");
   c.header("X-Frame-Options", "DENY");
+  c.header("Cross-Origin-Opener-Policy", "same-origin");
+  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if ((c.res.headers.get("content-type") ?? "").startsWith("text/html")) c.header("Content-Security-Policy", CSP);
 });
 
 // ---------- Authentification (mot de passe unique) ----------
 
+// La session contient : expiration . « époque » . empreinte du mot de passe.
+// Changer le mot de passe, ou cliquer « Déconnecter tous les appareils » (époque +1),
+// invalide toutes les sessions existantes.
+const passwordFingerprint = createHash("sha256").update(`session:${config.adminPassword}:${config.appSecret}`).digest("hex").slice(0, 24);
+db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+const sessionEpoch = () =>
+  (db.prepare("SELECT value FROM settings WHERE key = 'session_epoch'").get() as { value: string } | undefined)?.value ?? "0";
+
 async function isLogged(c: Context): Promise<boolean> {
   const v = await getSignedCookie(c, config.appSecret, SESSION);
-  return !!v && Number(v) > Date.now();
+  if (!v) return false;
+  const [exp, epoch, fp] = v.split(".");
+  return Number(exp) > Date.now() && epoch === sessionEpoch() && fp === passwordFingerprint;
 }
 
 async function requireAuth(c: Context, next: Next) {
@@ -62,7 +102,8 @@ app.get("/open", (c) => c.redirect(`${config.publicUrl}/`));
 app.get("/login", async (c) => c.html(await readFile(resolve(PUBLIC, "login.html"), "utf8")));
 
 app.post("/login", async (c) => {
-  const ip = c.req.header("x-forwarded-for")?.split(",")[0].trim() ?? "local";
+  // X-Forwarded-For n'est pris en compte que derrière un proxy de confiance (TRUST_PROXY=1).
+  const ip = (process.env.TRUST_PROXY === "1" && c.req.header("x-forwarded-for")?.split(",")[0].trim()) || "local";
   const f = failedLogins.get(ip);
   if (f && f.until > Date.now()) return c.redirect("/login?e=wait");
   const body = await c.req.parseBody();
@@ -73,7 +114,8 @@ app.post("/login", async (c) => {
     return c.redirect("/login?e=1");
   }
   failedLogins.delete(ip);
-  await setSignedCookie(c, SESSION, String(Date.now() + SESSION_DAYS * 86_400_000), config.appSecret, {
+  const value = `${Date.now() + SESSION_DAYS * 86_400_000}.${sessionEpoch()}.${passwordFingerprint}`;
+  await setSignedCookie(c, SESSION, value, config.appSecret, {
     httpOnly: true,
     secure: !isLocalRequest(c),
     sameSite: "Lax",
@@ -84,6 +126,14 @@ app.post("/login", async (c) => {
 });
 
 app.post("/logout", (c) => {
+  deleteCookie(c, SESSION, { path: "/" });
+  return c.redirect("/login");
+});
+
+// Déconnecte toutes les sessions ouvertes (téléphone, autre navigateur…), y compris celle-ci.
+app.post("/logout-all", requireAuth, (c) => {
+  const next = String(Number(sessionEpoch()) + 1);
+  db.prepare("INSERT INTO settings (key, value) VALUES ('session_epoch', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(next);
   deleteCookie(c, SESSION, { path: "/" });
   return c.redirect("/login");
 });
@@ -411,7 +461,9 @@ app.get("/", requireAuth, async (c) => c.html(await readFile(resolve(PUBLIC, "in
 startScheduler();
 startCanvaWatcher();
 startCleanup();
-serve({ fetch: app.fetch, port: config.port }, (info) => {
+// Par défaut, l'app n'écoute que sur ce PC (127.0.0.1) : elle n'est pas visible depuis les
+// autres appareils du Wi-Fi. HOST=0.0.0.0 seulement pour Docker ou un serveur.
+serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {
   console.log(`Multiposter prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
   // Lanceur Windows / macOS : ouvre l'app dans le navigateur une fois prête.
   if (process.env.OPEN_BROWSER === "1") {

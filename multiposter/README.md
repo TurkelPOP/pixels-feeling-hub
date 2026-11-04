@@ -220,6 +220,24 @@ TikTok n'accepte ici que les vidéos, une par post.
 
 L'éditeur affiche les erreurs en direct dès que tu sélectionnes un compte.
 
+## Sécurité
+
+- **Accessible uniquement depuis ton PC.** L'app écoute sur `127.0.0.1` : les autres appareils du
+  Wi-Fi ne la voient pas. `HOST=0.0.0.0` est réservé à Docker ou à un serveur.
+- **Protection contre les sites malveillants.** Une page web ouverte dans ton navigateur ne peut ni
+  appeler l'app (adresses autorisées vérifiées, protection contre le « DNS rebinding ») ni
+  déclencher une action à ta place (protection CSRF sur l'API).
+- **Politique de sécurité du contenu (CSP)** stricte : aucun script extérieur ne peut s'exécuter dans
+  l'app, et l'app ne peut pas être affichée dans une autre page.
+- **Mot de passe** : comparaison en temps constant, et blocage de 15 min après 5 essais ratés.
+- **Sessions de 30 jours, révocables** : « Déconnecter tous les appareils » (onglet Comptes) les
+  ferme toutes. Changer `ADMIN_PASSWORD` dans `.env` les ferme aussi.
+- **Tokens des réseaux chiffrés** (AES-256-GCM) dans la base. La clé est dérivée de `APP_SECRET` :
+  le fichier `.env` est donc le fichier sensible. Ne le partage pas et ne le mets pas sur un
+  cloud public.
+- Les médias (`/media/...`) sont les seuls fichiers lisibles sans mot de passe, car les réseaux
+  doivent pouvoir les télécharger. Leurs noms aléatoires (144 bits) les rendent impossibles à deviner.
+
 ## Fiabilité
 
 - Si l'app redémarre pendant une publication, le post n'est **pas** relancé tout seul, pour
