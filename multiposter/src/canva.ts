@@ -19,9 +19,15 @@ CREATE TABLE IF NOT EXISTS canva_rules (
   id INTEGER PRIMARY KEY, pattern TEXT NOT NULL, account_ids TEXT NOT NULL DEFAULT '[]',
   format TEXT NOT NULL DEFAULT 'jpg', text TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL
 );
-CREATE TABLE IF NOT EXISTS canva_drafts (
-  design_id TEXT PRIMARY KEY, updated_at INTEGER NOT NULL, post_id INTEGER
+CREATE TABLE IF NOT EXISTS canva_daily_drafts (
+  design_id TEXT NOT NULL, day TEXT NOT NULL, updated_at INTEGER NOT NULL, post_id INTEGER,
+  PRIMARY KEY (design_id, day)
 );`);
+
+/** Jour (AAAA-MM-JJ) dans le fuseau de l'app, pour regrouper les modifications par jour. */
+const dayOf = (ms: number) => new Intl.DateTimeFormat("en-CA", { timeZone: config.timezone }).format(ms);
+const frDate = (ms: number) =>
+  new Intl.DateTimeFormat("fr-FR", { timeZone: config.timezone, day: "2-digit", month: "2-digit", year: "numeric" }).format(ms);
 
 export const canvaConfigured = () => !!(config.canva.clientId && config.canva.clientSecret);
 
@@ -253,7 +259,10 @@ export async function checkCanvaRules(): Promise<number> {
       // On ignore les designs modifiés plus de 6 h avant la création de la règle.
       const rule = rules.find((x) => title.toLowerCase().includes(x.pattern.toLowerCase()) && updated > x.createdAt - 6 * 3_600_000);
       if (!rule) continue;
-      const seen = db.prepare("SELECT updated_at, post_id FROM canva_drafts WHERE design_id = ?").get(d.id) as
+      // Un brouillon par design ET par jour : les designs NEWZ sont réécrits chaque matin avec
+      // de nouveaux sujets, le brouillon de la veille garde donc ses propres pages.
+      const day = dayOf(updated);
+      const seen = db.prepare("SELECT updated_at, post_id FROM canva_daily_drafts WHERE design_id = ? AND day = ?").get(d.id, day) as
         | { updated_at: number; post_id: number | null }
         | undefined;
       if (seen && seen.updated_at >= updated) continue;
@@ -261,7 +270,7 @@ export async function checkCanvaRules(): Promise<number> {
       const horizontal = (d.thumbnail?.width ?? 0) > (d.thumbnail?.height ?? 0);
       const media = await importDesign(d.id, rule.format, horizontal);
       const mediaIds = JSON.stringify(media.map((m) => m.id));
-      const source = `Canva · ${title}`;
+      const source = `Canva · ${title} · ${frDate(updated)}`;
       const existing = seen?.post_id
         ? (db.prepare("SELECT id, status FROM posts WHERE id = ?").get(seen.post_id) as { id: number; status: string } | undefined)
         : undefined;
@@ -269,13 +278,13 @@ export async function checkCanvaRules(): Promise<number> {
       let postId: number;
       let verb: string;
       if (existing && (existing.status === "draft" || existing.status === "scheduled")) {
-        // Le design a changé depuis : on remplace les pages du post pas encore publié
-        // (il garde son texte, ses comptes et son heure de programmation).
+        // Nouvelle modification le même jour (tâche relancée, retouche) : on remplace les pages
+        // du brouillon du jour, qui garde son texte, ses comptes et son heure de programmation.
         db.prepare("UPDATE posts SET media_ids = ?, updated_at = ? WHERE id = ?").run(mediaIds, now, existing.id);
         postId = existing.id;
         verb = "mis à jour";
       } else {
-        const text = rule.text.replaceAll("{titre}", title);
+        const text = rule.text.replaceAll("{titre}", title).replaceAll("{date}", frDate(updated));
         postId = Number(
           db
             .prepare(
@@ -288,10 +297,10 @@ export async function checkCanvaRules(): Promise<number> {
         verb = "créé";
       }
       db.prepare(
-        "INSERT INTO canva_drafts (design_id, updated_at, post_id) VALUES (?, ?, ?) ON CONFLICT (design_id) DO UPDATE SET updated_at = excluded.updated_at, post_id = excluded.post_id",
-      ).run(d.id, updated, postId);
+        "INSERT INTO canva_daily_drafts (design_id, day, updated_at, post_id) VALUES (?, ?, ?, ?) ON CONFLICT (design_id, day) DO UPDATE SET updated_at = excluded.updated_at, post_id = excluded.post_id",
+      ).run(d.id, day, updated, postId);
       done++;
-      void alert(`📝 Brouillon ${verb} depuis Canva : « ${title} » (${media.length} fichier${media.length > 1 ? "s" : ""}). À relire et programmer : ${appLink("queue")}`);
+      void alert(`📝 Brouillon ${verb} depuis Canva : « ${title} » du ${frDate(updated)} (${media.length} fichier${media.length > 1 ? "s" : ""}). À relire et programmer : ${appLink("queue")}`);
     }
   } catch (e) {
     console.error("[canva] vérification des règles :", e instanceof Error ? e.message : e);

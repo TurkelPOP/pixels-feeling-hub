@@ -57,9 +57,16 @@ correspond à une règle et n'a plus bougé depuis 10 minutes (ta tâche planifi
 exporte ses pages et crée un **brouillon** avec les comptes de la règle. Tu reçois une alerte si
 elle est configurée. Tu n'as plus qu'à relire, ajuster le texte et programmer.
 
-Si le design est encore modifié avant la publication, les pages du post sont remplacées, et le
-post garde son texte, ses comptes et son heure. Une fois le post publié, la modification suivante
-du design crée un nouveau brouillon, pratique pour un carrousel refait chaque semaine.
+L'app crée **un brouillon par design et par jour**, ce qui convient aux NEWZ réécrits chaque
+matin par la tâche planifiée : le brouillon NEWZ 1 du lundi garde les images du lundi, même quand
+le design est réécrit le mardi avec un autre sujet. Si le design est modifié de nouveau le même
+jour (tâche relancée, retouche), les pages du brouillon du jour sont remplacées. Le brouillon
+garde alors son texte, ses comptes et son heure de programmation. Dans le texte de départ,
+`{titre}` est remplacé par le titre du design et `{date}` par le jour.
+
+L'app doit tourner au moins une fois entre la fin de la tâche (vers 9 h 15) et la tâche du
+lendemain : Canva ne garde que la dernière version d'un design, donc une version écrasée avant
+d'avoir été récupérée ne peut plus être exportée.
 « Vérifier maintenant » lance la vérification sans attendre.
 
 Mise en place :

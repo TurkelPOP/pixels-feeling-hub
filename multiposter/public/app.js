@@ -163,7 +163,7 @@ function rulesBox() {
   const pattern = h("input", { id: "rule-pattern", placeholder: "Mot du titre, ex. NEWZ", maxlength: 100 });
   const format = h("select", { id: "rule-format" },
     h("option", { value: "jpg" }, "JPG"), h("option", { value: "png" }, "PNG"), h("option", { value: "mp4" }, "MP4"));
-  const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design" });
+  const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design, {date} = jour" });
   const chips = h("div", { class: "chips" },
     ...state.accounts.map((a) => {
       const chip = h("button", { type: "button", class: "chip account-chip small-chip", style: `--c:${PROVIDER[a.provider]?.color}` },
@@ -183,7 +183,7 @@ function rulesBox() {
     { class: "rules" },
     h("h3", {}, "Brouillons automatiques"),
     h("p", { class: "muted small" },
-      "Quand un design dont le titre contient ce mot est modifié (par toi ou ta tâche planifiée), l'app l'exporte et prépare un brouillon. S'il est encore modifié avant publication, les pages du post sont remplacées."),
+      "Quand un design dont le titre contient ce mot est modifié (par toi ou ta tâche planifiée), l'app l'exporte et prépare un brouillon. Un brouillon par design et par jour : celui de la veille garde ses images, même quand le design est réécrit le lendemain."),
     rules.length
       ? h("ul", { class: "rule-list" },
           ...rules.map((r) => {
