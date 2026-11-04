@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -392,4 +393,13 @@ startCanvaWatcher();
 startCleanup();
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`Multiposter prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
+  // Lanceur Windows / macOS : ouvre l'app dans le navigateur une fois prête.
+  if (process.env.OPEN_BROWSER === "1") {
+    const url = `http://127.0.0.1:${info.port}`;
+    const [cmd, args] =
+      process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+    const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+    child.on("error", () => console.log(`Ouvre ${url} dans ton navigateur.`));
+    child.unref();
+  }
 });

@@ -80,6 +80,21 @@ Mise en place :
 4. Mets l'ID client et le secret dans `.env` (`CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`), redémarre,
    puis va dans **Comptes → Connecter Canva**.
 
+## Sur Windows : sans ligne de commande
+
+Après avoir installé Node.js (version LTS sur <https://nodejs.org>), tout se fait en double-cliquant
+sur ces fichiers du dossier `multiposter` :
+
+| Fichier | Ce qu'il fait |
+| --- | --- |
+| **Demarrer Multiposter** | Au premier lancement, installe l'app et te demande un mot de passe. Ensuite, lance l'app et l'ouvre dans le navigateur. Si l'app tourne déjà, ouvre simplement le navigateur. |
+| **Arreter Multiposter** | Arrête l'app, y compris quand elle tourne en arrière-plan. |
+| **Lancement automatique - activer** | Démarre l'app en arrière-plan, sans fenêtre, à chaque ouverture de session Windows. Le journal est dans `data\multiposter.log`. |
+| **Lancement automatique - desactiver** | Retire ce démarrage automatique. |
+
+Pour que les posts partent à l'heure, le PC doit être allumé et ne pas se mettre en veille
+(Paramètres → Système → Alimentation → Mise en veille : « Jamais » sur secteur).
+
 ## Démarrage rapide
 
 ```bash
