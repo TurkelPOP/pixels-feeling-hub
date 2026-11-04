@@ -15,7 +15,7 @@ rem Deja lance (par exemple au demarrage de Windows) : on ouvre juste le navigat
 curl.exe -s -o nul http://127.0.0.1:3210/login
 if not errorlevel 1 (
   echo Multiposter tourne deja. Ouverture dans le navigateur...
-  start "" http://127.0.0.1:3210
+  start "" http://127.0.0.1:3210/open
   timeout /t 3 >nul
   exit /b 0
 )

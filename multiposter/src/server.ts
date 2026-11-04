@@ -23,7 +23,8 @@ const app = new Hono();
 const PUBLIC = resolve(import.meta.dirname, "../public");
 const SESSION = "mp_session";
 const SESSION_DAYS = 30;
-const secure = config.publicUrl.startsWith("https://");
+/** Cookie « Secure » sauf en accès local (http://127.0.0.1), où le navigateur le refuserait. */
+const isLocalRequest = (c: Context) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(c.req.header("host") ?? "");
 
 app.use("*", async (c, next) => {
   await next();
@@ -54,6 +55,10 @@ async function requireAuth(c: Context, next: Next) {
 const failedLogins = new Map<string, { count: number; until: number }>();
 const sha = (s: string) => createHash("sha256").update(s).digest();
 
+// Le lanceur Windows ouvre /open : on renvoie vers l'adresse publique quand il y en a une,
+// pour que les connexions aux réseaux se fassent sur la bonne adresse.
+app.get("/open", (c) => c.redirect(`${config.publicUrl}/`));
+
 app.get("/login", async (c) => c.html(await readFile(resolve(PUBLIC, "login.html"), "utf8")));
 
 app.post("/login", async (c) => {
@@ -70,7 +75,7 @@ app.post("/login", async (c) => {
   failedLogins.delete(ip);
   await setSignedCookie(c, SESSION, String(Date.now() + SESSION_DAYS * 86_400_000), config.appSecret, {
     httpOnly: true,
-    secure,
+    secure: !isLocalRequest(c),
     sameSite: "Lax",
     path: "/",
     maxAge: SESSION_DAYS * 86_400,
@@ -134,7 +139,7 @@ app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png)}", (c) => sendFile(c, resol
 
 // ---------- OAuth ----------
 
-app.use("/oauth/canva/*", requireAuth);
+app.use("/oauth/canva/start", requireAuth);
 app.route("/", canvaRoutes);
 
 app.get("/oauth/:flow/start", requireAuth, (c) => {
@@ -151,7 +156,10 @@ app.get("/oauth/:flow/start", requireAuth, (c) => {
   return c.redirect(flow.authorizeUrl(state, challenge));
 });
 
-app.get("/oauth/:flow/callback", requireAuth, async (c) => {
+// Pas de requireAuth ici : le retour arrive sur l'adresse publique, qui peut ne pas avoir la
+// session (connexion faite depuis http://127.0.0.1). Le « state » à usage unique, créé par une
+// session connectée, suffit à authentifier le retour.
+app.get("/oauth/:flow/callback", async (c) => {
   const flow = flows[c.req.param("flow") ?? ""] as (typeof flows)[string] | undefined;
   const { state, code, error, error_description } = c.req.query();
   db.prepare("DELETE FROM oauth_states WHERE created_at < ?").run(Date.now() - 15 * 60_000);
@@ -407,7 +415,7 @@ serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`Multiposter prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
   // Lanceur Windows / macOS : ouvre l'app dans le navigateur une fois prête.
   if (process.env.OPEN_BROWSER === "1") {
-    const url = `http://127.0.0.1:${info.port}`;
+    const url = `http://127.0.0.1:${info.port}/open`;
     const [cmd, args] =
       process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
     const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
