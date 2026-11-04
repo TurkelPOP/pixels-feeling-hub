@@ -40,6 +40,30 @@ lien du post s'affichent comme d'habitude. Un média n'est envoyé qu'une fois, 
 6 réseaux. Les limites de chaque réseau sont vérifiées avant l'envoi. En passant par Zernio, les
 images PNG sont acceptées sur Instagram.
 
+## Importer depuis Canva
+
+Le bouton **Importer depuis Canva** dans l'éditeur affiche tes designs, du plus récemment
+modifié au plus ancien. Ceux que ta tâche planifiée vient de mettre à jour (NEWZ, Good News…)
+sont donc en haut, avec un badge « Modifié récemment » s'ils ont changé dans les dernières 24 h.
+Un clic exporte toutes les pages du design, dans l'ordre, et les ajoute aux médias du post. Choisis :
+
+- **JPG** pour les images et les carrousels (le format qu'Instagram accepte en direct) ;
+- **PNG** si tu veux une qualité sans perte ;
+- **MP4** pour un design vidéo (vertical 1080p, ou horizontal si le design est en paysage).
+
+La recherche filtre par titre, et « Ouvrir ↗ » ouvre le design dans Canva pour une retouche.
+
+Mise en place :
+
+1. Sur <https://www.canva.com/developers/integrations>, crée une intégration Connect API.
+   Pour ton usage perso, elle n'a pas besoin d'être validée par Canva.
+2. Coche les scopes `design:meta:read`, `design:content:read` et `profile:read`.
+3. Ajoute l'URL de retour `https://<PUBLIC_URL>/oauth/canva/callback`. En local, Canva refuse
+   `localhost` : utilise `http://127.0.0.1:3210/oauth/canva/callback` et mets
+   `PUBLIC_URL=http://127.0.0.1:3210`.
+4. Mets l'ID client et le secret dans `.env` (`CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`), redémarre,
+   puis va dans **Comptes → Connecter Canva**.
+
 ## Démarrage rapide
 
 ```bash
@@ -181,4 +205,5 @@ Organisation du code :
 - `src/server.ts` : routes HTTP, authentification, API JSON.
 - `src/scheduler.ts` : boucle de publication et statuts.
 - `src/providers/*.ts` : un fichier par réseau (OAuth et publication).
+- `src/canva.ts` : connexion à Canva, liste des designs et export.
 - `public/` : l'interface (HTML, CSS, JS).

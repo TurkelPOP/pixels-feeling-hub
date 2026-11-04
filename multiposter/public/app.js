@@ -28,6 +28,7 @@ const state = {
   overrides: {},
   media: [],
   uploading: 0,
+  canva: { status: null, items: [], continuation: null, query: "" },
 };
 
 // ---------- utilitaires ----------
@@ -148,9 +149,43 @@ function zernioCard() {
   );
 }
 
+function canvaCard() {
+  const s = state.canva.status;
+  return h(
+    "div",
+    { class: "card flow canva" },
+    h("div", {}, h("strong", {}, "Canva"),
+      h("p", { class: "muted small" }, "Récupère tes derniers designs (NEWZ, Good News…) directement dans un post, exportés au bon format.")),
+    !s?.configured
+      ? h("p", { class: "muted small" }, "Non configuré : ajoute CANVA_CLIENT_ID et CANVA_CLIENT_SECRET dans .env (voir README).")
+      : s.connected
+        ? h("div", { class: "row" },
+            h("span", { class: "via" }, `Connecté : ${s.name ?? "Canva"}`),
+            h("button", {
+              class: "btn ghost small danger",
+              onclick: async () => {
+                if (!confirm("Déconnecter Canva ?")) return;
+                await api("/canva", { method: "DELETE" });
+                await loadCanvaStatus();
+                renderAccounts();
+              },
+            }, "Déconnecter"))
+        : h("a", { class: "btn primary small", href: "/oauth/canva/start" }, "Connecter Canva"),
+  );
+}
+
+async function loadCanvaStatus() {
+  try {
+    state.canva.status = await api("/canva/status");
+  } catch {
+    state.canva.status = { configured: false, connected: false };
+  }
+}
+
 function renderAccounts() {
   $("#flows").replaceChildren(
     zernioCard(),
+    canvaCard(),
     ...state.meta.flows.map((f) =>
       h(
         "div",
@@ -508,11 +543,109 @@ function postCard(p) {
   );
 }
 
+// ---------- Canva ----------
+
+const relTime = (ms) => {
+  const min = Math.round((Date.now() - ms) / 60e3);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const hrs = Math.round(min / 60);
+  if (hrs < 24) return `il y a ${hrs} h`;
+  const days = Math.round(hrs / 24);
+  return days === 1 ? "hier" : `il y a ${days} j`;
+};
+
+async function openCanva() {
+  if (!state.canva.status) await loadCanvaStatus();
+  const s = state.canva.status;
+  if (!s.connected) {
+    toast(s.configured ? "Connecte d'abord Canva dans l'onglet Comptes." : "Canva n'est pas configuré (voir README).", "err");
+    location.hash = "#accounts";
+    return;
+  }
+  $("#canva-dialog").showModal();
+  if (!state.canva.items.length) loadDesigns();
+}
+
+async function loadDesigns(more = false) {
+  const list = $("#canva-list");
+  if (!more) list.replaceChildren(h("p", { class: "muted" }, "Chargement de tes designs…"));
+  try {
+    const q = new URLSearchParams();
+    if (state.canva.query) q.set("query", state.canva.query);
+    if (more && state.canva.continuation) q.set("continuation", state.canva.continuation);
+    const r = await api(`/canva/designs?${q}`);
+    state.canva.items = more ? [...state.canva.items, ...r.items] : r.items;
+    state.canva.continuation = r.continuation;
+    renderDesigns();
+  } catch (e) {
+    list.replaceChildren(h("p", { class: "error" }, e.message));
+  }
+}
+
+function renderDesigns() {
+  const items = state.canva.items;
+  $("#canva-more").hidden = !state.canva.continuation;
+  if (!items.length) return $("#canva-list").replaceChildren(h("p", { class: "muted" }, "Aucun design trouvé."));
+  $("#canva-list").replaceChildren(
+    ...items.map((d) => {
+      const fresh = Date.now() - d.updatedAt < 24 * 3600e3;
+      const btn = h("button", { class: "btn primary small", type: "button" }, "Importer");
+      btn.addEventListener("click", () => importDesign(d, btn));
+      return h(
+        "article",
+        { class: "design" },
+        h("div", { class: "design-thumb" },
+          d.thumbnail ? h("img", { src: d.thumbnail, alt: "", loading: "lazy", referrerpolicy: "no-referrer" }) : null,
+          fresh ? h("span", { class: "fresh" }, "Modifié récemment") : null),
+        h("div", { class: "design-body" },
+          h("strong", { title: d.title }, d.title),
+          h("small", { class: "muted" }, `${relTime(d.updatedAt)}${d.pageCount ? ` · ${d.pageCount} page${d.pageCount > 1 ? "s" : ""}` : ""}`),
+          h("div", { class: "row" }, btn,
+            d.editUrl ? h("a", { class: "btn ghost small", href: d.editUrl, target: "_blank", rel: "noopener" }, "Ouvrir ↗") : null)),
+      );
+    }),
+  );
+}
+
+async function importDesign(d, btn) {
+  btn.disabled = true;
+  btn.textContent = "Export en cours…";
+  try {
+    const { media } = await api(`/canva/designs/${encodeURIComponent(d.id)}/import`, {
+      method: "POST",
+      body: JSON.stringify({ format: $("#canva-format").value, horizontal: !!d.horizontal }),
+    });
+    state.media.push(...media);
+    renderMedia();
+    toast(`« ${d.title} » ajouté (${media.length} fichier${media.length > 1 ? "s" : ""}).`);
+    $("#canva-dialog").close();
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Importer";
+  }
+}
+
 // ---------- démarrage ----------
 
 async function init() {
   state.meta = await api("/meta");
+  await loadCanvaStatus();
   await loadAccounts();
+
+  $("#btn-canva").onclick = openCanva;
+  $("#canva-close").onclick = () => $("#canva-dialog").close();
+  $("#canva-more").onclick = () => loadDesigns(true);
+  let searchTimer;
+  $("#canva-search").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.canva.query = e.target.value.trim();
+      loadDesigns();
+    }, 350);
+  });
 
   $("#text").addEventListener("input", renderComposeMeta);
   $("#title").addEventListener("input", scheduleValidation);

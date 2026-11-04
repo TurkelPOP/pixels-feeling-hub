@@ -13,6 +13,7 @@ import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db.ts";
 import { getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
+import { canvaApi, canvaRoutes } from "./canva.ts";
 import { syncZernioAccounts, zernioConfigured } from "./providers/zernio.ts";
 import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
 
@@ -130,6 +131,9 @@ app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", (c) =>
 app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png)}", (c) => sendFile(c, resolve(PUBLIC, c.req.param("file"))));
 
 // ---------- OAuth ----------
+
+app.use("/oauth/canva/*", requireAuth);
+app.route("/", canvaRoutes);
 
 app.get("/oauth/:flow/start", requireAuth, (c) => {
   const flow = flows[c.req.param("flow") ?? ""] as (typeof flows)[string] | undefined;
@@ -391,6 +395,7 @@ api.post("/posts/:id/duplicate", (c) => {
   return c.json({ id: newId });
 });
 
+api.route("/canva", canvaApi);
 app.route("/api", api);
 
 app.get("/", requireAuth, async (c) => c.html(await readFile(resolve(PUBLIC, "index.html"), "utf8")));

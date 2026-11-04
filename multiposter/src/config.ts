@@ -20,6 +20,7 @@ export const config = {
   timezone: process.env.TZ_DISPLAY ?? "Europe/Paris",
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
 
+  canva: { clientId: opt("CANVA_CLIENT_ID"), clientSecret: opt("CANVA_CLIENT_SECRET") },
   zernio: {
     apiKey: opt("ZERNIO_API_KEY"),
     baseUrl: (opt("ZERNIO_BASE_URL") ?? "https://zernio.com/api").replace(/\/+$/, ""),
