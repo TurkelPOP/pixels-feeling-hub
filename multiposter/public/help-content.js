@@ -142,6 +142,13 @@
     gdrive: {
       title: "Google Drive",
       user: `
+<h3>Le plus simple : coller un lien (rien à connecter)</h3>
+<ol class="steps">
+  <li>Dans Google Drive (appli ou site), sur le fichier : <strong>⋮</strong> → <strong>Partager</strong> → accès général « <strong>Tous les utilisateurs disposant du lien</strong> », puis <strong>Copier le lien</strong>.</li>
+  <li>Dans PTZ Posting, <strong>Nouveau post</strong> → <strong>« Importer depuis Google Drive »</strong> → colle le lien → <strong>Importer</strong>.</li>
+</ol>
+<p class="tip">Sur téléphone, « Choisir dans ma galerie » donne aussi accès à Google Drive : sur Android dans le menu du sélecteur, sur iPhone via « Choisir un fichier » → Google Drive (appli Drive installée).</p>
+<h3>Pour parcourir tes dossiers : connecter ton Drive</h3>
 <ol class="steps">
   <li>Onglet <strong>Comptes</strong>, carte <strong>Google Drive</strong> : clique sur <strong>« Connecter Google Drive »</strong>.</li>
   <li>Choisis le <strong>compte Google</strong> qui contient tes photos et vidéos.</li>

@@ -297,7 +297,7 @@ function driveCard() {
     !s?.configured
       ? (owner
           ? h("p", { class: "muted small" }, "Drive utilise les mêmes clés Google que YouTube : active d'abord la carte YouTube (Google), puis suis le tuto ci-dessous.")
-          : h("p", { class: "muted small" }, "Pas encore activé : le propriétaire de l'app doit l'activer une fois, ensuite tu pourras connecter ton Drive ici."))
+          : h("p", { class: "muted small" }, "Tu peux déjà importer un fichier en collant son lien de partage : Nouveau post → « Importer depuis Google Drive ». Pour parcourir tes dossiers sans lien, le propriétaire doit d'abord activer Drive."))
       : s.connected
         ? h("div", { class: "row connected-row" },
             h("div", { class: "connected-chip" },
@@ -332,15 +332,49 @@ function driveCard() {
 async function openDrive() {
   if (!state.drive.status) await loadDriveStatus();
   const s = state.drive.status;
-  if (!s.connected) {
-    toast(s.configured ? "Connecte d'abord Google Drive dans l'onglet Comptes." : "Google Drive n'est pas encore activé.", "err");
-    location.hash = "#accounts";
-    return;
-  }
   state.drive.picked.clear();
   updateDriveImport();
+  // Drive non connecté : on importe par lien de partage, sans aucun réglage.
+  for (const x of document.querySelectorAll('[data-drive="recent"], [data-drive="folders"]')) x.hidden = !s.connected;
+  $("#drive-connect-tip").hidden = s.connected || !s.configured;
+  setDriveMode(s.connected ? state.drive.mode : "link");
   $("#drive-dialog").showModal();
-  loadDrive();
+}
+
+function setDriveMode(mode) {
+  const d = state.drive;
+  d.mode = mode;
+  d.path = [];
+  for (const x of document.querySelectorAll("[data-drive]")) x.classList.toggle("active", x.dataset.drive === mode);
+  const link = mode === "link";
+  $("#drive-link").hidden = !link;
+  for (const id of ["#drive-search", "#drive-list", "#drive-path"]) $(id).hidden = link;
+  $(".drive-foot").hidden = link;
+  $(".drive-foot").classList.toggle("off", link);
+  $("[data-drive]").closest(".segmented").hidden = !d.status?.connected;
+  if (link) setTimeout(() => $("#drive-url").focus(), 50);
+  else loadDrive();
+}
+
+async function importDriveLink() {
+  const input = $("#drive-url"), btn = $("#drive-url-go");
+  const url = input.value.trim();
+  if (!url) return input.focus();
+  btn.disabled = true;
+  btn.textContent = "Téléchargement…";
+  try {
+    const { media } = await api("/gdrive/link", { method: "POST", body: JSON.stringify({ url }) });
+    state.media.push(...media);
+    renderMedia();
+    toast(`« ${media[0].filename} » ajouté depuis Google Drive.`);
+    input.value = "";
+    $("#drive-dialog").close();
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Importer";
+  }
 }
 
 const driveFolder = () => state.drive.path.at(-1)?.id ?? (state.drive.mode === "folders" ? "root" : null);
@@ -1845,13 +1879,10 @@ async function init() {
   $("#drive-close").onclick = () => $("#drive-dialog").close();
   $("#drive-more").onclick = () => loadDrive(true);
   $("#drive-import").onclick = importDrive;
-  for (const b of document.querySelectorAll("[data-drive]"))
-    b.addEventListener("click", () => {
-      state.drive.mode = b.dataset.drive;
-      state.drive.path = [];
-      for (const x of document.querySelectorAll("[data-drive]")) x.classList.toggle("active", x === b);
-      loadDrive();
-    });
+  for (const b of document.querySelectorAll("[data-drive]")) b.addEventListener("click", () => setDriveMode(b.dataset.drive));
+  $("#drive-url-go").onclick = importDriveLink;
+  $("#drive-url").addEventListener("keydown", (e) => e.key === "Enter" && importDriveLink());
+  $("#drive-connect-link").addEventListener("click", () => $("#drive-dialog").close());
   let driveTimer;
   $("#drive-search").addEventListener("input", (e) => {
     clearTimeout(driveTimer);

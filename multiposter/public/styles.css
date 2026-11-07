@@ -799,3 +799,12 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .drive-owner p { margin: 0; }
 .drive-error { grid-column: 1 / -1; display: grid; gap: 0.6rem; }
 .drive-error p { margin: 0; }
+
+.drive-link { display: grid; gap: 0.6rem; padding: 1rem 1.1rem 1.2rem; }
+.drive-link label { margin: 0; }
+.drive-link .row { flex-wrap: nowrap; }
+.drive-link input { flex: 1 1 auto; min-width: 0; }
+.drive-link p { margin: 0; }
+.drive-link .tip { padding: 0.55rem 0.75rem; border-radius: 10px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(129, 167, 248, 0.35); }
+@media (pointer: fine) { #drive-phone-tip { display: none; } }
+@media (max-width: 640px) { dialog#drive-dialog:has(#drive-link:not([hidden])) { height: auto; max-height: 100dvh; } }

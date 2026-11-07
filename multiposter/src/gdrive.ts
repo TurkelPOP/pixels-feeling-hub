@@ -16,6 +16,7 @@ const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 // Adresses modifiables pour les tests uniquement.
 const DRIVE = (process.env.GDRIVE_API_URL ?? "https://www.googleapis.com/drive/v3").replace(/\/+$/, "");
 const TOKEN_URL = process.env.GOOGLE_TOKEN_URL ?? "https://oauth2.googleapis.com/token";
+const PUBLIC_DL = (process.env.GDRIVE_PUBLIC_URL ?? "https://drive.usercontent.google.com").replace(/\/+$/, "");
 /** Formats acceptés par l'app (les mêmes que pour un envoi depuis le téléphone). */
 const ACCEPTED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/webm"]);
 
@@ -219,4 +220,61 @@ driveApi.post("/import", async (c) => {
     }
   }
   return c.json({ media, errors }, media.length || !errors.length ? 200 : 502);
+});
+
+// ---------- Import par lien de partage (aucune connexion, aucun réglage) ----------
+
+/** Identifiant du fichier dans un lien Google Drive (file/d/ID, open?id=ID, uc?id=ID…). */
+export function driveIdFromLink(link: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(link.trim());
+  } catch {
+    return null;
+  }
+  if (!/(^|\.)(drive|docs)\.google\.com$|^drive\.usercontent\.google\.com$/.test(u.hostname)) return null;
+  const id = u.pathname.match(/\/(?:file\/d|d)\/([A-Za-z0-9_-]{10,200})/)?.[1] ?? u.searchParams.get("id");
+  return id && ID_RE.test(id) ? id : null;
+}
+
+const extMime: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
+  mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
+};
+
+/**
+ * Importe un fichier partagé « Tous les utilisateurs disposant du lien ». Le serveur le télécharge
+ * directement chez Google (adresse fixe : pas de téléchargement vers un autre site).
+ */
+driveApi.post("/link", async (c) => {
+  const { url } = await c.req.json<{ url?: string }>().catch(() => ({ url: "" }));
+  const id = driveIdFromLink(String(url ?? ""));
+  if (!id) return c.json({ error: "Ce n'est pas un lien de fichier Google Drive. Dans Drive : ⋮ → Partager → Copier le lien." }, 400);
+  try {
+    const res = await request(`${PUBLIC_DL}/download?${new URLSearchParams({ id, export: "download", confirm: "t" })}`, { redirect: "follow" }, 30 * 60_000);
+    const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+    if (type.startsWith("text/html")) {
+      await res.body?.cancel();
+      return c.json({ error: "Fichier non accessible : dans Drive, partage-le en « Tous les utilisateurs disposant du lien » (Lecteur), puis recopie le lien." }, 400);
+    }
+    const cd = res.headers.get("content-disposition") ?? "";
+    const name = decodeURIComponent(cd.match(/filename\*=UTF-8''([^;]+)/i)?.[1] ?? cd.match(/filename="?([^";]+)"?/i)?.[1] ?? `drive-${id}`);
+    const mime = ACCEPTED.has(type) ? type : (extMime[name.split(".").pop()?.toLowerCase() ?? ""] ?? type);
+    if (!ACCEPTED.has(mime)) {
+      await res.body?.cancel();
+      return c.json({ error: `Format non pris en charge (${name}). Formats acceptés : JPG, PNG, WebP, GIF, MP4, MOV, WebM.` }, 400);
+    }
+    const len = Number(res.headers.get("content-length") ?? 0);
+    if (len > config.maxUploadBytes) {
+      await res.body?.cancel();
+      return c.json({ error: "Fichier trop volumineux." }, 400);
+    }
+    const m = await saveUpload(res.body!, name, mime, uidOf(c));
+    return c.json({ media: [{ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: m.localUrl }] });
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    if (status === 401 || status === 403 || status === 404)
+      return c.json({ error: "Fichier introuvable ou privé : dans Drive, partage-le en « Tous les utilisateurs disposant du lien » (Lecteur), puis recopie le lien." }, 400);
+    return c.json({ error: e instanceof Error ? e.message : "Téléchargement impossible" }, 502);
+  }
 });

@@ -142,8 +142,19 @@
       <div class="segmented" role="group" aria-label="Affichage">
         <button class="seg active" data-drive="recent" type="button">Récents</button>
         <button class="seg" data-drive="folders" type="button">Dossiers</button>
+        <button class="seg" data-drive="link" type="button">🔗 Lien</button>
       </div>
       <input id="drive-search" type="search" placeholder="Rechercher par nom…" aria-label="Rechercher dans le Drive">
+    </div>
+    <div id="drive-link" class="drive-link" hidden>
+      <label for="drive-url">Colle le lien de partage d'une image ou d'une vidéo Google Drive</label>
+      <div class="row">
+        <input id="drive-url" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" autocomplete="off">
+        <button class="btn primary" id="drive-url-go" type="button">Importer</button>
+      </div>
+      <p class="muted small">Dans Google Drive : <strong>⋮</strong> sur le fichier → <strong>Partager</strong> → accès « <strong>Tous les utilisateurs disposant du lien</strong> » → <strong>Copier le lien</strong>. Le serveur récupère le fichier directement chez Google, sans passer par ton téléphone.</p>
+      <p class="tip small" id="drive-phone-tip">Sur téléphone, tu peux aussi toucher « Choisir dans ma galerie » : le sélecteur du téléphone donne accès à Google Drive (Android : menu du sélecteur ; iPhone : « Choisir un fichier » → Google Drive).</p>
+      <p class="small" id="drive-connect-tip" hidden>Pour parcourir tes dossiers sans partager de lien : <a href="#accounts" id="drive-connect-link">connecte ton Google Drive</a> (onglet Comptes).</p>
     </div>
     <nav id="drive-path" class="drive-path" aria-label="Dossier"></nav>
     <div id="drive-list" class="canva-grid drive-grid"></div>
