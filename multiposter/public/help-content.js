@@ -286,14 +286,20 @@ ${networks[id].owner}`,
     },
     {
       id: "photo",
-      title: "Prendre une photo ou une vidéo",
+      title: "Photos et vidéos (téléphone, galerie, webcam)",
       html: `
 <ul>
-  <li>Boutons <strong>📷 Prendre une photo</strong> et <strong>🎥 Filmer une vidéo</strong> sous la zone des médias.</li>
-  <li><strong>Sur téléphone</strong> : l'appareil photo s'ouvre directement.</li>
-  <li><strong>Sur ordinateur</strong> : la webcam s'ouvre dans l'app. Le navigateur demande l'autorisation la première fois : réponds <strong>Autoriser</strong>. Si tu as refusé par erreur, clique sur l'icône à gauche de l'adresse du site pour changer.</li>
-  <li>Avec certains navigateurs (Firefox, par exemple), la vidéo est enregistrée en WebM : acceptée par YouTube, TikTok et Facebook, pas par Instagram, Threads ni X. Avec Chrome, Edge ou Safari, c'est du MP4, accepté partout.</li>
-</ul>`,
+  <li><strong>Photos et vidéos déjà sur ton téléphone</strong> : touche <strong>« Choisir dans ma galerie »</strong>. Tu peux en sélectionner plusieurs d'un coup (carrousel).</li>
+  <li><strong>En prendre une maintenant</strong> : <strong>📷 Prendre une photo</strong> ou <strong>🎥 Filmer une vidéo</strong> ouvrent directement l'appareil photo du téléphone. Une fois validée, elle s'ajoute au post.</li>
+  <li>Sur téléphone, l'ordre des médias se change avec les flèches ← → sous chaque vignette, et ✕ en retire un.</li>
+  <li><strong>Webcam</strong> : le navigateur demande l'autorisation la première fois : réponds <strong>Autoriser</strong>. Si tu as refusé par erreur, clique sur l'icône à gauche de l'adresse du site pour changer.</li>
+  <li><strong>Sur ordinateur</strong>, les mêmes boutons ouvrent la webcam dans l'app.</li>
+  <li>Avec certains navigateurs d'ordinateur (Firefox, par exemple), la vidéo est enregistrée en WebM : acceptée par YouTube, TikTok et Facebook, pas par Instagram, Threads ni X. Avec Chrome, Edge ou Safari, c'est du MP4, accepté partout.</li>
+</ul>
+<h3>Réglage conseillé sur iPhone</h3>
+<p>Réglages → <strong>Appareil photo</strong> → <strong>Formats</strong> → <strong>« Le plus compatible »</strong>. Tes vidéos sont alors lisibles par tous les réseaux, X compris, qui refuse le format HEVC « Haute efficacité ». Les photos, elles, sont converties en JPG automatiquement.</p>
+<p>Dans Réglages → Appareil photo → <strong>Enregistrement vidéo</strong>, choisis <strong>1080p à 30 i/s</strong> : la qualité reste très bonne sur les réseaux, et une minute pèse environ 60 Mo au lieu de 400 Mo en 4K, donc l'envoi est bien plus rapide.</p>
+<p class="tip">Garde l'écran allumé et l'app ouverte pendant l'envoi d'une longue vidéo : une barre de progression s'affiche sur la vignette.</p>`,
     },
     {
       id: "planning",

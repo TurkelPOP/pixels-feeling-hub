@@ -42,13 +42,14 @@
           <div class="card-title"><label>Médias</label><button class="help-q" type="button" data-help="photo" aria-label="Aide : médias et appareil photo">?</button></div>
           <div id="dropzone" class="dropzone" tabindex="0">
             <input id="file" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" hidden>
-            <span>Glisse tes images / vidéos ici ou <u>clique pour choisir</u></span>
+            <span class="dz-desktop">Glisse tes images / vidéos ici ou <u>clique pour choisir</u></span>
+            <span class="dz-touch">🖼️ <strong>Choisir dans ma galerie</strong><br><small>photos et vidéos, plusieurs à la fois</small></span>
           </div>
           <div class="media-tools">
             <button class="btn ghost small" id="btn-canva" type="button">Importer depuis Canva</button>
-            <button class="btn ghost small" id="btn-photo" type="button">📷 Prendre une photo</button>
-            <button class="btn ghost small" id="btn-video" type="button">🎥 Filmer une vidéo</button>
-            <input id="capture-photo" type="file" accept="image/*" capture="environment" hidden>
+            <button class="btn ghost small" id="btn-photo" type="button">📷 <span class="lg">Prendre une </span><span class="sm">P</span><span class="lg">p</span>hoto</button>
+            <button class="btn ghost small" id="btn-video" type="button">🎥 <span class="lg">Filmer une </span><span class="sm">V</span><span class="lg">v</span>idéo</button>
+            <input id="capture-photo" type="file" accept="image/jpeg,image/png" capture="environment" hidden>
             <input id="capture-video" type="file" accept="video/*" capture="environment" hidden>
           </div>
           <div id="media-list" class="media-list"></div>

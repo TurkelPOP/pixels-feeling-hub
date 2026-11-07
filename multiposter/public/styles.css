@@ -701,3 +701,24 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
   .help-panel-head { border-radius: 18px 18px 0 0; }
   @keyframes help-up { from { opacity: 0; transform: translateY(30px); } }
 }
+
+/* ---------- Téléphone : galerie et appareil photo bien visibles ---------- */
+.dz-touch { display: none; }
+.media-tools .sm { display: none; }
+@media (max-width: 640px) { .media-tools .sm { display: inline; } }
+@media (pointer: coarse) {
+  .dz-desktop { display: none; }
+  .dz-touch { display: inline; font-size: 1.05rem; line-height: 1.5; }
+  .dz-touch small { color: var(--muted); font-size: 0.85rem; }
+  .dropzone { padding: 1.3rem 1rem; }
+}
+@media (max-width: 640px) {
+  /* Photo et vidéo côte à côte, Canva en dessous, gros boutons faciles à toucher */
+  .media-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .media-tools .btn { min-height: 48px; justify-content: center; text-align: center; }
+  #btn-canva { grid-column: 1 / -1; order: 3; }
+  .media-tools .lg { display: none; }
+  /* Menu sur une seule ligne qu'on fait glisser, pour garder de la place à l'écran */
+  nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; order: 3; flex-basis: 100%; }
+  nav::-webkit-scrollbar { display: none; }
+}
