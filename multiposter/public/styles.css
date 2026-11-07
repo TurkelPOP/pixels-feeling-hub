@@ -572,3 +572,13 @@ body.login .login-card > img { animation: float 6s ease-in-out infinite; filter:
   .view:not([hidden]), dialog.sheet[open], .toast:not([hidden]) { animation: none; }
   .btn, .card, .chip, .media-item { transition: none; }
 }
+
+/* Logo plus présent. */
+.brand { gap: 0.65rem; }
+.brand img { width: 52px; height: 52px; }
+.brand span { font-size: 1.12rem; }
+body.login .login-card > img { width: 104px; height: 104px; margin: 0 auto; }
+.login-card.wide > img { width: 84px; height: 84px; justify-self: center; }
+@media (max-width: 860px) {
+  .brand img { width: 44px; height: 44px; }
+}

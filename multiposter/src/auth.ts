@@ -315,7 +315,7 @@ function setupPage(user: User, secret: string, error = "") {
   qr.make();
   const svg = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true });
   return page("Double authentification", `
-<img src="/assets/logo.png" alt="" width="56" height="56">
+<img src="/assets/logo.png" alt="" width="84" height="84">
 <h1>Double authentification</h1>
 <p class="muted">Compte <strong>${esc(user.name)}</strong>. Obligatoire pour protéger l'app : il te faudra ton téléphone à chaque connexion.</p>
 <ol class="steps">
@@ -343,7 +343,7 @@ function codesPage(codes: string[]) {
 
 function invitePage(error = "") {
   return page("Invitation", `
-<img src="/assets/logo.png" alt="" width="56" height="56">
+<img src="/assets/logo.png" alt="" width="84" height="84">
 <h1>Rejoindre PTZ Posting</h1>
 <p class="muted">Choisis ton identifiant et ton mot de passe. Tu activeras ensuite la double authentification sur ton téléphone.</p>
 <form method="post">
