@@ -487,29 +487,22 @@ async function loadCanvaStatus() {
 
 const FORMAT_LABEL = { jpg: "JPG", png: "PNG", mp4: "MP4" };
 
-function rulesBox() {
-  const rules = state.canva.rules ?? [];
-  const picked = new Set();
-  const pattern = h("input", { id: "rule-pattern", placeholder: "Début du titre, ex. NEWZ ou Good News", maxlength: 100 });
-  const format = h("select", { id: "rule-format" },
-    h("option", { value: "jpg" }, "JPG"), h("option", { value: "png" }, "PNG"), h("option", { value: "mp4" }, "MP4"));
-  const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design, {date} = jour" });
+/** Choix de comptes (profils + comptes) réutilisable ; renvoie l'élément et l'ensemble coché. */
+function accountPicker(initial) {
+  const picked = new Set(initial);
   const chipOf = new Map();
+  if (!state.accounts.length)
+    return { picked, el: h("p", { class: "muted small" }, "Aucun réseau connecté pour l'instant : tu pourras les cocher ici plus tard (facultatif), ou les choisir en relisant chaque brouillon.") };
   const profileRow = state.profiles.length
     ? h("div", { class: "chips" }, h("small", { class: "muted" }, "Profils :"),
         ...state.profiles.map((pr) => h("button", {
           type: "button", class: "chip small-chip profile-chip",
-          onclick: () => {
-            for (const id of profileAccounts(pr)) {
-              picked.add(id);
-              chipOf.get(id)?.classList.add("active");
-            }
-          },
+          onclick: () => { for (const id of profileAccounts(pr)) { picked.add(id); chipOf.get(id)?.classList.add("active"); } },
         }, pr.name)))
     : null;
   const chips = h("div", { class: "chips" },
     ...state.accounts.map((a) => {
-      const chip = h("button", { type: "button", class: "chip account-chip small-chip", style: `--c:${PROVIDER[a.provider]?.color}` },
+      const chip = h("button", { type: "button", class: `chip account-chip small-chip${picked.has(a.id) ? " active" : ""}`, style: `--c:${PROVIDER[a.provider]?.color}` },
         h("span", { class: "net-label", title: PROVIDER[a.provider]?.label }, netIcon(a.provider), a.provider === "x" ? null : PROVIDER[a.provider]?.label), h("small", {}, a.name));
       chipOf.set(a.id, chip);
       chip.addEventListener("click", () => {
@@ -518,6 +511,16 @@ function rulesBox() {
       });
       return chip;
     }));
+  return { picked, el: h("div", { class: "account-picker-box" }, h("small", { class: "muted" }, "Réseaux cochés d'avance dans le brouillon (facultatif) :"), profileRow, chips) };
+}
+
+function rulesBox() {
+  const rules = state.canva.rules ?? [];
+  const pattern = h("input", { id: "rule-pattern", placeholder: "Début du titre, ex. NEWZ ou Good News", maxlength: 100 });
+  const format = h("select", { id: "rule-format" },
+    h("option", { value: "jpg" }, "JPG"), h("option", { value: "png" }, "PNG"), h("option", { value: "mp4" }, "MP4"));
+  const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design, {date} = jour" });
+  const { el: pickerEl, picked } = accountPicker([]);
   const reload = async () => {
     await loadCanvaStatus();
     renderAccounts();
@@ -531,10 +534,29 @@ function rulesBox() {
     rules.length
       ? h("ul", { class: "rule-list" },
           ...rules.map((r) => {
-            const names = r.accountIds.map((id) => state.accounts.find((a) => a.id === id)).filter(Boolean)
-              .map((a) => PROVIDER[a.provider]?.label).join(", ");
-            return h("li", {},
-              h("span", {}, "Titre commençant par ", h("strong", {}, `« ${r.pattern} »`), ` → ${names || "aucun compte"} · ${FORMAT_LABEL[r.format]}`),
+            const accts = r.accountIds.map((id) => state.accounts.find((a) => a.id === id)).filter(Boolean);
+            const editBox = h("div", { class: "rule-edit", hidden: true });
+            const openEdit = () => {
+              if (!editBox.hidden) return (editBox.hidden = true);
+              const { el, picked } = accountPicker(r.accountIds);
+              const fmt = h("select", {}, ...Object.entries(FORMAT_LABEL).map(([v, l]) => h("option", { value: v, selected: v === r.format }, l)));
+              editBox.replaceChildren(el, h("div", { class: "row" }, h("small", { class: "muted" }, "Format :"), fmt,
+                h("button", { class: "btn primary small", type: "button", onclick: async () => {
+                  try {
+                    await api(`/canva/rules/${r.id}`, { method: "PUT", body: JSON.stringify({ accountIds: [...picked], format: fmt.value }) });
+                    toast("Règle modifiée.");
+                    reload();
+                  } catch (e) { toast(e.message, "err"); }
+                } }, "Enregistrer")));
+              editBox.hidden = false;
+            };
+            return h("li", { class: "rule-item" },
+              h("div", { class: "rule-main" },
+                h("span", {}, "Titre commençant par ", h("strong", {}, `« ${r.pattern} »`), ` · ${FORMAT_LABEL[r.format]}`),
+                accts.length
+                  ? h("span", { class: "rule-targets" }, "→ ", ...accts.map((a) => h("span", { class: "net-label", title: `${PROVIDER[a.provider]?.label} · ${a.name}` }, netIcon(a.provider), a.name)))
+                  : h("small", { class: "muted" }, "→ aucun réseau coché d'avance : tu les choisiras en relisant le brouillon")),
+              h("button", { class: "btn ghost small", type: "button", onclick: openEdit }, "Modifier"),
               h("button", {
                 class: "btn ghost small danger", type: "button",
                 onclick: async () => {
@@ -542,13 +564,13 @@ function rulesBox() {
                   await api(`/canva/rules/${r.id}`, { method: "DELETE" });
                   reload();
                 },
-              }, "Supprimer"));
+              }, "Supprimer"),
+              editBox);
           }))
       : h("p", { class: "muted small" }, "Aucune règle pour l'instant."),
     h("div", { class: "rule-form" },
       h("div", { class: "row" }, pattern, format),
-      profileRow,
-      chips,
+      pickerEl,
       text,
       h("div", { class: "row" },
         h("button", {

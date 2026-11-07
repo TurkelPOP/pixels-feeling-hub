@@ -357,6 +357,17 @@ canvaApi.post("/rules", async (c) => {
   return c.json({ ok: true });
 });
 
+/** Modifier les comptes cochés d'avance (et le format) d'une règle existante. */
+canvaApi.put("/rules/:id", async (c) => {
+  const b = await c.req.json<{ accountIds?: number[]; format?: string }>().catch(() => ({}) as { accountIds?: number[]; format?: string });
+  const id = Number(c.req.param("id"));
+  const ids = (b.accountIds ?? []).map(Number).filter((a) => getOwnedAccount(a, uidOf(c)));
+  const r = db.prepare("UPDATE canva_rules SET account_ids = ?, format = COALESCE(?, format) WHERE id = ? AND owner_id = ?").run(
+    JSON.stringify(ids), b.format && b.format in FORMATS ? b.format : null, id, uidOf(c),
+  );
+  return r.changes ? c.json({ ok: true }) : c.json({ error: "Règle introuvable" }, 404);
+});
+
 canvaApi.delete("/rules/:id", (c) => {
   db.prepare("DELETE FROM canva_rules WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uidOf(c));
   return c.json({ ok: true });

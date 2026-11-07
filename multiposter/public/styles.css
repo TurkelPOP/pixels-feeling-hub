@@ -808,3 +808,10 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .drive-link .tip { padding: 0.55rem 0.75rem; border-radius: 10px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(129, 167, 248, 0.35); }
 @media (pointer: fine) { #drive-phone-tip { display: none; } }
 @media (max-width: 640px) { dialog#drive-dialog:has(#drive-link:not([hidden])) { height: auto; max-height: 100dvh; } }
+
+/* Règles Canva : réseaux cochés d'avance, modification */
+.rule-item { flex-wrap: wrap; }
+.rule-main { display: grid; gap: 0.25rem; flex: 1 1 260px; min-width: 0; }
+.rule-targets { display: flex; flex-wrap: wrap; gap: 0.3rem 0.7rem; align-items: center; font-size: 0.85rem; color: var(--muted); }
+.rule-edit { flex-basis: 100%; display: grid; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.account-picker-box { display: grid; gap: 0.35rem; }
