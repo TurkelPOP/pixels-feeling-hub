@@ -309,7 +309,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};
 function page(title: string, body: string) {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(title)} · PTZ Posting</title><link rel="icon" href="/assets/logo.png">
-<link rel="stylesheet" href="/assets/styles.css"></head><body class="login"><main class="card login-card wide">${body}</main></body></html>`;
+<link rel="stylesheet" href="/assets/styles.css"></head><body class="login"><main class="card login-card wide">${body}</main><script src="/assets/pages.js"></script></body></html>`;
 }
 
 function setupPage(user: User, secret: string, error = "") {
@@ -327,8 +327,14 @@ function setupPage(user: User, secret: string, error = "") {
   <li>Installe <strong>Google Authenticator</strong> (ou Microsoft Authenticator, 2FAS…) sur ton téléphone.</li>
   <li>Dans l'appli, ajoute un compte en <strong>scannant ce QR code</strong> :</li>
 </ol>
+<div class="otp-phone">
+  <p><strong>Tu es sur ton téléphone ?</strong> Pas besoin de scanner : touche ce bouton, ton appli d'authentification s'ouvre et ajoute PTZ Posting toute seule. Reviens ensuite ici pour taper le code.</p>
+  <a class="btn primary" href="${esc(uri)}">Ajouter à mon appli d'authentification</a>
+  <p class="muted small">Rien ne s'ouvre ? Dans l'appli, choisis « Saisir une clé de configuration » et colle la clé ci-dessous (bouton Copier).</p>
+</div>
 <div class="qr">${svg}</div>
 <p class="muted small">Impossible de scanner ? Choisis « Saisir une clé » et tape : <code class="key">${esc(secret.match(/.{1,4}/g)!.join(" "))}</code></p>
+<button class="btn ghost small copy-key" type="button" data-key="${esc(secret)}">Copier la clé</button>
 <form method="post" action="/2fa/setup">
   <label for="code">3. Tape le code à 6 chiffres affiché par l'appli</label>
   <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required autofocus>

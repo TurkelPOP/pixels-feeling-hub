@@ -722,3 +722,12 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
   nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; order: 3; flex-basis: 100%; }
   nav::-webkit-scrollbar { display: none; }
 }
+
+/* Double authentification sur téléphone : bouton qui ouvre l'appli au lieu de scanner */
+.otp-phone { display: none; }
+@media (pointer: coarse) {
+  .otp-phone { display: grid; gap: 0.6rem; padding: 0.8rem; border-radius: 12px; background: rgba(2, 49, 151, 0.35); border: 1px solid var(--border-strong); text-align: left; }
+  .otp-phone p { margin: 0; }
+  .otp-phone .btn { justify-content: center; min-height: 48px; }
+}
+.copy-key { margin-top: -0.3rem; }
