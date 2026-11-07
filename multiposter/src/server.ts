@@ -10,16 +10,20 @@ import { Hono, type Context, type Next } from "hono";
 
 import { accountsPage, config, mediaDir } from "./config.ts";
 import { pkcePair, randomId } from "./crypto.ts";
-import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db.ts";
-import { checkMediaSignature, getMediaList, saveUpload } from "./media.ts";
+import { db, deleteAccount, getOwnedAccount, listAccounts, upsertAccount } from "./db.ts";
+import { checkMediaSignature, getMediaList, mediaOwner, saveUpload } from "./media.ts";
+import { migrateWorkspaces } from "./workspace.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
-import { isLogged, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
+import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { startCleanup } from "./cleanup.ts";
 import { publishPost, rollupStatus, startScheduler, tick } from "./scheduler.ts";
+
+// Espaces personnels : les données de l'ancienne version partagée reviennent au propriétaire.
+migrateWorkspaces(ownerId());
 
 const app = new Hono();
 const PUBLIC = resolve(import.meta.dirname, "../public");
@@ -136,7 +140,8 @@ function sendFile(c: Context, path: string, cache = "no-cache") {
 // de publier. Sans l'un ou l'autre : introuvable, même en connaissant l'adresse.
 app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", async (c) => {
   const file = c.req.param("file");
-  if (!checkMediaSignature(file, c.req.query("exp"), c.req.query("sig")) && !(await isLogged(c))) return c.notFound();
+  const signed = checkMediaSignature(file, c.req.query("exp"), c.req.query("sig"));
+  if (!signed && !((await isLogged(c)) && mediaOwner(file) === currentUser(c)?.id)) return c.notFound();
   return sendFile(c, resolve(mediaDir, file), "private, max-age=3600");
 });
 
@@ -152,11 +157,12 @@ app.get("/oauth/:flow/start", requireAuth, (c) => {
   if (!flow?.configured()) return c.text("Réseau non configuré (voir .env)", 400);
   const state = randomId(24);
   const { verifier, challenge } = pkcePair();
-  db.prepare("INSERT INTO oauth_states (state, provider, verifier, created_at) VALUES (?, ?, ?, ?)").run(
+  db.prepare("INSERT INTO oauth_states (state, provider, verifier, created_at, owner_id) VALUES (?, ?, ?, ?, ?)").run(
     state,
     flow.id,
     flow.usesPkce ? verifier : null,
     Date.now(),
+    currentUser(c)!.id,
   );
   return c.redirect(flow.authorizeUrl(state, challenge));
 });
@@ -168,15 +174,15 @@ app.get("/oauth/:flow/callback", async (c) => {
   const flow = flows[c.req.param("flow") ?? ""] as (typeof flows)[string] | undefined;
   const { state, code, error, error_description } = c.req.query();
   db.prepare("DELETE FROM oauth_states WHERE created_at < ?").run(Date.now() - 15 * 60_000);
-  const row = db.prepare("DELETE FROM oauth_states WHERE state = ? RETURNING provider, verifier").get(state ?? "") as
-    | { provider: string; verifier: string | null }
+  const row = db.prepare("DELETE FROM oauth_states WHERE state = ? RETURNING provider, verifier, owner_id").get(state ?? "") as
+    | { provider: string; verifier: string | null; owner_id: number }
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
   if (!flow || !row || row.provider !== flow.id) return back("Lien de connexion expiré, recommence.");
   if (error || !code) return back(`Connexion annulée : ${error_description ?? error ?? "pas de code"}`);
   try {
     const accounts = await flow.callback(code, row.verifier);
-    accounts.forEach(upsertAccount);
+    for (const a of accounts) upsertAccount(a, row.owner_id);
     return back(`${accounts.length} compte(s) connecté(s) : ${accounts.map((a) => a.name).join(", ")}`, true);
   } catch (e) {
     console.error(`[oauth ${flow.id}]`, e);
@@ -234,9 +240,11 @@ api.put("/system/autostart", async (c) => {
   }
 });
 
+const uid = (c: Context) => currentUser(c)!.id;
+
 api.get("/accounts", (c) =>
   c.json(
-    listAccounts().map((a) => ({
+    listAccounts(uid(c)).map((a) => ({
       id: a.id,
       provider: a.provider,
       name: a.name,
@@ -248,7 +256,7 @@ api.get("/accounts", (c) =>
 );
 
 api.delete("/accounts/:id", (c) => {
-  deleteAccount(Number(c.req.param("id")));
+  deleteAccount(Number(c.req.param("id")), uid(c));
   return c.json({ ok: true });
 });
 
@@ -257,7 +265,7 @@ api.put("/media", async (c) => {
   const filename = c.req.query("filename") ?? "fichier";
   if (!c.req.raw.body) return c.json({ error: "Corps vide" }, 400);
   try {
-    const m = await saveUpload(c.req.raw.body, filename, mime);
+    const m = await saveUpload(c.req.raw.body, filename, mime, uid(c));
     return c.json({ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: m.localUrl });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : "Upload impossible" }, 400);
@@ -307,8 +315,8 @@ function serializePost(p: Record<string, any>) {
 
 api.get("/posts", (c) => {
   const rows = db
-    .prepare("SELECT * FROM posts ORDER BY COALESCE(scheduled_at, created_at) DESC LIMIT 1000")
-    .all() as Record<string, any>[];
+    .prepare("SELECT * FROM posts WHERE owner_id = ? ORDER BY COALESCE(scheduled_at, created_at) DESC LIMIT 1000")
+    .all(uid(c)) as Record<string, any>[];
   return c.json(rows.map(serializePost));
 });
 
@@ -325,11 +333,11 @@ interface PostBody {
 }
 
 /** Valide le contenu pour chaque compte ciblé. Renvoie les erreurs par compte. */
-function validateBody(b: PostBody): Record<number, string> {
+function validateBody(b: PostBody, owner: number): Record<number, string> {
   const errors: Record<number, string> = {};
-  const media = getMediaList(b.mediaIds ?? []);
+  const media = getMediaList(b.mediaIds ?? [], owner);
   for (const id of b.accountIds ?? []) {
-    const acc = getAccount(id);
+    const acc = getOwnedAccount(id, owner);
     if (!acc) {
       errors[id] = "Compte introuvable";
       continue;
@@ -342,14 +350,14 @@ function validateBody(b: PostBody): Record<number, string> {
   return errors;
 }
 
-function savePost(b: PostBody, existingId?: number): { id?: number; error?: string; errors?: Record<number, string> } {
+function savePost(b: PostBody, owner: number, existingId?: number): { id?: number; error?: string; errors?: Record<number, string> } {
   const action = b.action ?? "draft";
   const accountIds = [...new Set((b.accountIds ?? []).map(Number))];
   const mediaIds = (b.mediaIds ?? []).filter((id) => typeof id === "string").slice(0, 20);
-  if (getMediaList(mediaIds).length !== mediaIds.length) return { error: "Média introuvable" };
+  if (getMediaList(mediaIds, owner).length !== mediaIds.length) return { error: "Média introuvable" };
   if (action !== "draft") {
     if (!accountIds.length) return { error: "Choisis au moins un compte." };
-    const errors = validateBody({ ...b, accountIds, mediaIds });
+    const errors = validateBody({ ...b, accountIds, mediaIds }, owner);
     if (Object.keys(errors).length) return { error: "Contenu incompatible avec certains réseaux.", errors };
     if (action === "schedule" && !(Number(b.scheduledAt) > Date.now() - 60_000)) return { error: "Date de programmation invalide ou passée." };
   }
@@ -362,21 +370,21 @@ function savePost(b: PostBody, existingId?: number): { id?: number; error?: stri
   try {
     if (id) {
       db.prepare(
-        "UPDATE posts SET text = ?, title = ?, media_ids = ?, scheduled_at = ?, status = ?, updated_at = ? WHERE id = ?",
-      ).run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, id);
+        "UPDATE posts SET text = ?, title = ?, media_ids = ?, scheduled_at = ?, status = ?, updated_at = ? WHERE id = ? AND owner_id = ?",
+      ).run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, id, owner);
       db.prepare("DELETE FROM post_targets WHERE post_id = ?").run(id);
     } else {
       id = Number(
         db
           .prepare(
-            "INSERT INTO posts (text, title, media_ids, scheduled_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO posts (text, title, media_ids, scheduled_at, status, created_at, updated_at, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           )
-          .run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, now).lastInsertRowid,
+          .run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, now, owner).lastInsertRowid,
       );
     }
     const ins = db.prepare("INSERT INTO post_targets (post_id, account_id, text_override, options) VALUES (?, ?, ?, ?)");
     for (const acc of accountIds) {
-      if (!getAccount(acc)) continue;
+      if (!getOwnedAccount(acc, owner)) continue;
       const o = b.overrides?.[acc];
       const opts = sanitizeOptions(b.options?.[acc]);
       ins.run(id, acc, typeof o === "string" && o !== b.text ? o : null, Object.keys(opts).length ? JSON.stringify(opts) : null);
@@ -390,32 +398,38 @@ function savePost(b: PostBody, existingId?: number): { id?: number; error?: stri
   return { id };
 }
 
-api.post("/validate", async (c) => c.json({ errors: validateBody(await c.req.json<PostBody>()) }));
+api.post("/validate", async (c) => c.json({ errors: validateBody(await c.req.json<PostBody>(), uid(c)) }));
+
+/** Post de la personne connectée uniquement : celui d'une autre personne est « introuvable ». */
+const ownPost = (c: Context, id: number) =>
+  db.prepare("SELECT * FROM posts WHERE id = ? AND owner_id = ?").get(id, uid(c)) as Record<string, any> | undefined;
 
 api.post("/posts", async (c) => {
-  const r = savePost(await c.req.json<PostBody>());
+  const r = savePost(await c.req.json<PostBody>(), uid(c));
   return r.error ? c.json(r, 400) : c.json(r);
 });
 
 api.put("/posts/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  const p = db.prepare("SELECT status FROM posts WHERE id = ?").get(id) as { status: string } | undefined;
+  const p = ownPost(c, id);
   if (!p) return c.json({ error: "Post introuvable" }, 404);
   if (p.status !== "draft" && p.status !== "scheduled") return c.json({ error: "Ce post a déjà été publié." }, 409);
-  const r = savePost(await c.req.json<PostBody>(), id);
+  const r = savePost(await c.req.json<PostBody>(), uid(c), id);
   return r.error ? c.json(r, 400) : c.json(r);
 });
 
 api.delete("/posts/:id", (c) => {
   const id = Number(c.req.param("id"));
-  const p = db.prepare("SELECT status FROM posts WHERE id = ?").get(id) as { status: string } | undefined;
-  if (p?.status === "publishing") return c.json({ error: "Publication en cours, patiente." }, 409);
-  db.prepare("DELETE FROM posts WHERE id = ?").run(id);
+  const p = ownPost(c, id);
+  if (!p) return c.json({ error: "Post introuvable" }, 404);
+  if (p.status === "publishing") return c.json({ error: "Publication en cours, patiente." }, 409);
+  db.prepare("DELETE FROM posts WHERE id = ? AND owner_id = ?").run(id, uid(c));
   return c.json({ ok: true });
 });
 
 api.post("/posts/:id/retry", (c) => {
   const id = Number(c.req.param("id"));
+  if (!ownPost(c, id)) return c.json({ error: "Post introuvable" }, 404);
   const r = db.prepare("UPDATE post_targets SET status = 'pending', error = NULL WHERE post_id = ? AND status = 'failed'").run(id);
   if (!r.changes) return c.json({ error: "Rien à réessayer." }, 400);
   void publishPost(id);
@@ -424,13 +438,13 @@ api.post("/posts/:id/retry", (c) => {
 
 api.post("/posts/:id/duplicate", (c) => {
   const id = Number(c.req.param("id"));
-  const p = db.prepare("SELECT * FROM posts WHERE id = ?").get(id) as Record<string, any> | undefined;
+  const p = ownPost(c, id);
   if (!p) return c.json({ error: "Post introuvable" }, 404);
   const now = Date.now();
   const newId = Number(
     db
-      .prepare("INSERT INTO posts (text, title, media_ids, scheduled_at, status, created_at, updated_at) VALUES (?, ?, ?, NULL, 'draft', ?, ?)")
-      .run(p.text, p.title, p.media_ids, now, now).lastInsertRowid,
+      .prepare("INSERT INTO posts (text, title, media_ids, scheduled_at, status, created_at, updated_at, owner_id) VALUES (?, ?, ?, NULL, 'draft', ?, ?, ?)")
+      .run(p.text, p.title, p.media_ids, now, now, uid(c)).lastInsertRowid,
   );
   db.prepare(
     "INSERT INTO post_targets (post_id, account_id, text_override, options) SELECT ?, account_id, text_override, options FROM post_targets WHERE post_id = ?",

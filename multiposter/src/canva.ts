@@ -1,11 +1,13 @@
 // Connecteur Canva (Connect API) : lister les designs récemment modifiés, par exemple ceux
 // que ta tâche planifiée met à jour, puis les exporter en JPG/PNG/MP4 dans la médiathèque.
+// Chaque personne a sa propre connexion Canva, ses règles et ses brouillons (espace personnel).
 import { Hono } from "hono";
 
 import { alert, appLink } from "./alerts.ts";
 import { accountsPage, callbackUrl, config } from "./config.ts";
 import { pkcePair, randomId, seal, unseal } from "./crypto.ts";
-import { db, getAccount } from "./db.ts";
+import { currentUser } from "./auth.ts";
+import { db, getOwnedAccount } from "./db.ts";
 import { form, json, postJson, request, sleep } from "./http.ts";
 import { saveUpload } from "./media.ts";
 
@@ -16,12 +18,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS integrations (
   id TEXT PRIMARY KEY, name TEXT, access_token TEXT, refresh_token TEXT, expires_at INTEGER
 );
 CREATE TABLE IF NOT EXISTS canva_rules (
-  id INTEGER PRIMARY KEY, pattern TEXT NOT NULL, account_ids TEXT NOT NULL DEFAULT '[]',
+  id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL, pattern TEXT NOT NULL, account_ids TEXT NOT NULL DEFAULT '[]',
   format TEXT NOT NULL DEFAULT 'jpg', text TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS canva_daily_drafts (
-  design_id TEXT NOT NULL, day TEXT NOT NULL, updated_at INTEGER NOT NULL, post_id INTEGER,
-  PRIMARY KEY (design_id, day)
+  owner_id INTEGER NOT NULL, design_id TEXT NOT NULL, day TEXT NOT NULL, updated_at INTEGER NOT NULL, post_id INTEGER,
+  PRIMARY KEY (owner_id, design_id, day)
 );`);
 
 /** Jour (AAAA-MM-JJ) dans le fuseau de l'app, pour regrouper les modifications par jour. */
@@ -39,36 +41,43 @@ async function tokenRequest(params: Record<string, string>) {
   return json(`${API}/oauth/token`, init);
 }
 
-function saveTokens(t: any, name?: string) {
+const keyOf = (uid: number) => `canva:${uid}`;
+
+function saveTokens(uid: number, t: any, name?: string) {
   db.prepare(
-    `INSERT INTO integrations (id, name, access_token, refresh_token, expires_at) VALUES ('canva', ?, ?, ?, ?)
+    `INSERT INTO integrations (id, name, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET name = COALESCE(excluded.name, integrations.name),
        access_token = excluded.access_token, refresh_token = excluded.refresh_token, expires_at = excluded.expires_at`,
-  ).run(name ?? null, seal(t.access_token), seal(t.refresh_token), Date.now() + (t.expires_in ?? 14_400) * 1000);
+  ).run(keyOf(uid), name ?? null, seal(t.access_token), seal(t.refresh_token), Date.now() + (t.expires_in ?? 14_400) * 1000);
 }
 
-function stored() {
-  const r = db.prepare("SELECT * FROM integrations WHERE id = 'canva'").get() as Record<string, any> | undefined;
+function stored(uid: number) {
+  const r = db.prepare("SELECT * FROM integrations WHERE id = ?").get(keyOf(uid)) as Record<string, any> | undefined;
   return r && { name: r.name as string | null, access: unseal(r.access_token), refresh: unseal(r.refresh_token), expiresAt: r.expires_at as number };
 }
 
-let refreshing: Promise<string> | undefined;
+const refreshing = new Map<number, Promise<string>>();
 
 /** Token valide (renouvelé si besoin ; Canva fait tourner le refresh token à chaque usage). */
-async function accessToken(): Promise<string> {
-  const s = stored();
+async function accessToken(uid: number): Promise<string> {
+  const s = stored(uid);
   if (!s?.access) throw new Error("Canva n'est pas connecté.");
   if (s.expiresAt - Date.now() > 2 * 60_000) return s.access;
-  refreshing ??= tokenRequest({ grant_type: "refresh_token", refresh_token: s.refresh! })
-    .then((t) => {
-      saveTokens(t);
-      return t.access_token as string;
-    })
-    .finally(() => (refreshing = undefined));
-  return refreshing;
+  let p = refreshing.get(uid);
+  if (!p) {
+    p = tokenRequest({ grant_type: "refresh_token", refresh_token: s.refresh! })
+      .then((t) => {
+        saveTokens(uid, t);
+        return t.access_token as string;
+      })
+      .finally(() => refreshing.delete(uid));
+    refreshing.set(uid, p);
+  }
+  return p;
 }
 
-const canvaGet = async (path: string) => json(`${API}${path}`, { headers: { Authorization: `Bearer ${await accessToken()}` } });
+const canvaGet = async (uid: number, path: string) =>
+  json(`${API}${path}`, { headers: { Authorization: `Bearer ${await accessToken(uid)}` } });
 
 const FORMATS = {
   jpg: { mime: "image/jpeg", ext: "jpg", body: { type: "jpg", quality: 92 } },
@@ -78,13 +87,13 @@ const FORMATS = {
 type Format = keyof typeof FORMATS;
 
 /** Exporte un design (toutes les pages, dans l'ordre) et range chaque page dans la médiathèque. */
-async function importDesign(designId: string, format: Format, horizontal = false) {
+async function importDesign(uid: number, designId: string, format: Format, horizontal = false) {
   const f = FORMATS[format];
   const body = format === "mp4" ? { type: "mp4", quality: horizontal ? "horizontal_1080p" : "vertical_1080p" } : f.body;
-  const { design } = await canvaGet(`/designs/${encodeURIComponent(designId)}`);
+  const { design } = await canvaGet(uid, `/designs/${encodeURIComponent(designId)}`);
   const title = (design?.title || "Canva").replace(/[\\/:*?"<>|]/g, " ").trim();
 
-  const token = await accessToken();
+  const token = await accessToken(uid);
   let { job } = await json(
     `${API}/exports`,
     postJson({ design_id: designId, format: body }, { Authorization: `Bearer ${token}` }),
@@ -93,7 +102,7 @@ async function importDesign(designId: string, format: Format, horizontal = false
   while (job.status === "in_progress") {
     if (Date.now() > deadline) throw new Error("Canva : l'export prend trop de temps, réessaie.");
     await sleep(format === "mp4" ? 4_000 : 1_500);
-    ({ job } = await canvaGet(`/exports/${job.id}`));
+    ({ job } = await canvaGet(uid, `/exports/${job.id}`));
   }
   if (job.status !== "success") throw new Error(`Canva : export impossible (${job.error?.message ?? job.status})`);
 
@@ -102,7 +111,7 @@ async function importDesign(designId: string, format: Format, horizontal = false
   for (const [i, url] of urls.entries()) {
     const res = await request(url, {}, 5 * 60_000);
     const name = urls.length > 1 ? `${title} - ${i + 1}.${f.ext}` : `${title}.${f.ext}`;
-    media.push(await saveUpload(res.body!, name, f.mime));
+    media.push(await saveUpload(res.body!, name, f.mime, uid));
   }
   return media;
 }
@@ -113,10 +122,11 @@ canvaRoutes.get("/oauth/canva/start", (c) => {
   if (!canvaConfigured()) return c.text("Canva non configuré (CANVA_CLIENT_ID / CANVA_CLIENT_SECRET)", 400);
   const state = randomId(24);
   const { verifier, challenge } = pkcePair();
-  db.prepare("INSERT INTO oauth_states (state, provider, verifier, created_at) VALUES (?, 'canva', ?, ?)").run(
+  db.prepare("INSERT INTO oauth_states (state, provider, verifier, created_at, owner_id) VALUES (?, 'canva', ?, ?, ?)").run(
     state,
     verifier,
     Date.now(),
+    currentUser(c)!.id,
   );
   return c.redirect(
     "https://www.canva.com/api/oauth/authorize?" +
@@ -134,8 +144,8 @@ canvaRoutes.get("/oauth/canva/start", (c) => {
 
 canvaRoutes.get("/oauth/canva/callback", async (c) => {
   const { state, code, error, error_description } = c.req.query();
-  const row = db.prepare("DELETE FROM oauth_states WHERE state = ? AND provider = 'canva' RETURNING verifier").get(state ?? "") as
-    | { verifier: string }
+  const row = db.prepare("DELETE FROM oauth_states WHERE state = ? AND provider = 'canva' RETURNING verifier, owner_id").get(state ?? "") as
+    | { verifier: string; owner_id: number }
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
   if (!row) return back("Lien de connexion Canva expiré, recommence.");
@@ -147,10 +157,10 @@ canvaRoutes.get("/oauth/canva/callback", async (c) => {
       code_verifier: row.verifier,
       redirect_uri: callbackUrl("canva"),
     });
-    saveTokens(t);
-    const me = await canvaGet("/users/me/profile").catch(() => ({}));
+    saveTokens(row.owner_id, t);
+    const me = await canvaGet(row.owner_id, "/users/me/profile").catch(() => ({}));
     const name = me.profile?.display_name ?? "Canva";
-    db.prepare("UPDATE integrations SET name = ? WHERE id = 'canva'").run(name);
+    db.prepare("UPDATE integrations SET name = ? WHERE id = ?").run(name, keyOf(row.owner_id));
     return back(`Canva connecté (${name}).`, true);
   } catch (e) {
     console.error("[oauth canva]", e);
@@ -161,13 +171,15 @@ canvaRoutes.get("/oauth/canva/callback", async (c) => {
 /** Routes JSON, montées sous /api (donc protégées par le mot de passe). */
 export const canvaApi = new Hono();
 
+const uidOf = (c: Parameters<typeof currentUser>[0]) => currentUser(c)!.id;
+
 canvaApi.get("/status", (c) => {
-  const s = stored();
+  const s = stored(uidOf(c));
   return c.json({ configured: canvaConfigured(), connected: !!s?.access, name: s?.name ?? null });
 });
 
 canvaApi.delete("/", (c) => {
-  db.prepare("DELETE FROM integrations WHERE id = 'canva'").run();
+  db.prepare("DELETE FROM integrations WHERE id = ?").run(keyOf(uidOf(c)));
   return c.json({ ok: true });
 });
 
@@ -179,7 +191,7 @@ canvaApi.get("/designs", async (c) => {
   const cont = c.req.query("continuation");
   if (cont) q.set("continuation", cont);
   try {
-    const r = await canvaGet(`/designs?${q}`);
+    const r = await canvaGet(uidOf(c), `/designs?${q}`);
     return c.json({
       continuation: r.continuation ?? null,
       items: (r.items ?? []).map((d: any) => ({
@@ -203,7 +215,7 @@ canvaApi.post("/designs/:id/import", async (c) => {
     .catch(() => ({ format: "jpg" as Format, horizontal: false }));
   if (!(format in FORMATS)) return c.json({ error: "Format inconnu" }, 400);
   try {
-    const media = await importDesign(c.req.param("id"), format, !!horizontal);
+    const media = await importDesign(uidOf(c), c.req.param("id"), format, !!horizontal);
     return c.json({
       media: media.map((m) => ({ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: m.localUrl })),
     });
@@ -229,8 +241,8 @@ interface Rule {
   createdAt: number;
 }
 
-function listRules(): Rule[] {
-  return (db.prepare("SELECT * FROM canva_rules ORDER BY id").all() as Record<string, any>[]).map((r) => ({
+function listRules(uid: number): Rule[] {
+  return (db.prepare("SELECT * FROM canva_rules WHERE owner_id = ? ORDER BY id").all(uid) as Record<string, any>[]).map((r) => ({
     id: r.id,
     pattern: r.pattern,
     accountIds: JSON.parse(r.account_ids),
@@ -240,17 +252,26 @@ function listRules(): Rule[] {
   }));
 }
 
-let watching = false;
+const watching = new Set<number>();
 
-/** Vérifie les designs récents et crée ou met à jour les brouillons. Renvoie le nombre traité. */
-export async function checkCanvaRules(): Promise<number> {
-  if (watching || !stored()?.access) return 0;
-  const rules = listRules();
+/** Vérifie les règles de chaque personne qui a connecté Canva. Renvoie le nombre de brouillons traités. */
+export async function checkCanvaRules(onlyUid?: number): Promise<number> {
+  const uids = onlyUid !== undefined
+    ? [onlyUid]
+    : (db.prepare("SELECT DISTINCT owner_id FROM canva_rules").all() as { owner_id: number }[]).map((r) => r.owner_id);
+  let total = 0;
+  for (const uid of uids) total += await checkRulesFor(uid);
+  return total;
+}
+
+async function checkRulesFor(uid: number): Promise<number> {
+  if (watching.has(uid) || !stored(uid)?.access) return 0;
+  const rules = listRules(uid);
   if (!rules.length) return 0;
-  watching = true;
+  watching.add(uid);
   let done = 0;
   try {
-    const r = await canvaGet("/designs?sort_by=modified_descending&ownership=any");
+    const r = await canvaGet(uid, "/designs?sort_by=modified_descending&ownership=any");
     const now = Date.now();
     for (const d of r.items ?? []) {
       const updated = (d.updated_at ?? 0) * 1000;
@@ -264,17 +285,17 @@ export async function checkCanvaRules(): Promise<number> {
       // Un brouillon par design ET par jour : les designs NEWZ sont réécrits chaque matin avec
       // de nouveaux sujets, le brouillon de la veille garde donc ses propres pages.
       const day = dayOf(updated);
-      const seen = db.prepare("SELECT updated_at, post_id FROM canva_daily_drafts WHERE design_id = ? AND day = ?").get(d.id, day) as
+      const seen = db.prepare("SELECT updated_at, post_id FROM canva_daily_drafts WHERE owner_id = ? AND design_id = ? AND day = ?").get(uid, d.id, day) as
         | { updated_at: number; post_id: number | null }
         | undefined;
       if (seen && seen.updated_at >= updated) continue;
 
       const horizontal = (d.thumbnail?.width ?? 0) > (d.thumbnail?.height ?? 0);
-      const media = await importDesign(d.id, rule.format, horizontal);
+      const media = await importDesign(uid, d.id, rule.format, horizontal);
       const mediaIds = JSON.stringify(media.map((m) => m.id));
       const source = `Canva · ${title} · ${frDate(updated)}`;
       const existing = seen?.post_id
-        ? (db.prepare("SELECT id, status FROM posts WHERE id = ?").get(seen.post_id) as { id: number; status: string } | undefined)
+        ? (db.prepare("SELECT id, status FROM posts WHERE id = ? AND owner_id = ?").get(seen.post_id, uid) as { id: number; status: string } | undefined)
         : undefined;
 
       let postId: number;
@@ -290,24 +311,24 @@ export async function checkCanvaRules(): Promise<number> {
         postId = Number(
           db
             .prepare(
-              "INSERT INTO posts (text, title, media_ids, scheduled_at, status, source, created_at, updated_at) VALUES (?, '', ?, NULL, 'draft', ?, ?, ?)",
+              "INSERT INTO posts (text, title, media_ids, scheduled_at, status, source, created_at, updated_at, owner_id) VALUES (?, '', ?, NULL, 'draft', ?, ?, ?, ?)",
             )
-            .run(text, mediaIds, source, now, now).lastInsertRowid,
+            .run(text, mediaIds, source, now, now, uid).lastInsertRowid,
         );
         const ins = db.prepare("INSERT INTO post_targets (post_id, account_id) VALUES (?, ?)");
-        for (const acc of rule.accountIds) if (getAccount(acc)) ins.run(postId, acc);
+        for (const acc of rule.accountIds) if (getOwnedAccount(acc, uid)) ins.run(postId, acc);
         verb = "créé";
       }
       db.prepare(
-        "INSERT INTO canva_daily_drafts (design_id, day, updated_at, post_id) VALUES (?, ?, ?, ?) ON CONFLICT (design_id, day) DO UPDATE SET updated_at = excluded.updated_at, post_id = excluded.post_id",
-      ).run(d.id, day, updated, postId);
+        "INSERT INTO canva_daily_drafts (owner_id, design_id, day, updated_at, post_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT (owner_id, design_id, day) DO UPDATE SET updated_at = excluded.updated_at, post_id = excluded.post_id",
+      ).run(uid, d.id, day, updated, postId);
       done++;
       void alert(`📝 Brouillon ${verb} depuis Canva : « ${title} » du ${frDate(updated)} (${media.length} fichier${media.length > 1 ? "s" : ""}). À relire et programmer : ${appLink("queue")}`);
     }
   } catch (e) {
     console.error("[canva] vérification des règles :", e instanceof Error ? e.message : e);
   } finally {
-    watching = false;
+    watching.delete(uid);
   }
   return done;
 }
@@ -317,27 +338,28 @@ export function startCanvaWatcher() {
   setTimeout(() => void checkCanvaRules(), 30_000).unref?.();
 }
 
-canvaApi.get("/rules", (c) => c.json(listRules()));
+canvaApi.get("/rules", (c) => c.json(listRules(uidOf(c))));
 
 canvaApi.post("/rules", async (c) => {
   const b = await c.req.json<{ pattern?: string; accountIds?: number[]; format?: string; text?: string }>();
   const pattern = (b.pattern ?? "").trim();
   if (pattern.length < 2) return c.json({ error: "Indique un mot du titre (au moins 2 caractères)." }, 400);
   const format = b.format && b.format in FORMATS ? b.format : "jpg";
-  const ids = (b.accountIds ?? []).map(Number).filter((id) => getAccount(id));
-  db.prepare("INSERT INTO canva_rules (pattern, account_ids, format, text, created_at) VALUES (?, ?, ?, ?, ?)").run(
+  const ids = (b.accountIds ?? []).map(Number).filter((id) => getOwnedAccount(id, uidOf(c)));
+  db.prepare("INSERT INTO canva_rules (pattern, account_ids, format, text, created_at, owner_id) VALUES (?, ?, ?, ?, ?, ?)").run(
     pattern.slice(0, 100),
     JSON.stringify(ids),
     format,
     (b.text ?? "").slice(0, 5000),
     Date.now(),
+    uidOf(c),
   );
   return c.json({ ok: true });
 });
 
 canvaApi.delete("/rules/:id", (c) => {
-  db.prepare("DELETE FROM canva_rules WHERE id = ?").run(Number(c.req.param("id")));
+  db.prepare("DELETE FROM canva_rules WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uidOf(c));
   return c.json({ ok: true });
 });
 
-canvaApi.post("/rules/run", async (c) => c.json({ count: await checkCanvaRules() }));
+canvaApi.post("/rules/run", async (c) => c.json({ count: await checkCanvaRules(uidOf(c)) }));

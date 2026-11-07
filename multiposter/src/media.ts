@@ -21,6 +21,7 @@ export interface MediaFile {
   publicUrl: string;
   /** Adresse dans l'interface (nécessite d'être connecté). */
   localUrl: string;
+  ownerId: number;
 }
 
 const ALLOWED: Record<string, "image" | "video"> = {
@@ -85,6 +86,7 @@ function toMedia(r: Record<string, any>): MediaFile {
     path: mediaPath(r.id, r.mime),
     publicUrl: signedMediaUrl(`${r.id}.${ext(r.mime)}`),
     localUrl: `/media/${r.id}.${ext(r.mime)}`,
+    ownerId: r.owner_id,
   };
 }
 
@@ -93,6 +95,7 @@ export async function saveUpload(
   body: ReadableStream<Uint8Array>,
   filename: string,
   mime: string,
+  ownerId: number,
 ): Promise<MediaFile> {
   if (!ALLOWED[mime]) throw new Error(`Format non pris en charge : ${mime}`);
   const id = randomId(18);
@@ -120,12 +123,13 @@ export async function saveUpload(
     await unlink(path).catch(() => {});
     throw new Error(`Le contenu du fichier ne correspond pas au format ${mime}.`);
   }
-  db.prepare("INSERT INTO media (id, filename, mime, size, created_at) VALUES (?, ?, ?, ?, ?)").run(
+  db.prepare("INSERT INTO media (id, filename, mime, size, created_at, owner_id) VALUES (?, ?, ?, ?, ?, ?)").run(
     id,
     filename.slice(0, 200),
     mime,
     size,
     Date.now(),
+    ownerId,
   );
   return getMedia(id)!;
 }
@@ -135,8 +139,16 @@ export function getMedia(id: string): MediaFile | undefined {
   return r ? toMedia(r) : undefined;
 }
 
-export function getMediaList(ids: string[]): MediaFile[] {
-  return ids.map((id) => getMedia(id)).filter((m): m is MediaFile => !!m);
+export function getMediaList(ids: string[], ownerId?: number): MediaFile[] {
+  return ids
+    .map((id) => getMedia(id))
+    .filter((m): m is MediaFile => !!m && (ownerId === undefined || m.ownerId === ownerId));
+}
+
+/** Propriétaire d'un fichier média (nom « id.ext »), pour l'affichage dans l'interface. */
+export function mediaOwner(file: string): number | null {
+  const r = db.prepare("SELECT owner_id FROM media WHERE id = ?").get(file.split(".")[0]) as { owner_id: number } | undefined;
+  return r?.owner_id ?? null;
 }
 
 /** Lit un morceau d'un fichier (uploads fragmentés X / TikTok / YouTube). */

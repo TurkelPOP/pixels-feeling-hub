@@ -321,7 +321,12 @@ alors à l'heure, et les brouillons Canva sont créés, même sans personne sur 
 Commande de démarrage : `node --disable-warning=ExperimentalWarning src/server.ts`, dans le
 dossier `multiposter`, avec Node.js 22.18 ou plus récent.
 
-**À plusieurs** : chaque personne a son propre accès. Dans **Comptes → Personnes ayant accès**, le
+**À plusieurs, chacun son espace** : chaque personne connecte **ses propres réseaux et son propre
+Canva**, et ne voit que **ses** posts, brouillons, médias et règles. Personne ne peut voir, modifier
+ou publier le contenu d'un autre, même un administrateur. Seuls la liste des personnes et le journal
+de sécurité sont communs aux administrateurs. Retirer quelqu'un supprime aussi tout son espace.
+
+Chaque personne a son propre accès. Dans **Comptes → Personnes ayant accès**, le
 propriétaire ou un administrateur crée un **lien d'invitation** (à usage unique, valable 48 h),
 en cochant « Administrateur » pour donner les mêmes droits (inviter, retirer, réinitialiser une 2FA). La personne y choisit son
 identifiant et son mot de passe, puis active sa propre double authentification sur son téléphone.

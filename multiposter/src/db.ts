@@ -12,6 +12,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS accounts (
   id            INTEGER PRIMARY KEY,
+  owner_id      INTEGER NOT NULL,
   provider      TEXT NOT NULL,
   external_id   TEXT NOT NULL,
   name          TEXT NOT NULL,
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   expires_at    INTEGER,
   meta          TEXT NOT NULL DEFAULT '{}',
   created_at    INTEGER NOT NULL,
-  UNIQUE (provider, external_id)
+  UNIQUE (owner_id, provider, external_id)
 );
 
 CREATE TABLE IF NOT EXISTS media (
@@ -77,6 +78,8 @@ export type Provider = "youtube" | "tiktok" | "instagram" | "facebook" | "thread
 
 export interface Account {
   id: number;
+  /** Personne à qui appartient ce compte (espace personnel). */
+  ownerId: number;
   provider: Provider;
   externalId: string;
   name: string;
@@ -92,6 +95,7 @@ type Row = Record<string, unknown>;
 function toAccount(r: Row): Account {
   return {
     id: r.id as number,
+    ownerId: r.owner_id as number,
     provider: r.provider as Provider,
     externalId: r.external_id as string,
     name: r.name as string,
@@ -103,8 +107,8 @@ function toAccount(r: Row): Account {
   };
 }
 
-export function listAccounts(): Account[] {
-  return (db.prepare("SELECT * FROM accounts ORDER BY provider, name").all() as Row[]).map(toAccount);
+export function listAccounts(ownerId: number): Account[] {
+  return (db.prepare("SELECT * FROM accounts WHERE owner_id = ? ORDER BY provider, name").all(ownerId) as Row[]).map(toAccount);
 }
 
 export function getAccount(id: number): Account | undefined {
@@ -112,18 +116,25 @@ export function getAccount(id: number): Account | undefined {
   return r ? toAccount(r) : undefined;
 }
 
-export type AccountInput = Omit<Account, "id">;
+/** Compte uniquement s'il appartient à cette personne. */
+export function getOwnedAccount(id: number, ownerId: number): Account | undefined {
+  const a = getAccount(id);
+  return a && a.ownerId === ownerId ? a : undefined;
+}
 
-/** Crée ou met à jour (reconnexion) un compte. */
-export function upsertAccount(a: AccountInput): void {
+export type AccountInput = Omit<Account, "id" | "ownerId">;
+
+/** Crée ou met à jour (reconnexion) un compte dans l'espace de cette personne. */
+export function upsertAccount(a: AccountInput, ownerId: number): void {
   db.prepare(
-    `INSERT INTO accounts (provider, external_id, name, avatar_url, access_token, refresh_token, expires_at, meta, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (provider, external_id) DO UPDATE SET
+    `INSERT INTO accounts (owner_id, provider, external_id, name, avatar_url, access_token, refresh_token, expires_at, meta, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (owner_id, provider, external_id) DO UPDATE SET
        name = excluded.name, avatar_url = excluded.avatar_url, access_token = excluded.access_token,
        refresh_token = COALESCE(excluded.refresh_token, accounts.refresh_token),
        expires_at = excluded.expires_at, meta = excluded.meta`,
   ).run(
+    ownerId,
     a.provider,
     a.externalId,
     a.name,
@@ -145,6 +156,6 @@ export function updateTokens(
   ).run(seal(t.accessToken), seal(t.refreshToken ?? null), t.expiresAt, id);
 }
 
-export function deleteAccount(id: number): void {
-  db.prepare("DELETE FROM accounts WHERE id = ?").run(id);
+export function deleteAccount(id: number, ownerId: number): void {
+  db.prepare("DELETE FROM accounts WHERE id = ? AND owner_id = ?").run(id, ownerId);
 }

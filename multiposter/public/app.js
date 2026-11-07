@@ -371,7 +371,7 @@ async function renderUsers() {
             h("button", {
               class: "btn ghost small danger", type: "button",
               onclick: async () => {
-                if (!confirm(`Retirer l'accès de « ${u.name} » ? Ses sessions seront fermées immédiatement.`)) return;
+                if (!confirm(`Retirer l'accès de « ${u.name} » ? Ses sessions seront fermées immédiatement, et tout son espace (réseaux connectés, posts, Canva) sera supprimé.`)) return;
                 try { await api(`/users/${u.id}`, { method: "DELETE" }); toast("Accès retiré."); renderUsers(); } catch (e) { toast(e.message, "err"); }
               },
             }, "Retirer"))
