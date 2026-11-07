@@ -73,7 +73,7 @@ async function ask(question: string): Promise<string> {
 
 async function main() {
   const force = process.argv.includes("--force");
-  console.log(`\n=== Mise à jour de Multiposter ===\nSource : github.com/${REPO} (branche ${BRANCH})\n`);
+  console.log(`\n=== Mise à jour de PTZ Posting ===\nSource : github.com/${REPO} (branche ${BRANCH})\n`);
 
   const res = await fetch(`https://api.github.com/repos/${REPO}/commits/${encodeURIComponent(BRANCH)}`, { headers: UA });
   if (res.status === 404 || res.status === 401)
@@ -149,9 +149,9 @@ async function main() {
 try {
   const updated = await main();
   if (updated && process.platform === "win32" && process.argv.includes("--offer-restart")) {
-    const a = await ask("\nRelancer Multiposter maintenant ? (O/n) ");
+    const a = await ask("\nRelancer PTZ Posting maintenant ? (O/n) ");
     if (a === "" || a === "o" || a === "oui") {
-      spawn("cmd", ["/c", "start", "", "Demarrer Multiposter.cmd"], { cwd: APP, detached: true, stdio: "ignore" }).unref();
+      spawn("cmd", ["/c", "start", "", "Demarrer PTZ Posting.cmd"], { cwd: APP, detached: true, stdio: "ignore" }).unref();
     }
   }
 } catch (e) {

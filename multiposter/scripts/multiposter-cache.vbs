@@ -1,4 +1,4 @@
-' Lance Multiposter sans fenetre ; le journal va dans data\multiposter.log.
+' Lance PTZ Posting sans fenetre ; le journal va dans data\multiposter.log.
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh = CreateObject("WScript.Shell")
 appDir = fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName))

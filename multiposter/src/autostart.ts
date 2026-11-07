@@ -33,7 +33,7 @@ export async function setAutostart(enabled: boolean) {
     return autostartStatus();
   }
   const quoted = HIDDEN_LAUNCHER.replaceAll('"', '""');
-  const script = `' Lance Multiposter en arrière-plan à l'ouverture de session (créé depuis l'app).\r\nCreateObject("WScript.Shell").Run "wscript.exe ""${quoted}""", 0, False\r\n`;
+  const script = `' Lance PTZ Posting en arrière-plan à l'ouverture de session (créé depuis l'app).\r\nCreateObject("WScript.Shell").Run "wscript.exe ""${quoted}""", 0, False\r\n`;
   // UTF-16 avec BOM : Windows Script Host lit ainsi correctement les chemins accentués.
   await writeFile(entry, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(script, "utf16le")]));
   return autostartStatus();

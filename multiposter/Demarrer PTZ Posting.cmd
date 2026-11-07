@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title Multiposter
+title PTZ Posting
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -14,7 +14,7 @@ if errorlevel 1 (
 rem Deja lance (par exemple au demarrage de Windows) : on ouvre juste le navigateur.
 curl.exe -s -o nul http://127.0.0.1:3210/login
 if not errorlevel 1 (
-  echo Multiposter tourne deja. Ouverture dans le navigateur...
+  echo PTZ Posting tourne deja. Ouverture dans le navigateur...
   start "" http://127.0.0.1:3210/open
   timeout /t 3 >nul
   exit /b 0
@@ -40,9 +40,9 @@ if not exist .env (
 
 set OPEN_BROWSER=1
 echo.
-echo Multiposter demarre. Garde cette fenetre ouverte : la fermer arrete l'app.
+echo PTZ Posting demarre. Garde cette fenetre ouverte : la fermer arrete l'app.
 echo.
 node --disable-warning=ExperimentalWarning src\server.ts
 echo.
-echo Multiposter s'est arrete.
+echo PTZ Posting s'est arrete.
 pause

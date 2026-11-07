@@ -1,4 +1,4 @@
-# Multiposter — Pixels Perspective
+# PTZ Posting — PTZ Corp
 
 Une app auto-hébergée pour écrire un post une fois, puis le programmer ou le publier sur
 **YouTube, TikTok, Instagram, Facebook, Threads et X**. Elle remplace Fedica.
@@ -148,15 +148,15 @@ sur ces fichiers du dossier `multiposter` :
 
 | Fichier | Ce qu'il fait |
 | --- | --- |
-| **Demarrer Multiposter** | Au premier lancement, installe l'app et te demande un mot de passe. Ensuite, lance l'app et l'ouvre dans le navigateur. Si l'app tourne déjà, ouvre simplement le navigateur. |
-| **Arreter Multiposter** | Arrête l'app, y compris quand elle tourne en arrière-plan. |
-| **Mettre a jour Multiposter** | Télécharge la dernière version depuis GitHub et remplace les fichiers de l'app. `.env`, `data` et `node_modules` ne sont jamais touchés. Propose ensuite de relancer l'app. |
+| **Demarrer PTZ Posting** | Au premier lancement, installe l'app et te demande un mot de passe. Ensuite, lance l'app et l'ouvre dans le navigateur. Si l'app tourne déjà, ouvre simplement le navigateur. |
+| **Arreter PTZ Posting** | Arrête l'app, y compris quand elle tourne en arrière-plan. |
+| **Mettre a jour PTZ Posting** | Télécharge la dernière version depuis GitHub et remplace les fichiers de l'app. `.env`, `data` et `node_modules` ne sont jamais touchés. Propose ensuite de relancer l'app. |
 
 **Démarrage automatique avec Windows** : désactivé par défaut. L'interrupteur « Lancer
-Multiposter au démarrage de Windows », en haut de l'onglet **Comptes**, l'active ou le désactive
+PTZ Posting au démarrage de Windows », en haut de l'onglet **Comptes**, l'active ou le désactive
 en un clic. Une fois activé, l'app démarre en arrière-plan, sans fenêtre, à chaque ouverture de
 session, et son journal est dans `data\multiposter.log`. Désactiver ne coupe pas l'app en cours :
-utilise « Arreter Multiposter » pour ça.
+utilise « Arreter PTZ Posting » pour ça.
 
 Pour que les posts partent à l'heure, le PC doit être allumé et ne pas se mettre en veille
 (Paramètres → Système → Alimentation → Mise en veille : « Jamais » sur secteur).

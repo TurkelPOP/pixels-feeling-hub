@@ -1,8 +1,8 @@
 {
-  "name": "pixels-multiposter",
+  "name": "ptz-posting",
   "private": true,
   "version": "1.0.0",
-  "description": "Programmation et publication multi-réseaux (YouTube, TikTok, Instagram, Facebook, Threads, X) auto-hébergée.",
+  "description": "PTZ Posting (PTZ Corp) : programmation et publication multi-réseaux auto-hébergée.",
   "type": "module",
   "engines": {
     "node": ">=22.18"

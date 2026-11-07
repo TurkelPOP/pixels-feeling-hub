@@ -8,7 +8,7 @@ const root = resolve(import.meta.dirname, "..");
 const envPath = resolve(root, ".env");
 if (existsSync(envPath)) process.exit(0);
 
-console.log("\n=== Premier lancement de Multiposter ===\n");
+console.log("\n=== Premier lancement de PTZ Posting ===\n");
 const question = "Choisis un mot de passe pour ouvrir l'app (6 caractères minimum) : ";
 const rl = createInterface({ input: process.stdin });
 let password = "";

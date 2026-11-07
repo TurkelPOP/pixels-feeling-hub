@@ -300,13 +300,13 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};
 
 function page(title: string, body: string) {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>${esc(title)} · Multiposter</title><link rel="icon" href="/assets/logo.png">
+<meta name="robots" content="noindex"><title>${esc(title)} · PTZ Posting</title><link rel="icon" href="/assets/logo.png">
 <link rel="stylesheet" href="/assets/styles.css"></head><body class="login"><main class="card login-card wide">${body}</main></body></html>`;
 }
 
 function setupPage(user: User, secret: string, error = "") {
-  const label = encodeURIComponent(`Multiposter (${user.name})`);
-  const uri = `otpauth://totp/${label}?secret=${secret}&issuer=Multiposter&digits=6&period=30`;
+  const label = encodeURIComponent(`PTZ Posting (${user.name})`);
+  const uri = `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent("PTZ Posting")}&digits=6&period=30`;
   const qr = qrcode(0, "M");
   qr.addData(uri);
   qr.make();
@@ -341,7 +341,7 @@ function codesPage(codes: string[]) {
 function invitePage(error = "") {
   return page("Invitation", `
 <img src="/assets/logo.png" alt="" width="56" height="56">
-<h1>Rejoindre Multiposter</h1>
+<h1>Rejoindre PTZ Posting</h1>
 <p class="muted">Choisis ton identifiant et ton mot de passe. Tu activeras ensuite la double authentification sur ton téléphone.</p>
 <form method="post">
   <label for="name">${EMAIL_DOMAIN ? `Ton adresse e-mail @${esc(EMAIL_DOMAIN)}` : "Identifiant (ton adresse e-mail, ou un pseudo)"}</label>
@@ -395,8 +395,8 @@ export function registerAuth(app: Hono) {
       failures.set(ip, { count, until: locked ? Date.now() + 15 * 60_000 : 0 });
       globalFailures.push(Date.now());
       logEvent(c, "login_fail", user ? user.name : null, `${locked ? "adresse bloquée 15 min · " : ""}identifiant « ${name.slice(0, 100)} »`);
-      if (locked) void alert(`🚨 Multiposter : 5 échecs de connexion depuis ${ip}, adresse bloquée 15 min.`);
-      if (globalFailures.length === 21) void alert("🚨 Multiposter : plus de 20 échecs de connexion en 1 h. Les essais sont ralentis.");
+      if (locked) void alert(`🚨 PTZ Posting : 5 échecs de connexion depuis ${ip}, adresse bloquée 15 min.`);
+      if (globalFailures.length === 21) void alert("🚨 PTZ Posting : plus de 20 échecs de connexion en 1 h. Les essais sont ralentis.");
       // Même message pour un identifiant, un mot de passe ou un code faux : on ne révèle rien.
       return c.redirect("/login?e=1");
     }
@@ -412,7 +412,7 @@ export function registerAuth(app: Hono) {
     db.prepare("UPDATE users SET last_login = ? WHERE id = ?").run(Date.now(), u.id);
     logEvent(c, "login_ok", u.name, usedRecovery ? "avec un code de secours" : "");
     void alert(
-      `🔐 Connexion de « ${u.name} » à Multiposter depuis ${ip}${usedRecovery ? " avec un CODE DE SECOURS" : ""} (${(c.req.header("user-agent") ?? "").slice(0, 80)}). Si ce n'est pas normal : « Déconnecter tous les appareils » dans l'onglet Comptes.`,
+      `🔐 Connexion de « ${u.name} » à PTZ Posting depuis ${ip}${usedRecovery ? " avec un CODE DE SECOURS" : ""} (${(c.req.header("user-agent") ?? "").slice(0, 80)}). Si ce n'est pas normal : « Déconnecter tous les appareils » dans l'onglet Comptes.`,
     );
     return c.redirect("/");
   });
@@ -448,7 +448,7 @@ export function registerAuth(app: Hono) {
     await openSession(c, updated, "f"); // les autres sessions de cet utilisateur sont fermées (empreinte changée)
     db.prepare("UPDATE users SET last_login = ? WHERE id = ?").run(Date.now(), user.id);
     logEvent(c, "2fa_enabled", user.name);
-    void alert(`🔐 Double authentification activée pour « ${user.name} » sur Multiposter.`);
+    void alert(`🔐 Double authentification activée pour « ${user.name} » sur PTZ Posting.`);
     return c.html(codesPage(codes));
   });
 
@@ -478,7 +478,7 @@ export function registerAuth(app: Hono) {
     );
     const user = userById(id)!;
     logEvent(c, "user_created", name, `via une invitation (${role === "admin" ? "administrateur" : "membre"})`);
-    void alert(`👤 Nouvel utilisateur « ${name} » (${role === "admin" ? "administrateur" : "membre"}) créé sur Multiposter via une invitation.`);
+    void alert(`👤 Nouvel utilisateur « ${name} » (${role === "admin" ? "administrateur" : "membre"}) créé sur PTZ Posting via une invitation.`);
     if (needs2fa(user)) {
       await openSession(c, user, "e");
       return c.redirect("/2fa/setup");
@@ -545,7 +545,7 @@ export function registerUserApi(api: Hono) {
     if (!u || u.role === "owner" || u.id === currentUser(c)!.id) return c.json({ error: "Impossible de retirer ce compte." }, 400);
     db.prepare("DELETE FROM users WHERE id = ?").run(u.id); // ses sessions deviennent invalides
     logEvent(c, "user_removed", currentUser(c)!.name, `« ${u.name} » retiré`);
-    void alert(`👤 L'accès de « ${u.name} » à Multiposter a été retiré.`);
+    void alert(`👤 L'accès de « ${u.name} » à PTZ Posting a été retiré.`);
     return c.json({ ok: true });
   });
 

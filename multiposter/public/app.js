@@ -1,4 +1,4 @@
-// Multiposter — interface (vanilla JS, aucune dépendance).
+// PTZ Posting — interface (vanilla JS, aucune dépendance).
 
 const PROVIDER = {
   youtube: { label: "YouTube", color: "#ff3b3b" },
@@ -441,7 +441,7 @@ async function renderSystem() {
   const paint = () => {
     status.textContent = input.checked
       ? "Activé : l'app démarrera en arrière-plan à chaque ouverture de session Windows."
-      : "Désactivé : l'app ne tourne que quand tu la lances avec « Demarrer Multiposter ».";
+      : "Désactivé : l'app ne tourne que quand tu la lances avec « Demarrer PTZ Posting ».";
   };
   paint();
   input.addEventListener("change", async () => {
@@ -463,7 +463,7 @@ async function renderSystem() {
     h("div", { class: "card system" },
       h("label", { class: "switch-row", for: "autostart" },
         h("span", { class: "switch" }, input, h("span", { class: "slider", "aria-hidden": "true" })),
-        h("strong", {}, "Lancer Multiposter au démarrage de Windows")),
+        h("strong", {}, "Lancer PTZ Posting au démarrage de Windows")),
       status),
   );
 }

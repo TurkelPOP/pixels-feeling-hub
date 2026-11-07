@@ -462,7 +462,7 @@ startCleanup();
 // Par défaut, l'app n'écoute que sur ce PC (127.0.0.1) : elle n'est pas visible depuis les
 // autres appareils du Wi-Fi. HOST=0.0.0.0 seulement pour Docker ou un serveur.
 serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {
-  console.log(`Multiposter prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
+  console.log(`PTZ Posting prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
   // Lanceur Windows / macOS : ouvre l'app dans le navigateur une fois prête.
   if (process.env.OPEN_BROWSER === "1") {
     const url = `http://127.0.0.1:${info.port}/open`;
