@@ -12,7 +12,8 @@ fetch("/login/info")
     if (d.nameRequired) name.required = true;
     else name.placeholder = "vide = propriétaire";
     if (!d.twoFactor) return;
+    // Pas obligatoire : à la toute première connexion, il n'y a pas encore de code ; l'app propose
+    // alors d'activer la double authentification juste après le mot de passe.
     document.getElementById("code-row").hidden = false;
-    document.getElementById("code").required = true;
   })
   .catch(() => {});
