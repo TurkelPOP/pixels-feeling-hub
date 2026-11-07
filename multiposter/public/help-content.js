@@ -300,6 +300,13 @@ ${networks[id].owner}`,
   <li>Sous les médias, chaque réseau a sa <strong>carte d'options</strong> : « Prêt » en vert, sinon ce qui bloque en rouge. Tu peux y choisir le format (carrousel, story…), les médias envoyés à ce réseau, ou un texte différent.</li>
   <li>Dans <strong>Quand ?</strong>, choisis la date et l'heure, puis <strong>Programmer</strong>. Ou <strong>Publier maintenant</strong>, ou <strong>Enregistrer en brouillon</strong>.</li>
 </ol>
+<h3>Hashtags</h3>
+<ul>
+  <li>Sous le texte, l'app liste les hashtags trouvés et prévient selon les réseaux cochés : <strong>Instagram</strong> 30 maximum (au-delà le post est refusé), <strong>Threads</strong> un seul tag par post (le premier devient le sujet), <strong>YouTube</strong> les ignore tous au-delà de 15, <strong>X</strong> les compte dans les 280 caractères.</li>
+  <li><strong>Insérer</strong> : un clic ajoute un de tes jeux de hashtags, ou un de tes hashtags les plus utilisés, à la fin du texte (sans doublon).</li>
+  <li><strong>Jeux de hashtags</strong> : « Gérer mes jeux de hashtags » pour en créer (nom + hashtags). Lié à un profil, un jeu n'est proposé que quand ce profil est coché.</li>
+  <li>Astuce : pour un texte différent sur un réseau (moins de hashtags sur X ou Threads), utilise « Texte différent pour ce réseau » dans ses options.</li>
+</ul>
 <h3>Formats acceptés</h3>
 <ul>
   <li><strong>Instagram</strong> : images JPG (carrousel jusqu'à 10), vidéo MP4 (Reel), story. Pas de post texte seul.</li>

@@ -53,6 +53,7 @@ const state = {
   media: [],
   uploading: 0,
   canva: { status: null, items: [], continuation: null, query: "" },
+  hashtags: { sets: [], top: [], editing: false },
   drive: { status: null, items: [], next: null, query: "", mode: "recent", path: [], picked: new Map() },
   profiles: [],
   profileFilter: "",
@@ -1049,8 +1050,131 @@ function renderComposeMeta() {
     }),
   );
 
+  renderHashtags();
   renderTargetCards();
   scheduleValidation();
+}
+
+// ---------- hashtags ----------
+
+/** Hashtags d'un texte (même règle que le serveur). */
+const extractHashtags = (t) => [...t.matchAll(/(^|[^\p{L}\p{N}_&\/#])#([\p{L}\p{N}_]*\p{L}[\p{L}\p{N}_]*)/gu)].map((m) => `#${m[2]}`);
+
+/** Règles de hashtags par réseau : [niveau, message] ou null. */
+function hashtagRule(provider, tags) {
+  const n = tags.length;
+  if (!n) return null;
+  if (provider === "instagram" && n > 30) return ["err", `Instagram : ${n} hashtags, 30 maximum (sinon le post est refusé).`];
+  if (provider === "threads" && n > 1) return ["warn", `Threads : un seul tag par post. « ${tags[0]} » deviendra le sujet du post, les autres resteront du simple texte.`];
+  if (provider === "youtube" && n > 15) return ["warn", `YouTube : au-delà de 15 hashtags, YouTube les ignore tous (${n} ici).`];
+  if (provider === "x" && n > 3) return ["info", `X : ${n} hashtags comptent dans les 280 caractères ; 1 ou 2 suffisent en général.`];
+  return null;
+}
+
+async function loadHashtags() {
+  try {
+    const r = await api("/hashtags");
+    state.hashtags.sets = r.sets;
+    state.hashtags.top = r.top;
+  } catch {
+    /* hors ligne : on garde l'existant */
+  }
+}
+
+/** Ajoute des hashtags à la fin du texte, sans doublon. */
+function insertHashtags(tags) {
+  const ta = $("#text");
+  const have = new Set(extractHashtags(ta.value).map((t) => t.toLowerCase()));
+  const add = tags.filter((t) => !have.has(t.toLowerCase()));
+  if (!add.length) return toast("Ces hashtags sont déjà dans le texte.");
+  const v = ta.value.replace(/\s+$/, "");
+  const lastLine = v.split("\n").at(-1) ?? "";
+  const onTagLine = lastLine.trim() && lastLine.trim().split(/\s+/).every((w) => w.startsWith("#"));
+  ta.value = v + (v ? (onTagLine ? " " : "\n\n") : "") + add.join(" ");
+  ta.dispatchEvent(new Event("input"));
+}
+
+/** Jeux proposés : ceux « pour tous » + ceux des profils dont un compte est coché. */
+function relevantSets() {
+  const sel = state.selected;
+  return state.hashtags.sets.filter((s) => {
+    if (s.profileId == null) return true;
+    const pr = state.profiles.find((p) => p.id === s.profileId);
+    return pr && profileAccounts(pr).some((id) => sel.has(id));
+  });
+}
+
+function renderHashtags() {
+  const box = $("#hashtags-box");
+  if (!box) return;
+  const H = state.hashtags;
+  const text = $("#text").value;
+  const tags = extractHashtags(text);
+  const accs = selectedAccounts();
+  const providers = [...new Set(accs.map((a) => a.provider))];
+  const notes = providers
+    .map((p) => {
+      const t = [...new Set(accs.filter((a) => a.provider === p).flatMap((a) => extractHashtags(state.overrides[a.id] ?? text)))];
+      return hashtagRule(p, t);
+    })
+    .filter(Boolean);
+  const inText = new Set(tags.map((t) => t.toLowerCase()));
+  const sets = relevantSets();
+  const freq = H.top.filter((t) => !inText.has(t.tag.toLowerCase())).slice(0, 12);
+
+  box.replaceChildren(...[
+    tags.length
+      ? h("div", { class: "tag-found" }, h("span", { class: "tag-count" }, `# ${tags.length} hashtag${tags.length > 1 ? "s" : ""}`),
+          ...tags.slice(0, 40).map((t) => h("span", { class: "tag-pill" }, t)))
+      : null,
+    ...notes.map(([lvl, msg]) => h("p", { class: `tag-note ${lvl}` }, msg)),
+    sets.length || freq.length
+      ? h("div", { class: "tag-insert" },
+          h("small", { class: "muted" }, "Insérer :"),
+          ...sets.map((s) => h("button", { type: "button", class: "chip small-chip tag-set", title: s.tags.join(" "), onclick: () => insertHashtags(s.tags) }, `# ${s.name}`)),
+          ...freq.map((t) => h("button", { type: "button", class: "chip small-chip tag-freq", title: `Utilisé dans ${t.n} post${t.n > 1 ? "s" : ""}`, onclick: () => insertHashtags([t.tag]) }, t.tag)))
+      : null,
+    h("button", { type: "button", class: "link-btn small", onclick: () => { H.editing = !H.editing; renderHashtags(); } },
+      H.editing ? "Fermer" : sets.length || H.sets.length ? "Gérer mes jeux de hashtags" : "＋ Créer un jeu de hashtags (à insérer d'un clic)"),
+    H.editing ? hashtagEditor() : null,
+  ].filter(Boolean));
+}
+
+function hashtagEditor() {
+  const H = state.hashtags;
+  const profileSelect = (value) =>
+    h("select", {}, h("option", { value: "" }, "Pour tous mes posts"),
+      ...state.profiles.map((p) => h("option", { value: String(p.id), selected: p.id === value }, `Profil : ${p.name}`)));
+  const save = async (id, name, tags, profile) => {
+    try {
+      await api(id ? `/hashtags/sets/${id}` : "/hashtags/sets", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify({ name: name.value, tags: tags.value, profileId: profile.value ? Number(profile.value) : null }),
+      });
+      toast(id ? "Jeu modifié." : "Jeu de hashtags créé.");
+      await loadHashtags();
+      renderHashtags();
+    } catch (e) {
+      toast(e.message, "err");
+    }
+  };
+  const row = (s) => {
+    const name = h("input", { value: s?.name ?? "", placeholder: "Nom, ex. NEWZ jeux vidéo", maxlength: 60 });
+    const tags = h("input", { value: s ? s.tags.join(" ") : "", placeholder: "#gaming #jeuxvideo #news" });
+    const profile = profileSelect(s?.profileId ?? null);
+    return h("div", { class: "tagset-row" }, name, tags, profile,
+      h("div", { class: "row" },
+        h("button", { class: "btn primary small", type: "button", onclick: () => save(s?.id, name, tags, profile) }, s ? "Enregistrer" : "Créer"),
+        s ? h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
+          if (!confirm(`Supprimer le jeu « ${s.name} » ?`)) return;
+          await api(`/hashtags/sets/${s.id}`, { method: "DELETE" });
+          await loadHashtags();
+          renderHashtags();
+        } }, "Supprimer") : null));
+  };
+  return h("div", { class: "tagset-editor" },
+    h("p", { class: "muted small" }, "Un jeu = des hashtags que tu réutilises souvent. Lié à un profil, il n'est proposé que quand ce profil est coché."),
+    ...H.sets.map(row), row(null));
 }
 
 // ---------- Options par réseau ----------
@@ -1875,7 +1999,7 @@ async function init() {
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();
-  await Promise.all([loadCanvaStatus(), loadDriveStatus()]);
+  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags()]);
   await loadAccounts();
 
   $("#btn-canva").onclick = openCanva;

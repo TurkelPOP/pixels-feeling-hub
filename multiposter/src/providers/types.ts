@@ -88,3 +88,8 @@ export const images = (m: MediaFile[]) => m.filter((x) => x.kind === "image");
 /** Vidéo que ce réseau n'accepte pas (WebM, enregistré par certaines webcams). */
 export const hasWebm = (m: MediaFile[]) => m.some((x) => x.kind === "video" && x.mime !== "video/mp4" && x.mime !== "video/quicktime");
 export const videos = (m: MediaFile[]) => m.filter((x) => x.kind === "video");
+
+/** Hashtags d'un texte, dans l'ordre (« #NEWZ », « #jeuxvidéo »…). Ignore les ancres d'URL (site.fr/#x). */
+export function extractHashtags(text: string): string[] {
+  return [...text.matchAll(/(^|[^\p{L}\p{N}_&\/#])#([\p{L}\p{N}_]*\p{L}[\p{L}\p{N}_]*)/gu)].map((m) => `#${m[2]}`);
+}

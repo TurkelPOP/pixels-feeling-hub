@@ -815,3 +815,22 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .rule-targets { display: flex; flex-wrap: wrap; gap: 0.3rem 0.7rem; align-items: center; font-size: 0.85rem; color: var(--muted); }
 .rule-edit { flex-basis: 100%; display: grid; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .account-picker-box { display: grid; gap: 0.35rem; }
+
+/* Hashtags dans l'éditeur */
+.hashtags-box { display: grid; gap: 0.45rem; margin-top: 0.4rem; }
+.hashtags-box:empty { display: none; }
+.tag-found, .tag-insert { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.tag-count { font-size: 0.78rem; font-weight: 700; color: var(--turquin-light); margin-right: 0.15rem; }
+.tag-pill { font-size: 0.78rem; padding: 0.1rem 0.5rem; border-radius: 999px; color: #cfdcff; background: rgba(2, 49, 151, 0.45); border: 1px solid var(--border); }
+.tag-note { margin: 0; font-size: 0.85rem; padding: 0.4rem 0.65rem; border-radius: 10px; }
+.tag-note.err { color: #fecdd3; background: rgba(251, 113, 133, 0.12); border: 1px solid rgba(251, 113, 133, 0.4); }
+.tag-note.warn { color: #fde68a; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35); }
+.tag-note.info { color: var(--muted); background: rgba(99, 102, 241, 0.1); border: 1px solid var(--border); }
+.tag-set { border-color: rgba(129, 167, 248, 0.5); }
+.tag-freq { opacity: 0.85; }
+.link-btn { justify-self: start; background: none; border: 0; padding: 0; color: var(--turquin-light); cursor: pointer; font: inherit; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; }
+.tagset-editor { display: grid; gap: 0.6rem; padding: 0.7rem; border-radius: 12px; border: 1px solid var(--border); background: rgba(1, 9, 36, 0.35); }
+.tagset-editor > p { margin: 0; }
+.tagset-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) auto; gap: 0.45rem; align-items: center; }
+.tagset-row .row { flex-wrap: nowrap; }
+@media (max-width: 760px) { .tagset-row { grid-template-columns: 1fr; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); } }

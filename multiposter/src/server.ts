@@ -19,6 +19,7 @@ import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
 import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
+import { registerHashtagApi } from "./hashtags.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
@@ -283,6 +284,7 @@ api.get("/accounts", (c) =>
 );
 
 registerProfileApi(api);
+registerHashtagApi(api);
 registerAppSettingsApi(api);
 
 api.delete("/accounts/:id", (c) => {

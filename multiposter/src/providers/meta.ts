@@ -5,7 +5,7 @@ import { alert } from "../alerts.ts";
 import { callbackUrl, config } from "../config.ts";
 import { form, json, waitFor } from "../http.ts";
 import type { MediaFile } from "../media.ts";
-import { countChars, hasWebm, images, videos, type OAuthFlow, type Publisher } from "./types.ts";
+import { countChars, extractHashtags, hasWebm, images, videos, type OAuthFlow, type Publisher } from "./types.ts";
 
 const V = "v23.0";
 const G = `https://graph.facebook.com/${V}`;
@@ -175,6 +175,8 @@ export const instagram: Publisher = {
     if (options.alsoStory && media[0]?.kind === "image" && media[0].mime !== "image/jpeg")
       return "Instagram : la story doit être une image JPEG ou une vidéo.";
     if (!media.length) return "Instagram : au moins une image ou une vidéo est obligatoire.";
+    const tags = extractHashtags(text).length;
+    if (tags > 30) return `Instagram : ${tags} hashtags, 30 maximum (sinon Instagram refuse le post).`;
     if (media.length > 10) return "Instagram : 10 médias maximum par carrousel.";
     if (media.some((m) => m.kind === "image" && m.mime !== "image/jpeg"))
       return "Instagram : les images doivent être en JPEG (exporte en JPG depuis Canva).";
