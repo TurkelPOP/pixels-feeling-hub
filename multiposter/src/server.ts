@@ -21,7 +21,7 @@ import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./can
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
-import { startCleanup } from "./cleanup.ts";
+import { DRAFT_DAYS, RETENTION_DAYS, startCleanup } from "./cleanup.ts";
 import { publishPost, rollupStatus, startScheduler, tick } from "./scheduler.ts";
 
 // Espaces personnels : les données de l'ancienne version partagée reviennent au propriétaire.
@@ -203,6 +203,7 @@ api.use("*", requireAuth);
 api.get("/meta", (c) =>
   c.json({
     timezone: config.timezone,
+    retention: { draftDays: DRAFT_DAYS, publishedDays: RETENTION_DAYS },
     flows: Object.values(flows).map((f) => ({ id: f.id, label: f.label, providers: f.providers, configured: f.configured() })),
     publishers: Object.values(publishers).map((p) => ({ id: p.id, label: p.label, maxText: p.maxText })),
   }),
@@ -296,6 +297,7 @@ function serializePost(p: Record<string, any>) {
     source: p.source ?? null,
     scheduledAt: p.scheduled_at,
     createdAt: p.created_at,
+    updatedAt: p.updated_at,
     media: getMediaList(JSON.parse(p.media_ids)).map((m) => ({
       id: m.id,
       filename: m.filename,

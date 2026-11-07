@@ -1,14 +1,27 @@
-// Nettoyage quotidien des médias : fichiers envoyés puis jamais utilisés, et médias des posts
-// publiés depuis longtemps. Les brouillons et posts programmés ne perdent jamais leurs médias.
+// Nettoyage automatique (toutes les heures) :
+// - brouillons non modifiés depuis DRAFT_DAYS jours (7) : supprimés, avec leurs médias ;
+// - médias des posts publiés (ou en échec) depuis MEDIA_RETENTION_DAYS jours (3) : supprimés ;
+// - fichiers envoyés puis abandonnés sans enregistrer le post : supprimés au bout de 12 h.
+// Les posts programmés ne perdent jamais leurs médias.
 import { unlink } from "node:fs/promises";
 
 import { db } from "./db.ts";
-import { mediaPath } from "./media.ts";
+import { mediaPath, purgeUnused } from "./media.ts";
 
 const DAY = 86_400_000;
-const RETENTION_DAYS = Number(process.env.MEDIA_RETENTION_DAYS ?? 90);
+export const RETENTION_DAYS = Number(process.env.MEDIA_RETENTION_DAYS ?? 3);
+export const DRAFT_DAYS = Number(process.env.DRAFT_RETENTION_DAYS ?? 7);
 
 export async function cleanupMedia(): Promise<number> {
+  // Brouillons oubliés : supprimés (leurs médias deviennent orphelins et partent juste après).
+  const oldDrafts = db
+    .prepare("SELECT id, media_ids, owner_id FROM posts WHERE status = 'draft' AND updated_at < ?")
+    .all(Date.now() - DRAFT_DAYS * DAY) as { id: number; media_ids: string; owner_id: number }[];
+  for (const d of oldDrafts) {
+    db.prepare("DELETE FROM posts WHERE id = ?").run(d.id);
+    await purgeUnused(JSON.parse(d.media_ids), d.owner_id);
+  }
+  if (oldDrafts.length) console.log(`[nettoyage] ${oldDrafts.length} brouillon(s) de plus de ${DRAFT_DAYS} jours supprimé(s)`);
   const rows = db.prepare("SELECT id, mime, created_at FROM media").all() as { id: string; mime: string; created_at: number }[];
   const posts = db.prepare("SELECT media_ids, status, updated_at FROM posts").all() as {
     media_ids: string;

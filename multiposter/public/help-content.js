@@ -309,6 +309,8 @@ ${networks[id].owner}`,
   <li><strong>Planning</strong> en liste ou en <strong>calendrier</strong>. Dans le calendrier, le <strong>+</strong> d'un jour crée un post à cette date.</li>
   <li>La pastille à côté de « Planning » indique le nombre de brouillons à programmer. Elle devient <strong>orange</strong> s'il en reste des jours précédents.</li>
   <li>L'onglet <strong>Brouillons</strong> les range par jour (Aujourd'hui, Hier…). « Relire et programmer » ouvre le brouillon.</li>
+  <li><strong>Un brouillon ni modifié ni programmé pendant 7 jours est supprimé automatiquement</strong>, avec ses images et vidéos. La date est indiquée sous chaque brouillon. Pour le garder, il suffit de l'ouvrir et de l'enregistrer.</li>
+  <li>Les images et vidéos d'un post publié sont effacées du serveur au bout de 3 jours. Pour republier le même post après, réajoute les médias.</li>
   <li>La <strong>recherche</strong> retrouve n'importe quel post par son texte, par exemple « NEWZ 3 ».</li>
   <li>Un post en <strong>Échec</strong> : lis le message sous le réseau, il dit quoi corriger (format d'image, texte trop long, compte à reconnecter…). Corrige, puis « Réessayer les échecs ».</li>
 </ul>`,
@@ -322,7 +324,7 @@ ${networks[id].owner}`,
   <li><strong>Les accès à tes réseaux</strong> (créés quand tu cliques sur « Connecter ») sont chiffrés et ne sont jamais affichés, à personne.</li>
   <li><strong>Les clés de l'application</strong>, saisies une fois par le propriétaire, servent juste à présenter PTZ Posting aux réseaux. Elles ne donnent accès au compte de personne.</li>
   <li><strong>Tes images</strong> ne sont visibles que par toi, et par Instagram ou Threads au moment de la publication, via un lien qui expire au bout de 24 h.</li>
-  <li><strong>Suppression de tes médias</strong> : une photo ou vidéo retirée avec ✕ (ou avec « Vider le formulaire ») est <strong>effacée du serveur tout de suite</strong>, ainsi que celles d'un post que tu supprimes. Celles d'un post publié sont gardées 90 jours (pour pouvoir réessayer un réseau en échec), puis effacées automatiquement. Une photo ou vidéo envoyée puis abandonnée sans enregistrer le post est effacée au bout de 12 h. Ce qui est sur ton téléphone n'est jamais touché.</li>
+  <li><strong>Suppression de tes médias</strong> : une photo ou vidéo retirée avec ✕ (ou avec « Vider le formulaire ») est <strong>effacée du serveur tout de suite</strong>, ainsi que celles d'un post que tu supprimes. Celles d'un post publié (ou en échec) sont gardées <strong>3 jours</strong>, le temps de réessayer un réseau en échec, puis effacées automatiquement. Le texte du post et ses liens « Voir » restent dans le planning. Une photo ou vidéo envoyée puis abandonnée sans enregistrer le post est effacée au bout de 12 h. Ce qui est sur ton téléphone n'est jamais touché.</li>
   <li>Chaque connexion est notée dans le <strong>journal de sécurité</strong> (carte Sécurité). Si tu vois une connexion qui n'est pas la tienne, clique sur <strong>« Déconnecter tous les appareils »</strong> et préviens un administrateur.</li>
 </ul>`,
     },

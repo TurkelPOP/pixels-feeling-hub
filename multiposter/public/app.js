@@ -1367,6 +1367,9 @@ function postCard(p) {
     h(
       "footer",
       {},
+      p.status === "draft" && p.updatedAt && state.meta?.retention
+        ? h("span", { class: "muted small expiry" }, `Supprimé automatiquement le ${new Date(p.updatedAt + state.meta.retention.draftDays * 86400e3).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} s'il n'est ni modifié ni programmé`)
+        : null,
       p.status === "draft"
         ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, "Relire et programmer")
         : p.status === "scheduled" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,

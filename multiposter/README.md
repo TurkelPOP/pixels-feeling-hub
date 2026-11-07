@@ -347,7 +347,8 @@ Variables d'environnement à définir dans le site Node.js d'alwaysdata :
 | `TRUST_PROXY` | `1` (pour voir la vraie adresse IP des visiteurs derrière le proxy d'alwaysdata) |
 | `TAILSCALE` | `off` |
 | `ALERT_WEBHOOK_URL` | ton webhook Discord (fortement recommandé) |
-| `MEDIA_RETENTION_DAYS` | par exemple `30`, selon l'espace disque de ton offre |
+| `MEDIA_RETENTION_DAYS` | jours de conservation des médias d'un post publié (`3` par défaut) |
+| `DRAFT_RETENTION_DAYS` | jours avant suppression d'un brouillon non modifié (`7` par défaut) |
 
 **Réveil automatique** : alwaysdata peut mettre en veille un site sans visites. Ajoute
 `CRON_SECRET` (64 caractères aléatoires) aux variables, puis une **tâche planifiée** alwaysdata
@@ -425,7 +426,9 @@ Meta.
   `APP_SECRET`, sinon les tokens ne peuvent plus être déchiffrés.
 - Nettoyage automatique, une fois par jour :
   - les fichiers envoyés puis jamais utilisés sont supprimés au bout de 2 jours ;
-  - les médias des posts publiés sont supprimés après `MEDIA_RETENTION_DAYS` jours (90 par défaut) ;
+  - les médias des posts publiés sont supprimés après `MEDIA_RETENTION_DAYS` jours (3 par défaut) ;
+  - les brouillons non modifiés depuis `DRAFT_RETENTION_DAYS` jours (7 par défaut) sont supprimés avec leurs médias ;
+  - un média retiré de l'éditeur, ou d'un post supprimé, est effacé immédiatement ;
   - les brouillons et les posts programmés gardent toujours leurs médias.
 - Alertes : renseigne `ALERT_WEBHOOK_URL` avec un webhook Discord (gratuit) pour être prévenu
   sur ton téléphone si une publication échoue.
