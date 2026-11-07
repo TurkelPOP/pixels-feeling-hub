@@ -21,7 +21,10 @@ const SESSION_DAYS = config.serverMode ? 7 : 30;
 /** En HTTPS, préfixe __Host- : cookie lié à cette seule adresse, impossible à injecter depuis un sous-domaine. */
 const SESSION = config.serverMode ? "__Host-mp_session" : "mp_session";
 const OWNER_NAME = (process.env.ADMIN_NAME ?? "admin").trim().toLowerCase();
-const NAME_RE = /^[a-z0-9._-]{2,30}$/;
+/** Identifiant : une adresse e-mail, ou un pseudo (a-z, 0-9, . _ -). 100 caractères maximum. */
+const NAME_RE = /^(?=.{2,100}$)[a-z0-9._+-]+(@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,})?$/;
+/** Si défini (ex. ptzcorp.fr), les invités doivent choisir une adresse de ce domaine. */
+const EMAIL_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase().replace(/^@/, "") || null;
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -341,8 +344,8 @@ function invitePage(error = "") {
 <h1>Rejoindre Multiposter</h1>
 <p class="muted">Choisis ton identifiant et ton mot de passe. Tu activeras ensuite la double authentification sur ton téléphone.</p>
 <form method="post">
-  <label for="name">Identifiant (lettres minuscules, chiffres, . _ -)</label>
-  <input id="name" name="name" autocomplete="username" pattern="[a-z0-9._\\-]{2,30}" maxlength="30" required autofocus>
+  <label for="name">${EMAIL_DOMAIN ? `Ton adresse e-mail @${esc(EMAIL_DOMAIN)}` : "Identifiant (ton adresse e-mail, ou un pseudo)"}</label>
+  <input id="name" name="name" type="${EMAIL_DOMAIN ? "email" : "text"}" autocomplete="username" maxlength="100" required autofocus>
   <label for="password">Mot de passe (12 caractères minimum)</label>
   <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" required>
   <label for="password2">Confirme le mot de passe</label>
@@ -391,7 +394,7 @@ export function registerAuth(app: Hono) {
       const locked = count >= 5;
       failures.set(ip, { count, until: locked ? Date.now() + 15 * 60_000 : 0 });
       globalFailures.push(Date.now());
-      logEvent(c, "login_fail", user ? user.name : null, `${locked ? "adresse bloquée 15 min · " : ""}identifiant « ${name.slice(0, 30)} »`);
+      logEvent(c, "login_fail", user ? user.name : null, `${locked ? "adresse bloquée 15 min · " : ""}identifiant « ${name.slice(0, 100)} »`);
       if (locked) void alert(`🚨 Multiposter : 5 échecs de connexion depuis ${ip}, adresse bloquée 15 min.`);
       if (globalFailures.length === 21) void alert("🚨 Multiposter : plus de 20 échecs de connexion en 1 h. Les essais sont ralentis.");
       // Même message pour un identifiant, un mot de passe ou un code faux : on ne révèle rien.
@@ -460,7 +463,8 @@ export function registerAuth(app: Hono) {
     const b = await c.req.parseBody();
     const name = String(b.name ?? "").trim().toLowerCase();
     const password = String(b.password ?? "");
-    if (!NAME_RE.test(name)) return c.html(invitePage("Identifiant invalide : 2 à 30 caractères parmi a-z, 0-9, point, tiret, tiret bas."), 400);
+    if (!NAME_RE.test(name)) return c.html(invitePage("Identifiant invalide : une adresse e-mail, ou un pseudo (a-z, 0-9, point, tiret, tiret bas)."), 400);
+    if (EMAIL_DOMAIN && !name.endsWith(`@${EMAIL_DOMAIN}`)) return c.html(invitePage(`Utilise ton adresse e-mail @${EMAIL_DOMAIN}.`), 400);
     if (userByName(name)) return c.html(invitePage("Cet identifiant est déjà pris."), 400);
     if (password.length < 12) return c.html(invitePage("Mot de passe trop court (12 caractères minimum)."), 400);
     if (password !== String(b.password2 ?? "")) return c.html(invitePage("Les deux mots de passe ne correspondent pas."), 400);

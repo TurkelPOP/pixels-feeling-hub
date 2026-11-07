@@ -302,7 +302,8 @@ Variables d'environnement à définir dans le site Node.js d'alwaysdata :
 | Variable | Valeur |
 | --- | --- |
 | `APP_URL` et `PUBLIC_URL` | `https://ton-compte.alwaysdata.net` |
-| `ADMIN_NAME` | ton identifiant de propriétaire (par défaut `admin` ; mieux vaut en choisir un autre) |
+| `ADMIN_NAME` | ton identifiant de propriétaire : ton adresse e-mail (par défaut `admin`) |
+| `ALLOWED_EMAIL_DOMAIN` | facultatif : domaine imposé aux invités, par exemple `ptzcorp.fr` |
 | `ADMIN_PASSWORD_HASH` | résultat de `node scripts/hash-password.ts` |
 | `APP_SECRET` | 64 caractères aléatoires (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
 | `HOST` | `::` (adresse d'écoute recommandée par alwaysdata ; le port arrive par `PORT`) |
