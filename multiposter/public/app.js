@@ -235,8 +235,12 @@ function canvaCard() {
     !s?.configured
       ? notReady("canva")
       : s.connected
-        ? h("div", { class: "row" },
-            h("span", { class: "via" }, `Connecté : ${s.name ?? "Canva"}`),
+        ? h("div", { class: "row connected-row" },
+            h("div", { class: "connected-chip" },
+              h("span", { class: "avatar-initial", "aria-hidden": "true" }, (s.name ?? "C").trim().charAt(0).toUpperCase()),
+              h("span", { class: "connected-text" },
+                h("span", { class: "connected-label" }, h("span", { class: "dot-ok", "aria-hidden": "true" }), "Connecté"),
+                h("strong", {}, s.name ?? "Canva"))),
             h("button", {
               class: "btn ghost small danger",
               onclick: async () => {
