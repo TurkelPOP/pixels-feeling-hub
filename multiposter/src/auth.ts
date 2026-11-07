@@ -329,6 +329,10 @@ function setupPage(user: User, secret: string, error = "") {
   <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required autofocus>
   ${error ? `<p class="error">${esc(error)}</p>` : ""}
   <button class="btn primary" type="submit">Activer</button>
+</form>
+<form method="post" action="/2fa/setup/new">
+  <button class="btn ghost small" type="submit">Générer un nouveau QR code</button>
+  <p class="muted small">À utiliser si ce QR code ou sa clé ont été vus par quelqu'un d'autre (capture d'écran partagée, par exemple).</p>
 </form>`);
 }
 
@@ -435,6 +439,15 @@ export function registerAuth(app: Hono) {
       db.prepare("UPDATE users SET totp_pending = ? WHERE id = ?").run(seal(secret), user.id);
     }
     return c.html(setupPage(user, secret));
+  });
+
+  // Remplace le secret en attente (pas encore activé) par un nouveau.
+  app.post("/2fa/setup/new", async (c) => {
+    const user = await setupUser(c);
+    if (!user) return c.redirect("/login");
+    db.prepare("UPDATE users SET totp_pending = ? WHERE id = ?").run(seal(base32(randomBytes(20))), user.id);
+    logEvent(c, "2fa_new_secret", user.name);
+    return c.redirect("/2fa/setup");
   });
 
   app.post("/2fa/setup", async (c) => {
