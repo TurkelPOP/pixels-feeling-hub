@@ -11,7 +11,7 @@ import { Hono, type Context, type Next } from "hono";
 import { accountsPage, config, mediaDir } from "./config.ts";
 import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getOwnedAccount, listAccounts, upsertAccount } from "./db.ts";
-import { checkMediaSignature, getMediaList, mediaOwner, saveUpload } from "./media.ts";
+import { checkMediaSignature, getMediaList, mediaOwner, purgeUnused, saveUpload } from "./media.ts";
 import { migrateWorkspaces } from "./workspace.ts";
 import { registerProfileApi } from "./profiles.ts";
 import { applyAppSettings, registerAppSettingsApi } from "./appsettings.ts";
@@ -423,15 +423,22 @@ api.put("/posts/:id", async (c) => {
   if (!p) return c.json({ error: "Post introuvable" }, 404);
   if (p.status !== "draft" && p.status !== "scheduled") return c.json({ error: "Ce post a déjà été publié." }, 409);
   const r = savePost(await c.req.json<PostBody>(), uid(c), id);
-  return r.error ? c.json(r, 400) : c.json(r);
+  if (r.error) return c.json(r, 400);
+  // Médias retirés de ce post : supprimés tout de suite s'ils ne servent plus nulle part.
+  await purgeUnused(JSON.parse(p.media_ids), uid(c));
+  return c.json(r);
 });
 
-api.delete("/posts/:id", (c) => {
+/** Média retiré de l'éditeur : supprimé tout de suite (sauf s'il sert encore à un post enregistré). */
+api.delete("/media/:id{[A-Za-z0-9_-]{6,64}}", async (c) => c.json({ removed: await purgeUnused([c.req.param("id")], uid(c)) }));
+
+api.delete("/posts/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const p = ownPost(c, id);
   if (!p) return c.json({ error: "Post introuvable" }, 404);
   if (p.status === "publishing") return c.json({ error: "Publication en cours, patiente." }, 409);
   db.prepare("DELETE FROM posts WHERE id = ? AND owner_id = ?").run(id, uid(c));
+  await purgeUnused(JSON.parse(p.media_ids), uid(c));
   return c.json({ ok: true });
 });
 

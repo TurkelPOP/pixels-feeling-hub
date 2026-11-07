@@ -145,6 +145,34 @@ export function getMediaList(ids: string[], ownerId?: number): MediaFile[] {
     .filter((m): m is MediaFile => !!m && (ownerId === undefined || m.ownerId === ownerId));
 }
 
+/**
+ * Supprime tout de suite, fichier compris, les médias de cette personne qu'aucun post n'utilise
+ * plus (retirés de l'éditeur, post supprimé…). Un média encore utilisé par un brouillon ou un post
+ * programmé est conservé.
+ */
+export async function purgeUnused(ids: Iterable<string>, ownerId: number): Promise<number> {
+  let removed = 0;
+  for (const id of new Set(ids)) {
+    const m = getMedia(id);
+    if (!m || m.ownerId !== ownerId) continue;
+    const used = db.prepare("SELECT 1 FROM posts WHERE instr(media_ids, ?) > 0 LIMIT 1").get(`"${id}"`);
+    if (used) continue;
+    await unlink(mediaPath(m.id, m.mime)).catch(() => {});
+    db.prepare("DELETE FROM media WHERE id = ?").run(id);
+    removed++;
+  }
+  return removed;
+}
+
+/** Tous les médias d'une personne (suppression de son accès). */
+export async function purgeAllMedia(ownerId: number): Promise<void> {
+  const rows = db.prepare("SELECT id, mime FROM media WHERE owner_id = ?").all(ownerId) as { id: string; mime: string }[];
+  for (const r of rows) {
+    await unlink(mediaPath(r.id, r.mime)).catch(() => {});
+    db.prepare("DELETE FROM media WHERE id = ?").run(r.id);
+  }
+}
+
 /** Propriétaire d'un fichier média (nom « id.ext »), pour l'affichage dans l'interface. */
 export function mediaOwner(file: string): number | null {
   const r = db.prepare("SELECT owner_id FROM media WHERE id = ?").get(file.split(".")[0]) as { owner_id: number } | undefined;

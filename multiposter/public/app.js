@@ -1024,7 +1024,7 @@ function renderMedia() {
           { class: "media-actions" },
           h("button", { class: "btn ghost small", title: "Avancer", disabled: i === 0, onclick: () => moveMedia(i, -1) }, "←"),
           h("button", { class: "btn ghost small", title: "Reculer", disabled: i === state.media.length - 1, onclick: () => moveMedia(i, 1) }, "→"),
-          h("button", { class: "btn ghost small danger", title: "Retirer", onclick: () => { state.media.splice(i, 1); renderMedia(); } }, "✕"),
+          h("button", { class: "btn ghost small danger", title: "Retirer", onclick: () => { const [m] = state.media.splice(i, 1); renderMedia(); forgetMedia([m]); } }, "✕"),
         ),
       ),
     ),
@@ -1107,6 +1107,11 @@ async function submit(action) {
     if (e.data?.errors) renderErrors(e.data.errors);
     toast(e.message, "err");
   }
+}
+
+/** Supprime du serveur les médias retirés (le serveur garde ceux encore utilisés par un post enregistré). */
+function forgetMedia(list) {
+  for (const m of list) api(`/media/${encodeURIComponent(m.id)}`, { method: "DELETE" }).catch(() => {});
 }
 
 function resetCompose() {
@@ -1632,7 +1637,12 @@ async function init() {
   $("#btn-schedule").onclick = () => submit("schedule");
   $("#btn-now").onclick = () => submit("now");
   $("#btn-draft").onclick = () => submit("draft");
-  $("#btn-reset").onclick = () => confirm("Vider le formulaire ?") && resetCompose();
+  $("#btn-reset").onclick = () => {
+    if (!confirm("Vider le formulaire ?")) return;
+    const dropped = state.media.slice();
+    resetCompose();
+    forgetMedia(dropped);
+  };
 
   document.querySelectorAll("[data-quick]").forEach((b) =>
     b.addEventListener("click", () => {

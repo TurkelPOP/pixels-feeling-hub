@@ -322,6 +322,7 @@ ${networks[id].owner}`,
   <li><strong>Les accès à tes réseaux</strong> (créés quand tu cliques sur « Connecter ») sont chiffrés et ne sont jamais affichés, à personne.</li>
   <li><strong>Les clés de l'application</strong>, saisies une fois par le propriétaire, servent juste à présenter PTZ Posting aux réseaux. Elles ne donnent accès au compte de personne.</li>
   <li><strong>Tes images</strong> ne sont visibles que par toi, et par Instagram ou Threads au moment de la publication, via un lien qui expire au bout de 24 h.</li>
+  <li><strong>Suppression de tes médias</strong> : une photo ou vidéo retirée avec ✕ (ou avec « Vider le formulaire ») est <strong>effacée du serveur tout de suite</strong>, ainsi que celles d'un post que tu supprimes. Celles d'un post publié sont gardées 90 jours (pour pouvoir réessayer un réseau en échec), puis effacées automatiquement. Une photo ou vidéo envoyée puis abandonnée sans enregistrer le post est effacée au bout de 12 h. Ce qui est sur ton téléphone n'est jamais touché.</li>
   <li>Chaque connexion est notée dans le <strong>journal de sécurité</strong> (carte Sécurité). Si tu vois une connexion qui n'est pas la tienne, clique sur <strong>« Déconnecter tous les appareils »</strong> et préviens un administrateur.</li>
 </ul>`,
     },

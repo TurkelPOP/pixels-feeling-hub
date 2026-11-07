@@ -29,8 +29,9 @@ export async function cleanupMedia(): Promise<number> {
   for (const m of rows) {
     if (keep.has(m.id)) continue;
     const orphan = !usedByOldDone.has(m.id);
-    // Un fichier orphelin récent peut être en cours d'utilisation dans l'éditeur : on attend 2 jours.
-    if (orphan && m.created_at > Date.now() - 2 * DAY) continue;
+    // Fichier envoyé puis abandonné (onglet fermé sans enregistrer) : il peut encore être dans un
+    // éditeur ouvert, on attend 12 h avant de le supprimer.
+    if (orphan && m.created_at > Date.now() - 12 * 3_600_000) continue;
     await unlink(mediaPath(m.id, m.mime)).catch(() => {});
     db.prepare("DELETE FROM media WHERE id = ?").run(m.id);
     removed++;
@@ -42,5 +43,5 @@ export async function cleanupMedia(): Promise<number> {
 export function startCleanup() {
   const run = () => cleanupMedia().catch((e) => console.error("[nettoyage]", e));
   setTimeout(run, 60_000).unref?.();
-  setInterval(run, DAY).unref?.();
+  setInterval(run, 3_600_000).unref?.(); // toutes les heures
 }
