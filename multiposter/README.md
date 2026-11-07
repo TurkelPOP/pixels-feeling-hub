@@ -228,6 +228,15 @@ l'adresse de retour à déclarer avec un bouton Copier, et le réseau s'active a
 redémarrage. Ensuite, **chaque utilisateur** connecte ses propres comptes avec **Comptes → Connecter**.
 Tu n'as besoin que des réseaux que tu utilises.
 
+Chaque carte contient le **tuto pas à pas** du réseau (« Activer ce réseau » pour le propriétaire,
+« Comment se connecter ? » pour chacun), et le « ? » ouvre le même tuto dans le volet d'aide.
+Les pages publiques `/confidentialite` et `/conditions` servent d'URL de politique de
+confidentialité et de conditions d'utilisation à déclarer chez Meta, Google et TikTok.
+
+L'aide est intégrée à l'app : chaque section a un « ? » qui ouvre un volet latéral à sa hauteur
+(panneau du bas sur téléphone). Tout le contenu est dans `public/help-content.js` ; la page `/aide`
+le reprend en entier pour pouvoir le lire avant de se connecter.
+
 Les secrets saisis dans l'app sont chiffrés dans la base (AES-256-GCM, clé dérivée de `APP_SECRET`)
 et ne sont jamais renvoyés au navigateur ; chaque modification est journalisée et alertée. Les
 variables d'environnement ci-dessous restent possibles et sont alors **prioritaires** (affichées

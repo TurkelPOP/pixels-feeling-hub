@@ -59,6 +59,22 @@ function h(tag, attrs = {}, ...children) {
 
 const $ = (sel) => document.querySelector(sel);
 
+/** Bouton « ? » : ouvre le volet d'aide sur le sujet, à hauteur de la section (voir help.js). */
+const helpQ = (topic, label = "Aide") =>
+  h("button", { class: "help-q", type: "button", "data-help": topic, "aria-label": label, title: label }, "?");
+
+/** Titre de carte avec son « ? » à droite. */
+const cardTitle = (text, topic) => h("div", { class: "card-title" }, h("strong", {}, text), helpQ(topic));
+
+/** Tuto intégré dans une carte (HTML statique de help-content.js). */
+function tuto(html) {
+  const div = h("div", { class: "help-body tuto" });
+  div.innerHTML = window.PTZ_HELP?.fill(html) ?? "";
+  for (const a of div.querySelectorAll('a[target="_blank"]')) a.rel = "noopener";
+  return div;
+}
+const NETS = () => window.PTZ_HELP?.networks ?? {};
+
 async function api(path, opts = {}) {
   const res = await fetch(`/api${path}`, {
     ...opts,
@@ -187,7 +203,7 @@ function renderProfiles() {
   });
   box.replaceChildren(
     h("div", { class: "card system" },
-      h("strong", {}, "Profils"),
+      cardTitle("Profils", "profils"),
       h("p", { class: "muted small" }, "Regroupe les comptes d'une même identité (par exemple Pixels Perspective : Instagram, Facebook, Threads). Dans l'éditeur, un clic sur le profil coche tous ses comptes."),
       cards.length ? h("ul", { class: "profile-list" }, ...cards) : null,
       h("div", { class: "row" }, nameInput, h("button", { class: "btn primary small", type: "button", onclick: create }, "Créer le profil"))),
@@ -214,7 +230,7 @@ function canvaCard() {
   return h(
     "div",
     { class: "card flow canva" },
-    h("div", {}, h("strong", {}, "Canva"),
+    h("div", {}, cardTitle("Canva", "net-canva"),
       h("p", { class: "muted small" }, "Récupère tes derniers designs (NEWZ, Good News…) directement dans un post, exportés au bon format.")),
     !s?.configured
       ? notReady("canva")
@@ -231,6 +247,7 @@ function canvaCard() {
               },
             }, "Déconnecter"))
         : h("a", { class: "btn primary small", href: "/oauth/canva/start" }, "Connecter Canva"),
+    s?.configured && !s.connected ? userTuto("canva") : null,
     s?.connected ? rulesBox() : null,
     s?.configured && state.me?.role === "owner" ? setupPanel("canva", true) : null,
   );
@@ -286,7 +303,7 @@ function rulesBox() {
   return h(
     "div",
     { class: "rules" },
-    h("h3", {}, "Brouillons automatiques"),
+    h("div", { class: "card-title" }, h("h3", {}, "Brouillons automatiques"), helpQ("canva")),
     h("p", { class: "muted small" },
       "Quand un design dont le titre commence par ce mot est modifié (par toi ou ta tâche planifiée), l'app l'exporte et prépare un brouillon. Un brouillon par design et par jour : celui de la veille garde ses images, même quand le design est réécrit le lendemain."),
     rules.length
@@ -491,7 +508,7 @@ async function renderUsers() {
         : null));
   $("#users").replaceChildren(
     h("div", { class: "card system" },
-      h("strong", {}, "Personnes ayant accès"),
+      cardTitle("Personnes ayant accès", "utilisateurs"),
       h("ul", { class: "user-list" }, ...rows),
       isOwner
         ? h("div", { class: "row invite-row" },
@@ -524,7 +541,7 @@ async function renderSecurity() {
       h("td", { class: "agent", title: e.agent ?? "" }, (e.agent ?? "").slice(0, 60))));
   $("#security").replaceChildren(
     h("div", { class: "card system" },
-      h("strong", {}, "Sécurité"),
+      cardTitle("Sécurité", "securite"),
       h("ul", { class: "check-list" }, ...status.map((t) => h("li", {}, t))),
       !s.twoFactor && !s.serverMode
         ? h("p", { class: "small" }, h("a", { href: "/2fa/setup" }, "Activer la double authentification"), " (recommandé)")
@@ -641,19 +658,27 @@ function setupPanel(id, configured) {
   };
   return h("details", { class: `appset${configured ? "" : " todo"}` },
     h("summary", {}, configured ? "Clés de l'app (propriétaire)" : "Activer ce réseau"),
-    configured ? null : h("p", { class: "muted small" }, "Une seule fois, pour tout le monde : déclare PTZ Posting chez le réseau, puis colle ici ses deux clés. Ensuite chacun connecte ses comptes d'un clic."),
+    configured ? null : h("p", { class: "muted small" }, "Une seule fois, pour tout le monde : déclare PTZ Posting chez le réseau en suivant le tuto, puis colle ici ses deux clés. Ensuite chacun connecte ses comptes d'un clic."),
     g.callback
-      ? h("div", { class: "callback" }, h("span", { class: "small" }, "1. Adresse de retour à coller chez le réseau :"), h("div", { class: "row" }, h("code", {}, g.callback), copyBtn(g.callback)))
+      ? h("div", { class: "callback" }, h("span", { class: "small" }, "Ton adresse de retour (à coller chez le réseau) :"), h("div", { class: "row" }, h("code", {}, g.callback), copyBtn(g.callback)))
       : null,
-    g.console ? h("a", { href: g.console, target: "_blank", rel: "noopener", class: "small" }, "2. Ouvrir la console développeur ↗") : null,
-    h("p", { class: "muted small" }, g.help),
+    NETS()[id]
+      ? h("details", { class: "tuto-box", open: !configured }, h("summary", {}, "Tuto pas à pas"), tuto(NETS()[id].owner))
+      : h("p", { class: "muted small" }, g.help),
+    g.console ? h("a", { href: g.console, target: "_blank", rel: "noopener", class: "small" }, "Ouvrir la console développeur ↗") : null,
     ...inputs,
     fromServer
       ? h("p", { class: "muted small" }, "Ces clés sont définies sur le serveur (variables d'environnement) : pour les gérer ici, retire-les là-bas puis redémarre.")
       : h("div", { class: "row" },
           h("button", { class: "btn primary small", type: "button", onclick: (e) => save(e.currentTarget) }, "Enregistrer"),
-          h("a", { href: "/aide#proprietaire", target: "_blank", rel: "noopener", class: "small" }, "Aide")),
+          h("a", { href: "/aide", "data-help": NETS()[id] ? `net-${id}` : "alertes", class: "small" }, "Aide")),
   );
+}
+
+/** Tuto « connecter mon compte », replié dans la carte du réseau. */
+function userTuto(id) {
+  const n = NETS()[id];
+  return n ? h("details", { class: "tuto-box" }, h("summary", {}, "Comment se connecter ?"), tuto(n.user)) : null;
 }
 
 /** Réseau pas encore activé : formulaire pour le propriétaire, explication pour les autres. */
@@ -672,7 +697,7 @@ function renderAppSettings() {
   const g = state.appGroups.find((x) => x.id === "alerts");
   box.replaceChildren(
     h("div", { class: "card system" },
-      h("div", { class: "row spread" }, h("strong", {}, "Alertes de sécurité"),
+      h("div", { class: "row spread" }, h("div", { class: "card-title" }, h("strong", {}, "Alertes de sécurité"), helpQ("alertes")),
         h("span", { class: `status ${g.fields.every((f) => f.source) ? "done" : "pending"}` }, g.fields.every((f) => f.source) ? "Activées" : "Non configurées")),
       h("p", { class: "muted small" }, "Reçois un message à chaque connexion suspecte, publication en échec ou réglage modifié."),
       panel),
@@ -687,10 +712,11 @@ function renderAccounts() {
       h(
         "div",
         { class: "card flow" },
-        h("div", { class: "flow-head" }, ...f.providers.map(badge)),
+        h("div", { class: "flow-head" }, ...f.providers.map(badge), helpQ(`net-${f.id}`, `Tuto ${f.label}`)),
         f.configured
           ? h("a", { class: "btn primary small", href: `/oauth/${f.id}/start` }, `Connecter ${f.label}`)
           : notReady(f.id),
+        f.configured ? userTuto(f.id) : null,
         f.configured && state.me?.role === "owner" ? setupPanel(f.id, true) : null,
       ),
     ),

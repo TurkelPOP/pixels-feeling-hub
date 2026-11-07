@@ -394,6 +394,26 @@ export function registerAuth(app: Hono) {
   app.get("/login", async (c) => c.html(await readFile(resolve(PUBLIC, "login.html"), "utf8")));
   // Aide accessible à tous, même avant de se connecter (aucune donnée personnelle dedans).
   app.get("/aide", async (c) => c.html(await readFile(resolve(PUBLIC, "aide.html"), "utf8")));
+  // Pages publiques exigées par Meta, Google et TikTok pour déclarer l'app.
+  app.get("/confidentialite", (c) => c.html(page("Confidentialité", `
+<h1>Politique de confidentialité</h1>
+<p>PTZ Posting est un outil interne de PTZ Corp qui permet à ses membres de publier leurs propres contenus sur leurs réseaux sociaux. Il n'est ni vendu ni ouvert au public.</p>
+<h2>Données traitées</h2>
+<ul>
+<li>Pour chaque membre : son adresse e-mail professionnelle, son mot de passe (sous forme chiffrée irréversible) et le journal de ses connexions.</li>
+<li>Pour chaque réseau connecté par un membre (Facebook, Instagram, Threads, YouTube, TikTok, X, Canva) : le nom et l'identifiant du compte, et les jetons d'accès, chiffrés, servant uniquement à publier les posts que ce membre a programmés ou à importer ses designs Canva.</li>
+<li>Les textes, images et vidéos que le membre ajoute à ses posts.</li>
+</ul>
+<h2>Utilisation</h2>
+<p>Ces données servent uniquement à publier les contenus demandés par le membre, au moment qu'il a choisi. Elles ne sont ni vendues, ni partagées, ni utilisées pour de la publicité ou de l'analyse. Chaque membre ne voit que ses propres données.</p>
+<h2>Suppression des données</h2>
+<p>Un membre peut à tout moment déconnecter un réseau (onglet Comptes → Déconnecter) : ses jetons d'accès sont alors supprimés. Il peut aussi retirer l'accès de l'app depuis les paramètres du réseau concerné. Sur demande à un administrateur de PTZ Corp, l'accès du membre et toutes ses données (réseaux, posts, médias) sont supprimés définitivement.</p>
+<p><a class="btn ghost" href="/aide">Aide</a></p>`)));
+  app.get("/conditions", (c) => c.html(page("Conditions d'utilisation", `
+<h1>Conditions d'utilisation</h1>
+<p>PTZ Posting est réservé aux membres invités par PTZ Corp. Chaque membre publie sous sa propre responsabilité, sur ses propres comptes, et s'engage à respecter les règles de chaque réseau social.</p>
+<p>L'accès est personnel : identifiants et double authentification ne doivent pas être partagés. PTZ Corp peut retirer un accès à tout moment.</p>
+<p>L'outil est fourni tel quel, sans garantie de disponibilité. Voir aussi la <a href="/confidentialite">politique de confidentialité</a>.</p>`)));
   app.get("/login/info", (c) => c.json({ twoFactor: config.serverMode || anyTwoFactor(), nameRequired: config.serverMode }));
 
   app.post("/login", async (c) => {
