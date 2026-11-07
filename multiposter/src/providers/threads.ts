@@ -1,7 +1,7 @@
 import { callbackUrl, config } from "../config.ts";
 import { form, json, waitFor } from "../http.ts";
 import type { MediaFile } from "../media.ts";
-import { countChars, type OAuthFlow, type Publisher } from "./types.ts";
+import { countChars, hasWebm, type OAuthFlow, type Publisher } from "./types.ts";
 
 const G = "https://graph.threads.net/v1.0";
 
@@ -79,6 +79,7 @@ export const threads: Publisher = {
   refreshMarginMs: 7 * 24 * 3600_000,
   validate({ text, media }) {
     if (!text.trim() && !media.length) return "Threads : texte ou média requis.";
+    if (hasWebm(media)) return "Threads n'accepte que les vidéos MP4 ou MOV (cette vidéo est en WebM).";
     if (countChars(text) > 500) return "Threads : 500 caractères maximum.";
     if (media.length > 20) return "Threads : 20 médias maximum.";
     return null;

@@ -13,6 +13,7 @@ import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getOwnedAccount, listAccounts, upsertAccount } from "./db.ts";
 import { checkMediaSignature, getMediaList, mediaOwner, saveUpload } from "./media.ts";
 import { migrateWorkspaces } from "./workspace.ts";
+import { registerProfileApi } from "./profiles.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
@@ -63,7 +64,7 @@ app.use("*", async (c, next) => {
   c.header("Referrer-Policy", "no-referrer");
   c.header("X-Frame-Options", "DENY");
   c.header("Cross-Origin-Opener-Policy", "same-origin");
-  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  c.header("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
   if ((c.res.headers.get("content-type") ?? "").startsWith("text/html")) c.header("Content-Security-Policy", CSP);
   // En ligne : le navigateur refusera toujours la version non chiffrée du site.
   if (config.serverMode) c.header("Strict-Transport-Security", "max-age=31536000");
@@ -254,6 +255,8 @@ api.get("/accounts", (c) =>
     })),
   ),
 );
+
+registerProfileApi(api);
 
 api.delete("/accounts/:id", (c) => {
   deleteAccount(Number(c.req.param("id")), uid(c));

@@ -361,3 +361,24 @@ dialog.sheet::backdrop { background: rgba(8, 5, 14, 0.7); backdrop-filter: blur(
 .invite-box p { margin: 0; }
 .invite-box input { flex: 1 1 260px; width: auto; font-size: 0.85rem; }
 .invite-row { align-items: center; justify-content: space-between; }
+
+/* Profils */
+.profile-chips:empty { display: none; }
+.profile-chips { margin-bottom: 0.5rem; }
+.profile-chip { border-style: dashed; }
+.profile-chip.active { border-style: solid; border-color: var(--magenta); background: color-mix(in srgb, var(--magenta) 16%, transparent); color: var(--fg); }
+.profile-chip small { color: var(--muted); }
+.profile-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.profile { display: grid; gap: 0.5rem; padding: 0.6rem 0.7rem; border-radius: 10px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--border); }
+.profile-head { align-items: center; }
+.profile-name { flex: 1 1 200px; width: auto; font-weight: 600; }
+#profiles .row input#new-profile { flex: 1 1 220px; width: auto; }
+#profile-filter { margin-left: auto; }
+.queue-head #profile-filter + .segmented { margin-left: 0; }
+
+/* Caméra */
+.media-tools { flex-wrap: wrap; }
+dialog.camera .camera-body { display: grid; gap: 0.6rem; padding: 0.9rem 1.1rem 1.1rem; }
+#camera-preview { width: 100%; max-height: 60vh; background: #000; border-radius: 10px; object-fit: contain; }
+.camera-actions { justify-content: center; }
+#camera-status:empty { display: none; }

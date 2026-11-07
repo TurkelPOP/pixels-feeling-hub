@@ -33,6 +33,27 @@ JPG depuis Canva, voici ce que chaque réseau en fait :
 | TikTok | ❌ vidéo uniquement dans l'app | — | — |
 | YouTube | ❌ vidéo uniquement | — | — |
 
+### Profils (groupes de comptes)
+
+Dans **Comptes → Profils**, crée un profil par identité (par exemple « Pixels Perspective » avec
+Instagram, Facebook et Threads, ou « FC Subway » avec TikTok et YouTube), puis coche ses comptes.
+- **Éditeur** : un clic sur le profil coche tous ses comptes (un 2e clic les décoche).
+- **Planning** : le menu « Tous les profils » filtre la liste et le calendrier.
+- **Règles Canva** : les boutons de profil ajoutent tous ses comptes à la règle.
+
+Chaque personne gère ses propres profils, avec ses propres comptes.
+
+### Prendre une photo ou filmer depuis l'app
+
+Sous la zone des médias, **📷 Prendre une photo** et **🎥 Filmer une vidéo** :
+- **sur téléphone**, ils ouvrent l'appareil photo du téléphone ;
+- **sur PC**, ils ouvrent la webcam dans l'app (choix de la caméra s'il y en a plusieurs). La vidéo
+  est enregistrée en MP4 quand le navigateur le permet (Chrome, Edge, Safari récents), sinon en
+  WebM : ce format est accepté par YouTube, TikTok et Facebook, mais pas par Instagram, Threads
+  ni X, et l'éditeur le signale.
+
+Le navigateur demande l'autorisation d'utiliser la caméra la première fois.
+
 ### Options par réseau dans l'éditeur
 
 Dès que tu coches un compte, une carte d'options apparaît sous les médias. Elle s'adapte au contenu

@@ -58,6 +58,7 @@ export function removeUserData(userId: number): void {
   try {
     db.prepare("DELETE FROM posts WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM accounts WHERE owner_id = ?").run(userId);
+    db.prepare("DELETE FROM profiles WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM canva_rules WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM canva_daily_drafts WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM integrations WHERE id = ?").run(`canva:${userId}`);

@@ -85,4 +85,6 @@ export function countChars(text: string): number {
 }
 
 export const images = (m: MediaFile[]) => m.filter((x) => x.kind === "image");
+/** Vidéo que ce réseau n'accepte pas (WebM, enregistré par certaines webcams). */
+export const hasWebm = (m: MediaFile[]) => m.some((x) => x.kind === "video" && x.mime !== "video/mp4" && x.mime !== "video/quicktime");
 export const videos = (m: MediaFile[]) => m.filter((x) => x.kind === "video");

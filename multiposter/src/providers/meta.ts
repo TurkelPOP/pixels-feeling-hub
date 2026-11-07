@@ -5,7 +5,7 @@ import { alert } from "../alerts.ts";
 import { callbackUrl, config } from "../config.ts";
 import { form, json, waitFor } from "../http.ts";
 import type { MediaFile } from "../media.ts";
-import { countChars, images, videos, type OAuthFlow, type Publisher } from "./types.ts";
+import { countChars, hasWebm, images, videos, type OAuthFlow, type Publisher } from "./types.ts";
 
 const V = "v23.0";
 const G = `https://graph.facebook.com/${V}`;
@@ -164,6 +164,7 @@ export const instagram: Publisher = {
   label: "Instagram",
   maxText: 2_200,
   validate({ text, media, options }) {
+    if (hasWebm(media)) return "Instagram n'accepte que les vidéos MP4 ou MOV (cette vidéo est en WebM).";
     if (options.format === "story") {
       if (!media.length) return "Story Instagram : choisis au moins une image ou une vidéo.";
       if (media.length > 10) return "Story Instagram : 10 médias maximum.";

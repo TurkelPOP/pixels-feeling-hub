@@ -1,7 +1,7 @@
 import { callbackUrl, config } from "../config.ts";
 import { form, json, postJson, request, sleep } from "../http.ts";
 import { readChunk, type MediaFile } from "../media.ts";
-import { countChars, images, videos, type OAuthFlow, type Publisher } from "./types.ts";
+import { countChars, hasWebm, images, videos, type OAuthFlow, type Publisher } from "./types.ts";
 
 const API = "https://api.x.com/2";
 const SCOPES = "tweet.read tweet.write users.read media.write offline.access";
@@ -93,6 +93,7 @@ export const x: Publisher = {
   refreshMarginMs: 5 * 60_000,
   validate({ text, media }) {
     if (!text.trim() && !media.length) return "X : texte ou média requis.";
+    if (hasWebm(media)) return "X n'accepte que les vidéos MP4 ou MOV (cette vidéo est en WebM).";
     if (countChars(text) > MAX_CHARS) return `X : ${MAX_CHARS} caractères maximum.`;
     if (videos(media).length > 1 || (videos(media).length && images(media).length))
       return "X : une seule vidéo, sans images.";

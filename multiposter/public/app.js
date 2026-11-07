@@ -34,6 +34,8 @@ const state = {
   media: [],
   uploading: 0,
   canva: { status: null, items: [], continuation: null, query: "" },
+  profiles: [],
+  profileFilter: "",
 };
 
 // ---------- utilitaires ----------
@@ -124,9 +126,84 @@ window.addEventListener("hashchange", route);
 // ---------- comptes ----------
 
 async function loadAccounts() {
-  state.accounts = await api("/accounts");
+  [state.accounts, state.profiles] = await Promise.all([api("/accounts"), api("/profiles")]);
   renderAccounts();
+  renderProfiles();
   renderPicker();
+  renderProfileFilter();
+}
+
+// ---------- Profils (groupes de comptes) ----------
+
+const profileAccounts = (pr) => pr.accountIds.filter((id) => state.accounts.some((a) => a.id === id));
+
+function renderProfiles() {
+  const box = $("#profiles");
+  const nameInput = h("input", { id: "new-profile", placeholder: "Nom du profil, ex. Pixels Perspective", maxlength: 60 });
+  const create = async () => {
+    try {
+      await api("/profiles", { method: "POST", body: JSON.stringify({ name: nameInput.value, accountIds: [] }) });
+      toast("Profil créé : coche ses comptes.");
+      loadAccounts();
+    } catch (e) {
+      toast(e.message, "err");
+    }
+  };
+  const cards = state.profiles.map((pr) => {
+    const ids = new Set(pr.accountIds);
+    const save = async (patch) => {
+      try {
+        await api(`/profiles/${pr.id}`, { method: "PUT", body: JSON.stringify(patch) });
+        loadAccounts();
+      } catch (e) {
+        toast(e.message, "err");
+      }
+    };
+    const title = h("input", { class: "profile-name", value: pr.name, maxlength: 60, "aria-label": "Nom du profil" });
+    title.addEventListener("change", () => save({ name: title.value }));
+    return h("li", { class: "profile" },
+      h("div", { class: "row profile-head" }, title,
+        h("button", {
+          class: "btn ghost small danger", type: "button",
+          onclick: async () => {
+            if (!confirm(`Supprimer le profil « ${pr.name} » ? Les comptes eux-mêmes restent connectés.`)) return;
+            await api(`/profiles/${pr.id}`, { method: "DELETE" });
+            loadAccounts();
+          },
+        }, "Supprimer")),
+      state.accounts.length
+        ? h("div", { class: "chips" }, ...state.accounts.map((a) =>
+            h("button", {
+              type: "button", class: `chip account-chip small-chip ${ids.has(a.id) ? "active" : ""}`, style: `--c:${PROVIDER[a.provider]?.color}`,
+              onclick: () => {
+                ids.has(a.id) ? ids.delete(a.id) : ids.add(a.id);
+                save({ accountIds: [...ids] });
+              },
+            }, h("span", {}, PROVIDER[a.provider]?.label), h("small", {}, a.name))))
+        : h("p", { class: "muted small" }, "Connecte d'abord des comptes ci-dessus."));
+  });
+  box.replaceChildren(
+    h("div", { class: "card system" },
+      h("strong", {}, "Profils"),
+      h("p", { class: "muted small" }, "Regroupe les comptes d'une même identité (par exemple Pixels Perspective : Instagram, Facebook, Threads). Dans l'éditeur, un clic sur le profil coche tous ses comptes."),
+      cards.length ? h("ul", { class: "profile-list" }, ...cards) : null,
+      h("div", { class: "row" }, nameInput, h("button", { class: "btn primary small", type: "button", onclick: create }, "Créer le profil"))),
+  );
+}
+
+function renderProfileFilter() {
+  const sel = $("#profile-filter");
+  sel.hidden = state.profiles.length === 0;
+  sel.replaceChildren(h("option", { value: "" }, "Tous les profils"), ...state.profiles.map((pr) => h("option", { value: String(pr.id) }, pr.name)));
+  sel.value = state.profileFilter;
+}
+
+/** Posts visibles selon le profil choisi dans le Planning. */
+function profilePosts() {
+  const pr = state.profiles.find((x) => String(x.id) === state.profileFilter);
+  if (!pr) return state.posts;
+  const ids = new Set(pr.accountIds);
+  return state.posts.filter((p) => p.targets.some((t) => ids.has(t.accountId)));
 }
 
 function canvaCard() {
@@ -174,10 +251,24 @@ function rulesBox() {
   const format = h("select", { id: "rule-format" },
     h("option", { value: "jpg" }, "JPG"), h("option", { value: "png" }, "PNG"), h("option", { value: "mp4" }, "MP4"));
   const text = h("textarea", { id: "rule-text", rows: 2, placeholder: "Texte de départ (facultatif). {titre} = titre du design, {date} = jour" });
+  const chipOf = new Map();
+  const profileRow = state.profiles.length
+    ? h("div", { class: "chips" }, h("small", { class: "muted" }, "Profils :"),
+        ...state.profiles.map((pr) => h("button", {
+          type: "button", class: "chip small-chip profile-chip",
+          onclick: () => {
+            for (const id of profileAccounts(pr)) {
+              picked.add(id);
+              chipOf.get(id)?.classList.add("active");
+            }
+          },
+        }, pr.name)))
+    : null;
   const chips = h("div", { class: "chips" },
     ...state.accounts.map((a) => {
       const chip = h("button", { type: "button", class: "chip account-chip small-chip", style: `--c:${PROVIDER[a.provider]?.color}` },
         h("span", {}, PROVIDER[a.provider]?.label), h("small", {}, a.name));
+      chipOf.set(a.id, chip);
       chip.addEventListener("click", () => {
         picked.has(a.id) ? picked.delete(a.id) : picked.add(a.id);
         chip.classList.toggle("active", picked.has(a.id));
@@ -213,6 +304,7 @@ function rulesBox() {
       : h("p", { class: "muted small" }, "Aucune règle pour l'instant."),
     h("div", { class: "rule-form" },
       h("div", { class: "row" }, pattern, format),
+      profileRow,
       chips,
       text,
       h("div", { class: "row" },
@@ -511,6 +603,20 @@ function selectedAccounts() {
 
 function renderPicker() {
   $("#no-accounts").hidden = state.accounts.length > 0;
+  $("#profile-picker").replaceChildren(
+    ...state.profiles.filter((pr) => profileAccounts(pr).length).map((pr) => {
+      const ids = profileAccounts(pr);
+      const all = ids.every((id) => state.selected.has(id));
+      return h("button", {
+        type: "button", class: `chip profile-chip ${all ? "active" : ""}`, title: `Cocher les ${ids.length} comptes de ce profil`,
+        onclick: () => {
+          for (const id of ids) all ? state.selected.delete(id) : state.selected.add(id);
+          renderPicker();
+          renderComposeMeta();
+        },
+      }, h("span", {}, pr.name), h("small", {}, String(ids.length)));
+    }),
+  );
   $("#account-picker").replaceChildren(
     ...state.accounts.map((a) =>
       h(
@@ -940,7 +1046,7 @@ function dayLabel(ms) {
 function filtered() {
   const f = state.filter;
   const q = norm(state.search);
-  const ps = state.posts.filter((p) =>
+  const ps = profilePosts().filter((p) =>
     (!q || norm(`${p.text} ${p.title} ${p.source ?? ""} ${p.targets.map((t) => t.name).join(" ")}`).includes(q)) && (
     f === "all" ? true
       : f === "upcoming" ? p.status === "scheduled" || p.status === "publishing"
@@ -1012,7 +1118,7 @@ function renderCalendar() {
   const year = first.getFullYear(), month = first.getMonth();
   const start = new Date(year, month, 1 - ((first.getDay() + 6) % 7)); // lundi de la 1re semaine
   const byDay = new Map();
-  for (const p of state.posts) {
+  for (const p of profilePosts()) {
     const when = p.scheduledAt ?? (p.status === "draft" ? p.createdAt : null);
     if (!when) continue;
     const k = dayKey(new Date(when));
@@ -1134,6 +1240,99 @@ function postCard(p) {
   );
 }
 
+// ---------- Photo / vidéo prises depuis l'app ----------
+
+const isTouch = () => matchMedia("(pointer: coarse)").matches;
+const stamp = () => new Date().toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "-");
+let camStream = null;
+let recorder = null;
+let recTimer = null;
+
+function stopCamera() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+  camStream?.getTracks().forEach((t) => t.stop());
+  camStream = null;
+  clearInterval(recTimer);
+}
+
+async function startCamera(mode, deviceId) {
+  stopCamera();
+  const status = $("#camera-status");
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } : { width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: mode === "video",
+    });
+  } catch (e) {
+    status.textContent = e.name === "NotAllowedError"
+      ? "Accès à la caméra refusé : autorise-le dans les réglages du navigateur (icône à gauche de l'adresse), puis réessaie."
+      : `Caméra indisponible : ${e.message}`;
+    return;
+  }
+  $("#camera-preview").srcObject = camStream;
+  status.textContent = mode === "photo" ? "Cadre ta photo, puis clique sur « Prendre la photo »." : "Clique sur « Démarrer l'enregistrement ».";
+  const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+  const sel = $("#camera-device");
+  sel.hidden = cams.length < 2;
+  sel.replaceChildren(...cams.map((d, i) => h("option", { value: d.deviceId }, d.label || `Caméra ${i + 1}`)));
+  const current = camStream.getVideoTracks()[0]?.getSettings().deviceId;
+  if (current) sel.value = current;
+}
+
+async function openCamera(mode) {
+  // Sur téléphone : l'appareil photo du système, plus simple et de meilleure qualité.
+  if (isTouch()) return $(mode === "photo" ? "#capture-photo" : "#capture-video").click();
+  if (!navigator.mediaDevices?.getUserMedia) return toast("Ce navigateur ne permet pas d'utiliser la caméra.", "err");
+  const dlg = $("#camera-dialog");
+  dlg.dataset.mode = mode;
+  $("#camera-title").textContent = mode === "photo" ? "Prendre une photo" : "Filmer une vidéo";
+  $("#camera-shoot").hidden = mode !== "photo";
+  $("#camera-record").hidden = mode !== "video";
+  $("#camera-record").textContent = "● Démarrer l'enregistrement";
+  dlg.showModal();
+  await startCamera(mode);
+}
+
+function takePhoto() {
+  const v = $("#camera-preview");
+  if (!v.videoWidth) return;
+  const cv = document.createElement("canvas");
+  cv.width = v.videoWidth;
+  cv.height = v.videoHeight;
+  cv.getContext("2d").drawImage(v, 0, 0);
+  cv.toBlob((blob) => {
+    if (!blob) return toast("Photo impossible, réessaie.", "err");
+    $("#camera-dialog").close();
+    addFiles([new File([blob], `photo-${stamp()}.jpg`, { type: "image/jpeg" })]);
+  }, "image/jpeg", 0.92);
+}
+
+function toggleRecording() {
+  const btn = $("#camera-record");
+  if (recorder && recorder.state === "recording") return recorder.stop();
+  if (!camStream) return;
+  // MP4 si le navigateur sait le produire (accepté partout), sinon WebM (YouTube, TikTok, Facebook).
+  const type = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
+  const chunks = [];
+  recorder = new MediaRecorder(camStream, type ? { mimeType: type, videoBitsPerSecond: 6_000_000 } : undefined);
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    clearInterval(recTimer);
+    const mime = (recorder.mimeType || type || "video/webm").split(";")[0];
+    const file = new File([new Blob(chunks, { type: mime })], `video-${stamp()}.${mime === "video/mp4" ? "mp4" : "webm"}`, { type: mime });
+    $("#camera-dialog").close();
+    if (mime !== "video/mp4") toast("Vidéo enregistrée en WebM : acceptée par YouTube, TikTok et Facebook, pas par Instagram, Threads ni X.");
+    addFiles([file]);
+  };
+  recorder.start(1000);
+  const t0 = Date.now();
+  btn.textContent = "■ Arrêter (0:00)";
+  recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    btn.textContent = `■ Arrêter (${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`;
+  }, 500);
+}
+
 // ---------- Canva ----------
 
 const relTime = (ms) => {
@@ -1227,6 +1426,23 @@ async function init() {
   await loadAccounts();
 
   $("#btn-canva").onclick = openCanva;
+  $("#btn-photo").onclick = () => openCamera("photo");
+  $("#btn-video").onclick = () => openCamera("video");
+  for (const id of ["#capture-photo", "#capture-video"]) {
+    $(id).addEventListener("change", (e) => {
+      addFiles([...e.target.files]);
+      e.target.value = "";
+    });
+  }
+  $("#camera-close").onclick = () => $("#camera-dialog").close();
+  $("#camera-dialog").addEventListener("close", stopCamera);
+  $("#camera-shoot").onclick = takePhoto;
+  $("#camera-record").onclick = toggleRecording;
+  $("#camera-device").addEventListener("change", (e) => startCamera($("#camera-dialog").dataset.mode, e.target.value));
+  $("#profile-filter").addEventListener("change", (e) => {
+    state.profileFilter = e.target.value;
+    renderQueue();
+  });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
   $("#canva-more").onclick = () => loadDesigns(true);
   let searchTimer;

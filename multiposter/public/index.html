@@ -28,6 +28,7 @@
       <div class="compose-grid">
         <div class="card">
           <h2>Publier sur</h2>
+          <div id="profile-picker" class="chips profile-chips"></div>
           <div id="account-picker" class="chips"></div>
           <p id="no-accounts" class="muted" hidden>Aucun compte connecté. <a href="#accounts">Connecte tes réseaux</a>.</p>
 
@@ -44,6 +45,10 @@
           </div>
           <div class="media-tools">
             <button class="btn ghost small" id="btn-canva" type="button">Importer depuis Canva</button>
+            <button class="btn ghost small" id="btn-photo" type="button">📷 Prendre une photo</button>
+            <button class="btn ghost small" id="btn-video" type="button">🎥 Filmer une vidéo</button>
+            <input id="capture-photo" type="file" accept="image/*" capture="environment" hidden>
+            <input id="capture-video" type="file" accept="video/*" capture="environment" hidden>
           </div>
           <div id="media-list" class="media-list"></div>
 
@@ -78,6 +83,7 @@
     <section id="view-queue" class="view" hidden>
       <div class="queue-head">
         <h1>Planning</h1>
+        <select id="profile-filter" aria-label="Filtrer par profil" hidden></select>
         <div class="segmented" role="group" aria-label="Affichage">
           <button class="seg active" data-mode="list" type="button">Liste</button>
           <button class="seg" data-mode="calendar" type="button">Calendrier</button>
@@ -102,9 +108,26 @@
       <div id="users"></div>
       <h1>Comptes connectés</h1>
       <div id="flows" class="flows"></div>
+      <div id="profiles"></div>
       <div id="accounts" class="account-list"></div>
     </section>
   </main>
+
+  <dialog id="camera-dialog" class="sheet camera" aria-labelledby="camera-title">
+    <header class="sheet-head">
+      <h2 id="camera-title">Caméra</h2>
+      <button class="btn ghost small" id="camera-close" type="button" aria-label="Fermer">✕</button>
+    </header>
+    <div class="camera-body">
+      <video id="camera-preview" autoplay muted playsinline></video>
+      <p id="camera-status" class="muted small"></p>
+      <div class="row camera-actions">
+        <select id="camera-device" aria-label="Choisir la caméra" hidden></select>
+        <button class="btn primary" id="camera-shoot" type="button">Prendre la photo</button>
+        <button class="btn primary" id="camera-record" type="button">● Démarrer l'enregistrement</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="canva-dialog" class="sheet" aria-labelledby="canva-title">
     <header class="sheet-head">
