@@ -42,7 +42,8 @@ export function hashPassword(password: string): string {
 
 function verifyPassword(password: string): boolean {
   if (config.adminPasswordHash) {
-    const [algo, N, r, p, salt, hash] = config.adminPasswordHash.split("$");
+    // Séparateur « : » (recommandé, sans risque d'interprétation par un shell) ou « $ ».
+    const [algo, N, r, p, salt, hash] = config.adminPasswordHash.split(/[:$]/);
     if (algo !== "scrypt" || !hash) return false;
     const expected = Buffer.from(hash, "base64url");
     const got = scryptSync(password, Buffer.from(salt, "base64url"), expected.length, {

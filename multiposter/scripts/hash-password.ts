@@ -1,6 +1,6 @@
 // Calcule l'empreinte du mot de passe à mettre dans ADMIN_PASSWORD_HASH (mode serveur).
 // Usage : node scripts/hash-password.ts   (le mot de passe est demandé, il n'est jamais enregistré)
-// Même format que src/auth.ts : scrypt$N$r$p$sel$empreinte.
+// Format lu par src/auth.ts : scrypt:N:r:p:sel:empreinte (sans « $ », pour éviter qu'un shell le modifie).
 import { randomBytes, scryptSync } from "node:crypto";
 import { createInterface } from "node:readline";
 
@@ -10,7 +10,7 @@ function hashPassword(password: string): string {
   const p = 1;
   const salt = randomBytes(16);
   const hash = scryptSync(password, salt, 32, { N, r, p, maxmem: 64 * 1024 * 1024 });
-  return ["scrypt", N, r, p, salt.toString("base64url"), hash.toString("base64url")].join("$");
+  return ["scrypt", N, r, p, salt.toString("base64url"), hash.toString("base64url")].join(":");
 }
 
 const rl = createInterface({ input: process.stdin });
