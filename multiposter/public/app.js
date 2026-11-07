@@ -1187,6 +1187,34 @@ function updateDraftIndicators() {
   );
 }
 
+/** Compte à rebours avant la suppression automatique d'un brouillon (mis à jour chaque minute). */
+function expiryText(at) {
+  const left = at - Date.now();
+  if (left <= 0) return "Sera supprimé dans les prochaines minutes";
+  const min = Math.ceil(left / 60e3);
+  if (min < 60) return `Supprimé dans ${min} min`;
+  if (left < 86400e3) {
+    const hh = Math.floor(min / 60), mm = min % 60;
+    return `Supprimé dans ${hh} h${mm ? ` ${String(mm).padStart(2, "0")} min` : ""}`;
+  }
+  const days = Math.max(1, Math.round(left / 86400e3));
+  return `Supprimé dans ${days} jour${days > 1 ? "s" : ""}`;
+}
+function expiryLabel(at) {
+  const el = h("span", { class: "expiry small", title: "Sans modification ni programmation, ce brouillon et ses médias seront supprimés. L'ouvrir et l'enregistrer remet le compteur à zéro." });
+  el.dataset.at = String(at);
+  updateExpiry(el);
+  return el;
+}
+function updateExpiry(el) {
+  const at = Number(el.dataset.at);
+  const left = at - Date.now();
+  el.textContent = `⏳ ${expiryText(at)}`;
+  el.classList.toggle("soon", left < 86400e3);
+  el.classList.toggle("urgent", left < 3 * 3600e3);
+}
+setInterval(() => document.querySelectorAll(".expiry[data-at]").forEach(updateExpiry), 60e3);
+
 function dayLabel(ms) {
   const d = new Date(ms); d.setHours(0, 0, 0, 0);
   const diff = Math.round((startOfToday() - d.getTime()) / 86400e3);
@@ -1368,7 +1396,7 @@ function postCard(p) {
       "footer",
       {},
       p.status === "draft" && p.updatedAt && state.meta?.retention
-        ? h("span", { class: "muted small expiry" }, `Supprimé automatiquement le ${new Date(p.updatedAt + state.meta.retention.draftDays * 86400e3).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} s'il n'est ni modifié ni programmé`)
+        ? expiryLabel(p.updatedAt + state.meta.retention.draftDays * 86400e3)
         : null,
       p.status === "draft"
         ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, "Relire et programmer")

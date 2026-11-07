@@ -731,3 +731,8 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
   .otp-phone .btn { justify-content: center; min-height: 48px; }
 }
 .copy-key { margin-top: -0.3rem; }
+
+/* Compte à rebours des brouillons */
+.expiry { color: var(--muted); white-space: nowrap; }
+.expiry.soon { color: var(--warn); font-weight: 600; }
+.expiry.urgent { color: var(--err); }

@@ -309,7 +309,7 @@ ${networks[id].owner}`,
   <li><strong>Planning</strong> en liste ou en <strong>calendrier</strong>. Dans le calendrier, le <strong>+</strong> d'un jour crée un post à cette date.</li>
   <li>La pastille à côté de « Planning » indique le nombre de brouillons à programmer. Elle devient <strong>orange</strong> s'il en reste des jours précédents.</li>
   <li>L'onglet <strong>Brouillons</strong> les range par jour (Aujourd'hui, Hier…). « Relire et programmer » ouvre le brouillon.</li>
-  <li><strong>Un brouillon ni modifié ni programmé pendant 7 jours est supprimé automatiquement</strong>, avec ses images et vidéos. La date est indiquée sous chaque brouillon. Pour le garder, il suffit de l'ouvrir et de l'enregistrer.</li>
+  <li><strong>Un brouillon ni modifié ni programmé pendant 7 jours est supprimé automatiquement</strong>, avec ses images et vidéos. Sous chaque brouillon, un compte à rebours indique le temps restant : en jours, puis en heures et minutes (en orange) pendant les dernières 24 h. Pour le garder, il suffit de l'ouvrir et de l'enregistrer.</li>
   <li>Les images et vidéos d'un post publié sont effacées du serveur au bout de 3 jours. Pour republier le même post après, réajoute les médias.</li>
   <li>La <strong>recherche</strong> retrouve n'importe quel post par son texte, par exemple « NEWZ 3 ».</li>
   <li>Un post en <strong>Échec</strong> : lis le message sous le réseau, il dit quoi corriger (format d'image, texte trop long, compte à reconnecter…). Corrige, puis « Réessayer les échecs ».</li>
