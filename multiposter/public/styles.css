@@ -10,10 +10,10 @@
   --muted: #a3a6cf;
   --violet-1: #a855f7;
   --indigo: #6366f1;
-  --turquin: #3e5a9a;
-  --turquin-light: #8fb1ee;
-  --grad: linear-gradient(135deg, #a855f7 0%, #6366f1 50%, #3e5a9a 100%);
-  --grad-soft: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(99, 102, 241, 0.16) 50%, rgba(62, 90, 154, 0.22));
+  --turquin: #023197;
+  --turquin-light: #81a7f8;
+  --grad: linear-gradient(135deg, #a855f7 0%, #6366f1 50%, #023197 100%);
+  --grad-soft: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(99, 102, 241, 0.16) 50%, rgba(2, 49, 151, 0.22));
   --glow: 0 0 0 1px rgba(167, 139, 250, 0.25), 0 10px 40px -10px rgba(99, 102, 241, 0.55);
   /* Anciens noms, conservés pour les composants existants. */
   --magenta: var(--violet-1);
@@ -412,7 +412,7 @@ body::before {
   content: ""; position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
   background:
     radial-gradient(38vmax 38vmax at 15% 20%, rgba(168, 85, 247, 0.30), transparent 60%),
-    radial-gradient(42vmax 42vmax at 85% 15%, rgba(62, 90, 154, 0.38), transparent 60%),
+    radial-gradient(42vmax 42vmax at 85% 15%, rgba(2, 49, 151, 0.55), transparent 60%),
     radial-gradient(40vmax 40vmax at 60% 90%, rgba(99, 102, 241, 0.28), transparent 60%);
   filter: blur(30px);
   animation: aurora 28s ease-in-out infinite alternate;
@@ -443,7 +443,7 @@ a { color: var(--turquin-light); text-underline-offset: 3px; }
   background: rgba(10, 9, 24, 0.6);
   backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
   border-bottom: 1px solid transparent;
-  border-image: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5), rgba(143, 177, 238, 0.5), transparent) 1;
+  border-image: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5), rgba(129, 167, 248, 0.5), transparent) 1;
 }
 .brand span {
   font-weight: 800; letter-spacing: -0.01em;
@@ -501,12 +501,12 @@ input:focus, textarea:focus, select:focus, button:focus-visible, .dropzone:focus
 .chip:hover { border-color: rgba(167, 139, 250, 0.4); color: var(--fg); }
 .chip.active { color: #fff; background: var(--grad-soft); border-color: rgba(167, 139, 250, 0.55); box-shadow: 0 0 18px -6px rgba(139, 92, 246, 0.7); }
 .account-chip.active { box-shadow: 0 0 18px -6px var(--c); }
-.profile-chip.active { background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(62, 90, 154, 0.28)); border-color: rgba(196, 181, 253, 0.7); }
+.profile-chip.active { background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(2, 49, 151, 0.28)); border-color: rgba(196, 181, 253, 0.7); }
 .seg.active { background: var(--grad-soft); box-shadow: inset 0 0 0 1px var(--border-strong); color: #fff; }
 .nav-badge { background: var(--grad); color: #fff; box-shadow: 0 0 12px rgba(139, 92, 246, 0.7); }
 .nav-badge.warn { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1c1306; }
 .fresh { background: linear-gradient(135deg, var(--turquin-light), #c4b5fd); color: #120f2b; }
-.via, .source { color: #c7d6fb; border-color: rgba(143, 177, 238, 0.4); }
+.via, .source { color: #c9d6fb; border-color: rgba(129, 167, 248, 0.4); }
 
 /* Statuts : pastilles douces avec point lumineux. */
 .status { display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(255, 255, 255, 0.05); }
@@ -552,7 +552,7 @@ body.login .login-card {
   border: 1px solid transparent;
   background:
     linear-gradient(var(--card-strong), var(--card-strong)) padding-box,
-    linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(99, 102, 241, 0.4), rgba(143, 177, 238, 0.8)) border-box;
+    linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(99, 102, 241, 0.4), rgba(129, 167, 248, 0.8)) border-box;
   box-shadow: 0 30px 80px -30px rgba(99, 102, 241, 0.7);
 }
 body.login .login-card > img { animation: float 6s ease-in-out infinite; filter: drop-shadow(0 8px 24px rgba(168, 85, 247, 0.5)); }
@@ -598,7 +598,7 @@ body.help { min-height: 100vh; }
 .toc li { break-inside: avoid; margin-bottom: 0.25rem; }
 .tag { font-size: 0.72rem; font-weight: 700; color: #120f2b; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-radius: 999px; padding: 0.05rem 0.5rem; vertical-align: middle; }
 .tip, .warn { padding: 0.55rem 0.75rem; border-radius: 10px; font-size: 0.93rem; }
-.tip { background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(143, 177, 238, 0.35); }
+.tip { background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(129, 167, 248, 0.35); }
 .warn { background: rgba(251, 113, 133, 0.08); border: 1px solid rgba(251, 113, 133, 0.35); }
 .help-main details { border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.75rem; background: rgba(7, 6, 20, 0.35); }
 .help-main details summary { font-weight: 600; }
@@ -637,7 +637,7 @@ body.help { min-height: 100vh; }
   display: inline-grid; place-items: center; flex: none;
   width: 1.6rem; height: 1.6rem; padding: 0; border-radius: 999px;
   font: 700 0.85rem/1 inherit; color: var(--turquin-light);
-  background: rgba(99, 102, 241, 0.14); border: 1px solid rgba(143, 177, 238, 0.4);
+  background: rgba(99, 102, 241, 0.14); border: 1px solid rgba(129, 167, 248, 0.4);
   cursor: pointer; vertical-align: middle; transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 .help-q:hover, .help-q:focus-visible { background: var(--grad); color: #fff; transform: scale(1.08); box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.18); outline: none; }
@@ -661,7 +661,7 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .help-panel-head {
   display: flex; align-items: center; gap: 0.4rem; padding: 0.65rem 0.7rem 0.6rem 1rem;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(62, 90, 154, 0.16)); border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(2, 49, 151, 0.16)); border-radius: 16px 16px 0 0;
 }
 .help-panel-title { flex: 1; margin: 0; font-size: 1rem; letter-spacing: 0; text-transform: none; color: var(--fg); }
 .help-icon { width: 2rem; height: 2rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(7, 6, 20, 0.4); color: var(--fg); cursor: pointer; font-size: 1rem; line-height: 1; }
@@ -678,7 +678,7 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .help-body ul, .help-body ol { padding-left: 1.25rem; display: grid; gap: 0.35rem; }
 .help-body code { font-size: 0.85em; background: rgba(99, 102, 241, 0.14); border: 1px solid var(--border); border-radius: 6px; padding: 0.05rem 0.35rem; overflow-wrap: anywhere; }
 .help-body .tip, .help-body .warn { padding: 0.55rem 0.75rem; border-radius: 10px; font-size: 0.9rem; }
-.help-body .tip { background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(143, 177, 238, 0.35); }
+.help-body .tip { background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(129, 167, 248, 0.35); }
 .help-body .warn { background: rgba(251, 113, 133, 0.08); border: 1px solid rgba(251, 113, 133, 0.35); }
 .help-body ol.steps > li::marker { color: var(--turquin-light); font-weight: 700; }
 .net-links { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
