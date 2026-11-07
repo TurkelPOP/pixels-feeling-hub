@@ -622,3 +622,12 @@ body.help { min-height: 100vh; }
 .appset .callback { align-items: center; }
 .appset .callback code { flex: 1 1 260px; font-size: 0.82rem; background: rgba(99, 102, 241, 0.14); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.5rem; overflow-wrap: anywhere; }
 .appset .tfield input:disabled { opacity: 0.6; }
+
+/* Activation d'un réseau dans sa carte : la carte prend toute la largeur une fois ouverte */
+#flows .flow:has(details.appset[open]) { grid-column: 1 / -1; }
+.appset.todo { border-color: rgba(168, 85, 247, 0.45); background: rgba(168, 85, 247, 0.08); }
+.appset.todo > summary { color: #e9d5ff; }
+.appset .callback { display: grid; gap: 0.3rem; }
+.appset .callback .row { align-items: center; flex-wrap: nowrap; }
+.appset .callback code { flex: 1 1 auto; min-width: 0; }
+.row.spread { justify-content: space-between; align-items: center; }

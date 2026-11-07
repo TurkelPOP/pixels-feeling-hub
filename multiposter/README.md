@@ -159,7 +159,7 @@ Mise en place :
 3. Ajoute l'URL de retour `https://<PUBLIC_URL>/oauth/canva/callback`. En local, Canva refuse
    `localhost` : utilise `http://127.0.0.1:3210/oauth/canva/callback` et mets
    `PUBLIC_URL=http://127.0.0.1:3210`.
-4. Colle l'ID client et le secret dans **Comptes → Réglages des réseaux → Canva** (ou, au choix,
+4. Colle l'ID client et le secret dans la carte **Canva** de l'onglet Comptes (« Activer ce réseau ») (ou, au choix,
    `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` dans `.env`), puis va dans **Comptes → Connecter Canva**.
 
 ## Sur Windows : sans ligne de commande
@@ -223,7 +223,7 @@ les posts à publier toutes les 20 secondes.
 ## Brancher les réseaux
 
 Pour chaque réseau, le propriétaire crée une fois une « app développeur » chez lui, puis colle ses
-deux clés dans **Comptes → Réglages des réseaux** (réservé au propriétaire). La page affiche
+deux clés dans la carte du réseau, onglet **Comptes → « Activer ce réseau »** (visible par le seul propriétaire). Le formulaire affiche
 l'adresse de retour à déclarer avec un bouton Copier, et le réseau s'active aussitôt, sans
 redémarrage. Ensuite, **chaque utilisateur** connecte ses propres comptes avec **Comptes → Connecter**.
 Tu n'as besoin que des réseaux que tu utilises.

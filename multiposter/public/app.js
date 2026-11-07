@@ -37,6 +37,7 @@ const state = {
   profiles: [],
   profileFilter: "",
   me: null,
+  appGroups: null,
 };
 
 // ---------- utilitaires ----------
@@ -120,7 +121,7 @@ function route() {
     renderSystem();
     renderSecurity();
     renderUsers();
-    renderAppSettings();
+    loadAppSettings().then(() => { renderAccounts(); renderAppSettings(); });
   }
 }
 window.addEventListener("hashchange", route);
@@ -216,7 +217,7 @@ function canvaCard() {
     h("div", {}, h("strong", {}, "Canva"),
       h("p", { class: "muted small" }, "Récupère tes derniers designs (NEWZ, Good News…) directement dans un post, exportés au bon format.")),
     !s?.configured
-      ? notReadyText()
+      ? notReady("canva")
       : s.connected
         ? h("div", { class: "row" },
             h("span", { class: "via" }, `Connecté : ${s.name ?? "Canva"}`),
@@ -231,6 +232,7 @@ function canvaCard() {
             }, "Déconnecter"))
         : h("a", { class: "btn primary small", href: "/oauth/canva/start" }, "Connecter Canva"),
     s?.connected ? rulesBox() : null,
+    s?.configured && state.me?.role === "owner" ? setupPanel("canva", true) : null,
   );
 }
 
@@ -579,86 +581,106 @@ async function renderSystem() {
   );
 }
 
-/** Réseau pas encore activé : le propriétaire l'active une fois pour tout le monde. */
-function notReadyText() {
+/** Réglages des apps développeur (propriétaire uniquement), chargés une fois. */
+async function loadAppSettings() {
+  state.appGroups = null;
+  if (state.me?.role !== "owner") return;
+  try {
+    state.appGroups = await api("/app-settings");
+  } catch {
+    /* pas propriétaire ou hors ligne */
+  }
+}
+
+function copyBtn(text) {
+  return h("button", { class: "btn ghost small", type: "button", onclick: async () => { try { await navigator.clipboard.writeText(text); toast("Adresse copiée."); } catch { toast(text); } } }, "Copier");
+}
+
+/**
+ * Formulaire d'activation d'un réseau, directement dans sa carte (propriétaire) :
+ * adresse de retour à copier, lien vers la console du réseau, les deux clés.
+ */
+function setupPanel(id, configured) {
+  const g = state.appGroups?.find((x) => x.id === id);
+  if (!g) return null;
+  const fromServer = g.fields.every((f) => f.source === "server");
+  const inputs = g.fields.map((f) => {
+    const input = h("input", {
+      type: f.secret ? "password" : "text",
+      autocomplete: "off",
+      spellcheck: "false",
+      placeholder: f.source === "server" ? "défini sur le serveur" : f.secret && f.source ? "enregistrée ✓ (laisse vide pour la garder)" : "colle ici",
+      disabled: f.source === "server",
+    });
+    if (!f.secret && f.value) input.value = f.value;
+    input.dataset.key = f.key;
+    return field(f.label, input);
+  });
+  const save = async (btn) => {
+    const body = {};
+    for (const el of btn.closest(".appset").querySelectorAll("input[data-key]")) {
+      if (el.disabled) continue;
+      const f = g.fields.find((x) => x.key === el.dataset.key);
+      // Secret vide = on garde l'ancien ; identifiant vide = on l'efface.
+      if (f.secret && !el.value.trim()) continue;
+      body[el.dataset.key] = el.value.trim();
+    }
+    btn.disabled = true;
+    try {
+      await api("/app-settings", { method: "PUT", body: JSON.stringify(body) });
+      toast(`${g.label} : enregistré.`);
+      state.meta = await api("/meta");
+      await Promise.all([loadCanvaStatus(), loadAppSettings()]);
+      renderAccounts();
+      renderAppSettings();
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  };
+  return h("details", { class: `appset${configured ? "" : " todo"}` },
+    h("summary", {}, configured ? "Clés de l'app (propriétaire)" : "Activer ce réseau"),
+    configured ? null : h("p", { class: "muted small" }, "Une seule fois, pour tout le monde : déclare PTZ Posting chez le réseau, puis colle ici ses deux clés. Ensuite chacun connecte ses comptes d'un clic."),
+    g.callback
+      ? h("div", { class: "callback" }, h("span", { class: "small" }, "1. Adresse de retour à coller chez le réseau :"), h("div", { class: "row" }, h("code", {}, g.callback), copyBtn(g.callback)))
+      : null,
+    g.console ? h("a", { href: g.console, target: "_blank", rel: "noopener", class: "small" }, "2. Ouvrir la console développeur ↗") : null,
+    h("p", { class: "muted small" }, g.help),
+    ...inputs,
+    fromServer
+      ? h("p", { class: "muted small" }, "Ces clés sont définies sur le serveur (variables d'environnement) : pour les gérer ici, retire-les là-bas puis redémarre.")
+      : h("div", { class: "row" },
+          h("button", { class: "btn primary small", type: "button", onclick: (e) => save(e.currentTarget) }, "Enregistrer"),
+          h("a", { href: "/aide#proprietaire", target: "_blank", rel: "noopener", class: "small" }, "Aide")),
+  );
+}
+
+/** Réseau pas encore activé : formulaire pour le propriétaire, explication pour les autres. */
+function notReady(id) {
   return state.me?.role === "owner"
-    ? h("p", { class: "muted small" }, "À activer une fois pour tout le monde dans « Réglages des réseaux », plus bas.")
+    ? setupPanel(id, false)
     : h("p", { class: "muted small" }, "Pas encore activé : le propriétaire de l'app doit l'activer une fois, ensuite tu pourras connecter ton compte ici.");
 }
 
-async function renderAppSettings() {
+/** Webhook d'alertes (propriétaire) : le seul réglage qui n'est pas lié à un réseau. */
+function renderAppSettings() {
   const box = $("#app-settings");
-  if (state.me?.role !== "owner") return box.replaceChildren();
-  let groups;
-  try {
-    groups = await api("/app-settings");
-  } catch {
-    return;
-  }
-  const copyBtn = (text) =>
-    h("button", { class: "btn ghost small", type: "button", onclick: async () => { try { await navigator.clipboard.writeText(text); toast("Adresse copiée."); } catch { toast(text); } } }, "Copier");
-
-  const blocks = groups.map((g) => {
-    const ready = g.fields.every((f) => f.source);
-    const inputs = g.fields.map((f) => {
-      const input = h("input", {
-        type: f.secret ? "password" : "text",
-        autocomplete: "off",
-        spellcheck: "false",
-        placeholder: f.source === "server" ? "défini sur le serveur" : f.secret && f.source ? "enregistrée ✓ (laisse vide pour la garder)" : "colle ici",
-        disabled: f.source === "server",
-      });
-      if (!f.secret && f.value) input.value = f.value;
-      input.dataset.key = f.key;
-      return field(f.label, input);
-    });
-    const save = async (btn) => {
-      const body = {};
-      for (const el of btn.closest(".appset").querySelectorAll("input[data-key]")) {
-        if (el.disabled) continue;
-        const f = g.fields.find((x) => x.key === el.dataset.key);
-        // Secret vide = on garde l'ancien ; identifiant vide = on l'efface.
-        if (f.secret && !el.value.trim()) continue;
-        body[el.dataset.key] = el.value.trim();
-      }
-      btn.disabled = true;
-      try {
-        await api("/app-settings", { method: "PUT", body: JSON.stringify(body) });
-        toast(`${g.label} : enregistré.`);
-        state.meta = await api("/meta");
-        await loadCanvaStatus();
-        renderAccounts();
-        renderAppSettings();
-      } catch (e) {
-        toast(e.message, "err");
-      } finally {
-        btn.disabled = false;
-      }
-    };
-    return h("details", { class: "appset", open: false },
-      h("summary", {}, h("span", {}, g.label), h("span", { class: `status ${ready ? "done" : "pending"}` }, ready ? "Activé" : "À activer")),
-      h("p", { class: "muted small" }, g.help),
-      g.callback
-        ? h("div", { class: "row callback" }, h("span", { class: "small" }, "Adresse de retour à déclarer :"), h("code", {}, g.callback), copyBtn(g.callback))
-        : null,
-      g.console ? h("a", { href: g.console, target: "_blank", rel: "noopener", class: "small" }, "Ouvrir la console développeur ↗") : null,
-      ...inputs,
-      g.fields.every((f) => f.source === "server")
-        ? h("p", { class: "muted small" }, "Ces clés sont définies sur le serveur (variables d'environnement) : pour les gérer ici, retire-les là-bas puis redémarre.")
-        : h("div", { class: "row" }, h("button", { class: "btn primary small", type: "button", onclick: (e) => save(e.currentTarget) }, "Enregistrer")));
-  });
-
+  const panel = state.appGroups ? setupPanel("alerts", true) : null;
+  if (!panel) return box.replaceChildren();
+  panel.querySelector("summary").textContent = "Webhook (Discord, Slack, ntfy)";
+  const g = state.appGroups.find((x) => x.id === "alerts");
   box.replaceChildren(
     h("div", { class: "card system" },
-      h("strong", {}, "Réglages des réseaux"),
-      h("p", { class: "muted small" },
-        "Réservé au propriétaire, à faire une seule fois par réseau. Tu déclares PTZ Posting chez le réseau (comme l'ont fait Fedica ou Buffer), tu colles ici ses deux clés, et le bouton « Connecter » apparaît pour tout le monde. Les clés secrètes sont chiffrées et ne sont jamais réaffichées. ",
-        h("a", { href: "/aide#proprietaire", target: "_blank", rel: "noopener" }, "Aide détaillée")),
-      ...blocks),
+      h("div", { class: "row spread" }, h("strong", {}, "Alertes de sécurité"),
+        h("span", { class: `status ${g.fields.every((f) => f.source) ? "done" : "pending"}` }, g.fields.every((f) => f.source) ? "Activées" : "Non configurées")),
+      h("p", { class: "muted small" }, "Reçois un message à chaque connexion suspecte, publication en échec ou réglage modifié."),
+      panel),
   );
 }
 
 function renderAccounts() {
+  if (!state.meta) return; // pas encore chargé : init() redessinera
   $("#flows").replaceChildren(
     canvaCard(),
     ...state.meta.flows.map((f) =>
@@ -668,7 +690,8 @@ function renderAccounts() {
         h("div", { class: "flow-head" }, ...f.providers.map(badge)),
         f.configured
           ? h("a", { class: "btn primary small", href: `/oauth/${f.id}/start` }, `Connecter ${f.label}`)
-          : notReadyText(),
+          : notReady(f.id),
+        f.configured && state.me?.role === "owner" ? setupPanel(f.id, true) : null,
       ),
     ),
   );
@@ -1521,6 +1544,7 @@ async function importDesign(d, btn) {
 async function init() {
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
+  await loadAppSettings();
   await loadCanvaStatus();
   await loadAccounts();
 
