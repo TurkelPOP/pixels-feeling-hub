@@ -463,6 +463,18 @@ startCleanup();
 // autres appareils du Wi-Fi. HOST=0.0.0.0 seulement pour Docker ou un serveur.
 serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {
   console.log(`PTZ Posting prêt sur http://localhost:${info.port} (URL publique : ${config.publicUrl})`);
+  // Récapitulatif des réglages (sans aucun secret), pour vérifier la configuration dans les journaux.
+  console.log(
+    [
+      `Mode : ${config.serverMode ? "SERVEUR (double authentification obligatoire)" : "local"}`,
+      `APP_URL=${config.appUrl}`,
+      `ADMIN_NAME=${process.env.ADMIN_NAME ?? "admin (par défaut)"}`,
+      `ADMIN_PASSWORD_HASH ${config.adminPasswordHash ? "présent" : "absent"}`,
+      `CRON_SECRET ${config.cronSecret && config.cronSecret.length >= 32 ? "présent" : "absent"}`,
+      `alertes ${config.alertWebhookUrl ? "configurées" : "non configurées"}`,
+      `TRUST_PROXY=${process.env.TRUST_PROXY ?? "non"}`,
+    ].join(" · "),
+  );
   // Lanceur Windows / macOS : ouvre l'app dans le navigateur une fois prête.
   if (process.env.OPEN_BROWSER === "1") {
     const url = `http://127.0.0.1:${info.port}/open`;

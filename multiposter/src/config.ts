@@ -53,6 +53,19 @@ if (config.appSecret.length < 32) throw new Error("APP_SECRET doit faire au moin
  */
 export const serverMode = config.appUrl.startsWith("https://");
 config.serverMode = serverMode;
+
+// Garde-fou : si l'app écoute au-delà de ce PC (HOST=:: ou 0.0.0.0, cas d'un hébergeur), elle
+// DOIT être en mode serveur, avec toutes ses protections. Sinon elle refuse de démarrer.
+// (LOCAL_MODE=1 : Docker publié uniquement sur 127.0.0.1, voir docker-compose.yml.)
+const listenHost = (process.env.HOST ?? "127.0.0.1").trim();
+const exposed = !["127.0.0.1", "localhost", "::1", "[::1]"].includes(listenHost);
+if (exposed && !serverMode && process.env.LOCAL_MODE !== "1") {
+  throw new Error(
+    `Sécurité : HOST=${listenHost} rend l'app joignable depuis Internet, mais APP_URL n'est pas une adresse https ` +
+      `(valeur lue : ${process.env.APP_URL ? `« ${process.env.APP_URL} »` : "absente"}). ` +
+      "Ajoute APP_URL=https://ton-adresse dans les variables d'environnement, puis redémarre.",
+  );
+}
 if (serverMode) {
   if (!config.adminPasswordHash) throw new Error("Mode serveur : ADMIN_PASSWORD_HASH est obligatoire (voir scripts/hash-password.ts). Ne mets pas le mot de passe en clair.");
   if (config.adminPassword) throw new Error("Mode serveur : retire ADMIN_PASSWORD, seul ADMIN_PASSWORD_HASH est accepté.");
