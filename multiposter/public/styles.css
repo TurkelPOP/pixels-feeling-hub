@@ -757,3 +757,15 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .dot-ok { width: 0.45rem; height: 0.45rem; border-radius: 999px; background: var(--ok); box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2); animation: dot-pulse 2.4s ease-in-out infinite; }
 @keyframes dot-pulse { 50% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); } }
 @media (prefers-reduced-motion: reduce) { .dot-ok { animation: none; } }
+
+/* Petits logos des réseaux */
+.net-icon { display: inline-block; flex: none; color: var(--c); vertical-align: -0.15em; }
+.net-icon svg { display: block; }
+.badge { display: inline-flex; align-items: center; gap: 0.3rem; }
+.badge .net-icon { width: 1.35em !important; height: 1.35em !important; }
+.badge { padding-left: 0.35rem; }
+.net-label .net-icon { width: 1.25em !important; height: 1.25em !important; }
+.net-label { display: inline-flex; align-items: center; gap: 0.35rem; }
+.avatar-wrap { position: relative; display: inline-flex; flex: none; }
+.avatar-net { position: absolute; right: -5px; bottom: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: #0b1440; box-shadow: 0 0 0 1.5px #0b1440; }
+.avatar-net .net-icon { width: 13px !important; height: 13px !important; }

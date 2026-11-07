@@ -7,7 +7,24 @@ const PROVIDER = {
   facebook: { label: "Facebook", color: "#1877f2" },
   threads: { label: "Threads", color: "#cfcfcf" },
   x: { label: "X", color: "#f5f5f5" },
+  canva: { label: "Canva", color: "#20c4cb" },
 };
+
+/** Petits logos des réseaux (SVG 24×24 dessinés en traits simples, couleur = celle du réseau). */
+const ICON_PATHS = {
+  youtube: '<rect x="2.5" y="5.5" width="19" height="13" rx="4" fill="currentColor"/><path d="M10 9.2v5.6l4.8-2.8z" fill="#0b1440"/>',
+  instagram: '<rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/>',
+  facebook: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M13.2 21.4v-6.6h2.2l.4-2.7h-2.6v-1.7c0-.8.3-1.3 1.4-1.3h1.3V6.7c-.3 0-1.1-.1-2-.1-2 0-3.3 1.2-3.3 3.4v2.1H8.4v2.7h2.2v6.6z" fill="#0b1440"/>',
+  threads: '<path d="M16.6 11.3c-.3-2.6-2-3.9-4.4-3.9-1.8 0-3.2.8-3.9 2.1M16.4 11.2c-3.6-.9-7 .1-7 2.6 0 1.7 1.7 2.6 3.4 2.4 2.4-.3 3.5-2.2 3.4-5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.4 11.2c2.4.9 3.2 3 2.4 5.2-1 2.6-3.6 4.1-6.8 4.1-4.6 0-7.5-3.1-7.5-8.5S7.4 3.5 12 3.5c3.7 0 6.2 1.9 7.2 5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  x: '<path d="M4 4h4.6l11.4 16h-4.6z" fill="currentColor"/><path d="M19.2 4 4.8 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  tiktok: '<path d="M13.5 3.5v11.2a3.3 3.3 0 1 1-3.3-3.3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M13.5 3.8c.4 2.6 2.2 4.3 4.8 4.5" fill="none" stroke="#fe2c55" stroke-width="2.4" stroke-linecap="round"/>',
+  canva: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M15.4 9.4a3.8 3.8 0 1 0 .1 5.2" fill="none" stroke="#0b1440" stroke-width="2.2" stroke-linecap="round"/>',
+};
+function netIcon(provider, size = "1em") {
+  const span = h("span", { class: "net-icon", "aria-hidden": "true", style: `--c:${PROVIDER[provider]?.color ?? "#888"};width:${size};height:${size}` });
+  if (ICON_PATHS[provider]) span.innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%">${ICON_PATHS[provider]}</svg>`;
+  return span;
+}
 const STATUS = {
   draft: "Brouillon",
   scheduled: "Programmé",
@@ -110,7 +127,8 @@ function toLocalInput(ms) {
 
 function badge(provider) {
   const p = PROVIDER[provider] ?? { label: provider, color: "#888" };
-  return h("span", { class: "badge", style: `--c:${p.color}` }, p.label);
+  // X : le logo suffit (sinon « X X »).
+  return h("span", { class: "badge", style: `--c:${p.color}`, title: p.label }, netIcon(provider), provider === "x" ? null : p.label);
 }
 
 function avatar(a) {
@@ -230,7 +248,7 @@ function canvaCard() {
   return h(
     "div",
     { class: "card flow canva" },
-    h("div", {}, cardTitle("Canva", "net-canva"),
+    h("div", {}, h("div", { class: "card-title" }, h("strong", { class: "net-label" }, netIcon("canva", "1.25em"), "Canva"), helpQ("net-canva")),
       h("p", { class: "muted small" }, "Récupère tes derniers designs (NEWZ, Good News…) directement dans un post, exportés au bon format.")),
     !s?.configured
       ? notReady("canva")
@@ -292,7 +310,7 @@ function rulesBox() {
   const chips = h("div", { class: "chips" },
     ...state.accounts.map((a) => {
       const chip = h("button", { type: "button", class: "chip account-chip small-chip", style: `--c:${PROVIDER[a.provider]?.color}` },
-        h("span", {}, PROVIDER[a.provider]?.label), h("small", {}, a.name));
+        h("span", { class: "net-label", title: PROVIDER[a.provider]?.label }, netIcon(a.provider), a.provider === "x" ? null : PROVIDER[a.provider]?.label), h("small", {}, a.name));
       chipOf.set(a.id, chip);
       chip.addEventListener("click", () => {
         picked.has(a.id) ? picked.delete(a.id) : picked.add(a.id);
@@ -730,7 +748,7 @@ function renderAccounts() {
     return h(
       "div",
       { class: "card account" },
-      avatar(a),
+      h("span", { class: "avatar-wrap" }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider))),
       h("div", { class: "grow" }, h("strong", {}, a.name), " ", badge(a.provider),
         expiring ? h("p", { class: "error small" }, "Token bientôt expiré : reconnecte ce compte.") : null,),
       h("button", {
@@ -782,9 +800,9 @@ function renderPicker() {
             renderComposeMeta();
           },
         },
-        avatar(a),
+        h("span", { class: "avatar-wrap" }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider))),
         h("span", {}, a.name),
-        h("small", {}, PROVIDER[a.provider]?.label),
+        h("small", { class: "net-label", title: PROVIDER[a.provider]?.label }, netIcon(a.provider), a.provider === "x" ? null : PROVIDER[a.provider]?.label),
       ),
     ),
   );
