@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Connexion · PTZ Posting</title>
+  <link rel="icon" href="/assets/logo.png">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="login">
+  <form method="post" action="/login" class="card login-card">
+    <img src="/assets/logo.png" alt="" width="64" height="64">
+    <h1>PTZ Posting</h1>
+    <p class="muted">PTZ Corp</p>
+    <label for="name">Identifiant (adresse e-mail)</label>
+    <input id="name" name="name" autocomplete="username" inputmode="email" maxlength="100">
+    <label for="password">Mot de passe</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <div id="code-row" hidden>
+      <label for="code">Code de l'appli d'authentification</label>
+      <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="6 chiffres, ou un code de secours">
+    </div>
+    <p class="error" id="err" hidden></p>
+    <button class="btn primary" type="submit">Se connecter</button>
+  </form>
+  <script src="/assets/login.js"></script>
+</body>
+</html>
