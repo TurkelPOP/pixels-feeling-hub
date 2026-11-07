@@ -17,6 +17,7 @@ import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, startCanvaWatcher } from "./canva.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
+import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { startCleanup } from "./cleanup.ts";
 import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
 
@@ -248,7 +249,14 @@ api.get("/meta", (c) =>
   }),
 );
 
-api.get("/system", (c) => c.json({ autostart: autostartStatus(), publicUrl: config.publicUrl, mediaPublicUrl: config.mediaPublicUrl }));
+api.get("/system", (c) =>
+  c.json({ autostart: autostartStatus(), publicUrl: config.publicUrl, mediaPublicUrl: config.mediaPublicUrl, tailscale: tailscaleState }),
+);
+
+api.post("/system/tailscale/retry", async (c) => {
+  await setupTailscale(useTailscaleHost);
+  return c.json({ tailscale: tailscaleState, publicUrl: config.publicUrl });
+});
 
 /** Vérifie depuis Internet que les réseaux pourront joindre /oauth et /media. */
 api.get("/system/public-check", async (c) => {
@@ -485,7 +493,19 @@ app.route("/api", api);
 
 app.get("/", requireAuth, async (c) => c.html(await readFile(resolve(PUBLIC, "index.html"), "utf8")));
 
+/** Adopte l'adresse Tailscale comme adresse publique (retours OAuth et médias). */
+function useTailscaleHost(host: string) {
+  const url = `https://${host}`;
+  allowedHosts.add(host);
+  if (!process.env.PUBLIC_URL || /^http:\/\/(127\.0\.0\.1|localhost)/.test(config.publicUrl)) config.publicUrl = url;
+  if (!process.env.MEDIA_PUBLIC_URL) config.mediaPublicUrl = config.publicUrl;
+  console.log(`Tailscale : /oauth et /media ouverts sur ${url}`);
+}
+
 startScheduler();
+void setupTailscale(useTailscaleHost).then((s) => {
+  if (s.mode === "auto" && s.error) console.log(`Tailscale : ${s.error}${s.enableUrl ? ` ${s.enableUrl}` : ""}`);
+});
 startCanvaWatcher();
 startCleanup();
 // Par défaut, l'app n'écoute que sur ce PC (127.0.0.1) : elle n'est pas visible depuis les

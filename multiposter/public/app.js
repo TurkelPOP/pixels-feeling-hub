@@ -264,11 +264,39 @@ function publicCard(sys) {
       btn.textContent = "Vérifier";
     }
   };
+  const ts = sys.tailscale ?? {};
+  let tsLine;
+  if (ts.mode !== "auto") tsLine = null;
+  else if (!ts.installed)
+    tsLine = h("p", { class: "small" }, "Tailscale n'est pas installé. ",
+      h("a", { href: "https://tailscale.com/download/windows", target: "_blank", rel: "noopener" }, "Installe-le"),
+      ", connecte-toi, puis clique sur « Réessayer » : l'app ouvrira elle-même /oauth et /media.");
+  else if (ts.funnelOk) tsLine = h("p", { class: "small ok-text" }, `✓ Tailscale actif : /oauth et /media ouverts sur https://${ts.host}`);
+  else
+    tsLine = h("p", { class: "small error" }, ts.error ?? "Tailscale n'est pas prêt.",
+      ts.enableUrl ? h("span", {}, " ", h("a", { href: ts.enableUrl, target: "_blank", rel: "noopener" }, "Activer Funnel")) : null);
+
+  const retry = async (btn) => {
+    btn.disabled = true;
+    btn.textContent = "Configuration…";
+    try {
+      await api("/system/tailscale/retry", { method: "POST" });
+      renderSystem();
+    } catch (e) {
+      toast(e.message, "err");
+      btn.disabled = false;
+      btn.textContent = "Réessayer";
+    }
+  };
+
   return h("div", { class: "card system" },
     h("strong", {}, "Accès pour Facebook, Instagram et Threads"),
     h("p", { class: "muted small" },
       `Ces réseaux doivent joindre deux chemins de l'app depuis Internet : le retour de connexion et les images. L'interface, elle, reste uniquement sur ce PC. Adresse publique actuelle : ${sys.publicUrl}`),
-    h("div", { class: "row" }, h("button", { class: "btn ghost small", type: "button", onclick: (e) => run(e.currentTarget) }, "Vérifier")),
+    tsLine,
+    h("div", { class: "row" },
+      ts.mode === "auto" && !ts.funnelOk ? h("button", { class: "btn primary small", type: "button", onclick: (e) => retry(e.currentTarget) }, "Réessayer") : null,
+      h("button", { class: "btn ghost small", type: "button", onclick: (e) => run(e.currentTarget) }, "Vérifier")),
     out);
 }
 

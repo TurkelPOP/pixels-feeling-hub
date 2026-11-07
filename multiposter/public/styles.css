@@ -330,3 +330,4 @@ dialog.sheet::backdrop { background: rgba(8, 5, 14, 0.7); backdrop-filter: blur(
 .check-list .ok { color: var(--ok); }
 .check-list .bad { color: var(--err); }
 .card.system p { margin: 0; overflow-wrap: anywhere; }
+.ok-text { color: var(--ok); }

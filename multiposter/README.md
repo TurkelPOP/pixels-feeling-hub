@@ -57,6 +57,13 @@ Facebook, Instagram, Threads, YouTube, TikTok et X renvoient la connexion vers u
 et Instagram et Threads téléchargent eux-mêmes les images. On ouvre donc **uniquement** ces deux
 chemins, et l'interface reste sur `http://127.0.0.1:3210`.
 
+**Automatique** : si Tailscale est installé et connecté, l'app ouvre elle-même `/oauth` et
+`/media` au démarrage, et utilise ton adresse `ts.net` sans réglage dans `.env`. La toute première
+fois, l'onglet **Comptes** affiche un lien **Activer Funnel** : ouvre-le, accepte, puis clique sur
+**Réessayer**. Pour désactiver ce comportement : `TAILSCALE=off` dans `.env`.
+
+**À la main**, si besoin :
+
 1. Installe Tailscale (<https://tailscale.com/download/windows>) et connecte-toi (offre gratuite, usage non commercial).
 2. Dans PowerShell :
    ```
