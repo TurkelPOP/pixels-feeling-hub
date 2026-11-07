@@ -1567,7 +1567,30 @@ async function importDesign(d, btn) {
 
 // ---------- démarrage ----------
 
+/**
+ * Son de connexion : joué une fois, juste après s'être connecté (/?bienvenue=1).
+ * Si le navigateur bloque la lecture automatique, il part au premier clic ou à la première touche.
+ */
+function welcomeSound() {
+  const url = new URL(location.href);
+  if (!url.searchParams.has("bienvenue")) return;
+  url.searchParams.delete("bienvenue");
+  history.replaceState(null, "", url.pathname + url.search + url.hash);
+  const audio = new Audio("/assets/connexion.mp3");
+  audio.volume = 0.8;
+  audio.play().catch(() => {
+    const go = () => {
+      removeEventListener("pointerdown", go, true);
+      removeEventListener("keydown", go, true);
+      audio.play().catch(() => {});
+    };
+    addEventListener("pointerdown", go, true);
+    addEventListener("keydown", go, true);
+  });
+}
+
 async function init() {
+  welcomeSound();
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();

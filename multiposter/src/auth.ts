@@ -347,7 +347,7 @@ function codesPage(codes: string[]) {
 <p>La double authentification est activée. Voici <strong>10 codes de secours</strong> : chacun remplace une fois le code du téléphone, si tu le perds.</p>
 <p class="error"><strong>Note-les maintenant</strong> dans un endroit sûr (gestionnaire de mots de passe, papier) : ils ne seront plus jamais affichés.</p>
 <ul class="codes">${codes.map((c) => `<li><code>${c}</code></li>`).join("")}</ul>
-<a class="btn primary" href="/">J'ai noté mes codes, ouvrir l'app</a>`);
+<a class="btn primary" href="/?bienvenue=1">J'ai noté mes codes, ouvrir l'app</a>`);
 }
 
 function invitePage(error = "") {
@@ -463,7 +463,7 @@ export function registerAuth(app: Hono) {
     void alert(
       `🔐 Connexion de « ${u.name} » à PTZ Posting depuis ${ip}${usedRecovery ? " avec un CODE DE SECOURS" : ""} (${(c.req.header("user-agent") ?? "").slice(0, 80)}). Si ce n'est pas normal : « Déconnecter tous les appareils » dans l'onglet Comptes.`,
     );
-    return c.redirect("/");
+    return c.redirect("/?bienvenue=1"); // l'app joue le son de connexion
   });
 
   // Activation de la double authentification de l'utilisateur de la session.
@@ -563,7 +563,7 @@ export function registerAuth(app: Hono) {
       return c.redirect("/2fa/setup");
     }
     await openSession(c, user, "f");
-    return c.redirect("/");
+    return c.redirect("/?bienvenue=1");
   });
 
   app.post("/logout", (c) => {

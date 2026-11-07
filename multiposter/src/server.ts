@@ -107,6 +107,7 @@ const MIME: Record<string, string> = {
   css: "text/css; charset=utf-8",
   svg: "image/svg+xml",
   png: "image/png",
+  mp3: "audio/mpeg",
   jpg: "image/jpeg",
   webp: "image/webp",
   gif: "image/gif",
@@ -149,7 +150,7 @@ app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", async (c) => {
   return sendFile(c, resolve(mediaDir, file), "private, max-age=3600");
 });
 
-app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png)}", (c) => sendFile(c, resolve(PUBLIC, c.req.param("file"))));
+app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png|mp3)}", (c) => sendFile(c, resolve(PUBLIC, c.req.param("file"))));
 
 // ---------- OAuth ----------
 
