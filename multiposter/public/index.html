@@ -47,6 +47,7 @@
           </div>
           <div class="media-tools">
             <button class="btn ghost small" id="btn-canva" type="button">Importer depuis Canva</button>
+            <button class="btn ghost small" id="btn-drive" type="button">Importer depuis Google Drive</button>
             <button class="btn ghost small" id="btn-photo" type="button"><span class="lg">📷 Prendre une photo</span><span class="sm">📷 Photo</span></button>
             <button class="btn ghost small" id="btn-video" type="button"><span class="lg">🎥 Filmer une vidéo</span><span class="sm">🎥 Vidéo</span></button>
             <input id="capture-photo" type="file" accept="image/jpeg,image/png" capture="environment" hidden>
@@ -129,6 +130,26 @@
         <button class="btn primary" id="camera-shoot" type="button">Prendre la photo</button>
         <button class="btn primary" id="camera-record" type="button">● Démarrer l'enregistrement</button>
       </div>
+    </div>
+  </dialog>
+
+  <dialog id="drive-dialog" class="sheet" aria-labelledby="drive-title">
+    <header class="sheet-head">
+      <h2 id="drive-title">Mon Google Drive</h2>
+      <button class="btn ghost small" id="drive-close" type="button" aria-label="Fermer">✕</button>
+    </header>
+    <div class="sheet-tools">
+      <div class="segmented" role="group" aria-label="Affichage">
+        <button class="seg active" data-drive="recent" type="button">Récents</button>
+        <button class="seg" data-drive="folders" type="button">Dossiers</button>
+      </div>
+      <input id="drive-search" type="search" placeholder="Rechercher par nom…" aria-label="Rechercher dans le Drive">
+    </div>
+    <nav id="drive-path" class="drive-path" aria-label="Dossier"></nav>
+    <div id="drive-list" class="canva-grid drive-grid"></div>
+    <div class="sheet-foot drive-foot">
+      <button class="btn ghost small" id="drive-more" type="button" hidden>Afficher plus</button>
+      <button class="btn primary" id="drive-import" type="button" disabled>Importer</button>
     </div>
   </dialog>
 

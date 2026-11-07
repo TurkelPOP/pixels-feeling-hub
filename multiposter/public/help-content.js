@@ -139,6 +139,36 @@
 <p class="tip">Plus tard, pour publier en public directement : <em>Submit for review</em> en production (TikTok vérifie l'app, avec une courte vidéo de démonstration), puis remplace les clés sandbox par celles de production.</p>`,
     },
 
+    gdrive: {
+      title: "Google Drive",
+      user: `
+<ol class="steps">
+  <li>Onglet <strong>Comptes</strong>, carte <strong>Google Drive</strong> : clique sur <strong>« Connecter Google Drive »</strong>.</li>
+  <li>Choisis le <strong>compte Google</strong> qui contient tes photos et vidéos.</li>
+  <li>Écran « <strong>Google n'a pas validé cette application</strong> » : normal. <strong>Paramètres avancés</strong> → <strong>Accéder à PTZ Posting</strong>.</li>
+  <li><strong>Coche la case</strong> « Afficher et télécharger tous les fichiers de Google Drive » puis <strong>Continuer</strong>. C'est une lecture seule : l'app ne peut rien modifier ni supprimer dans ton Drive.</li>
+  <li>Tu reviens dans PTZ Posting : la carte affiche « Connecté » avec ton adresse.</li>
+</ol>
+<h3>Importer depuis le Drive</h3>
+<ol class="steps">
+  <li>Dans <strong>Nouveau post</strong>, sous les médias : <strong>« Importer depuis Google Drive »</strong>.</li>
+  <li><strong>Récents</strong> montre tes dernières photos et vidéos ; <strong>Dossiers</strong> permet de parcourir ton Drive ; la recherche trouve un fichier par son nom.</li>
+  <li>Touche les fichiers voulus (une coche verte apparaît, jusqu'à 20), puis <strong>« Importer »</strong>.</li>
+</ol>
+<p class="tip">Depuis ton téléphone, c'est le plus pratique pour les grosses vidéos : le fichier passe <strong>directement de Google au serveur</strong>, sans être téléchargé sur ton téléphone ni consommer ton forfait.</p>
+<p class="tip">Formats pris en charge : JPG, PNG, WebP, GIF, MP4, MOV, WebM. Les photos HEIC (iPhone en « Haute efficacité ») sont grisées : exporte-les en JPG, ou règle ton iPhone sur « Le plus compatible ».</p>
+<p class="warn">« Accès bloqué » ou « app non validée » sans bouton pour continuer ? Demande au propriétaire de t'ajouter comme <strong>utilisateur test</strong> dans Google Cloud.</p>`,
+      owner: `
+<p>Drive utilise <strong>le même projet et les mêmes clés Google que YouTube</strong> : fais d'abord le tuto YouTube. Ensuite, trois réglages en plus :</p>
+<ol class="steps">
+  <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">API et services → Bibliothèque</a> : cherche <strong>Google Drive API</strong> → <strong>Activer</strong>.</li>
+  <li><strong>Google Auth Platform → Accès aux données</strong> → <em>Ajouter ou supprimer des niveaux d'accès</em> : coche <code>…/auth/drive.readonly</code> (tape « drive.readonly » dans le filtre), <strong>Mettre à jour</strong>, <strong>Enregistrer</strong>.</li>
+  <li><strong>Clients</strong> → ouvre ton client <em>PTZ Posting</em> → <em>URI de redirection autorisés</em> → <strong>Ajouter un URI</strong> : <code class="cb">{{origin}}/oauth/gdrive/callback</code> → <strong>Enregistrer</strong>. (Garde aussi celle de YouTube.)</li>
+</ol>
+<p class="tip">Pas de nouvelle clé à coller dans PTZ Posting : le bouton « Connecter Google Drive » apparaît dès que YouTube est activé. Les personnes qui se connectent doivent être dans les <strong>utilisateurs test</strong> (Audience), comme pour YouTube.</p>
+<p class="tip">Sécurité : l'accès est en lecture seule, chaque personne ne voit que son propre Drive, et les jetons d'accès sont chiffrés. « Déconnecter » retire aussi l'autorisation chez Google.</p>`,
+    },
+
     x: {
       title: "X (Twitter)",
       user: `
@@ -259,7 +289,7 @@ ${networks[id].owner}`,
 <ol class="steps">
   <li><strong>Publier sur</strong> : clique sur un profil ou coche des comptes.</li>
   <li>Écris ton texte : les compteurs montrent la limite de chaque réseau (500 caractères pour Threads, 280 pour X…).</li>
-  <li>Ajoute tes images ou vidéos : glisser-déposer, <a data-help="canva" href="#">Canva</a>, ou <a data-help="photo" href="#">appareil photo</a>.</li>
+  <li>Ajoute tes images ou vidéos : galerie ou glisser-déposer, <a data-help="canva" href="#">Canva</a>, <a data-help="net-gdrive" href="#">Google Drive</a>, ou <a data-help="photo" href="#">appareil photo</a>.</li>
   <li>Sous les médias, chaque réseau a sa <strong>carte d'options</strong> : « Prêt » en vert, sinon ce qui bloque en rouge. Tu peux y choisir le format (carrousel, story…), les médias envoyés à ce réseau, ou un texte différent.</li>
   <li>Dans <strong>Quand ?</strong>, choisis la date et l'heure, puis <strong>Programmer</strong>. Ou <strong>Publier maintenant</strong>, ou <strong>Enregistrer en brouillon</strong>.</li>
 </ol>

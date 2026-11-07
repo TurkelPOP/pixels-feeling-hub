@@ -769,3 +769,28 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .avatar-wrap { position: relative; display: inline-flex; flex: none; }
 .avatar-net { position: absolute; right: -5px; bottom: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: #0b1440; box-shadow: 0 0 0 1.5px #0b1440; }
 .avatar-net .net-icon { width: 13px !important; height: 13px !important; }
+
+/* Import Google Drive */
+.drive-path { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; padding: 0.6rem 1.1rem 0; font-size: 0.88rem; }
+.drive-path:empty { display: none; }
+.crumb { background: none; border: 0; color: var(--turquin-light); font: inherit; cursor: pointer; padding: 0.1rem 0.2rem; border-radius: 6px; }
+.crumb:hover { background: rgba(255, 255, 255, 0.06); }
+.drive-file, .drive-folder { padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s; }
+.drive-file:hover, .drive-folder:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.drive-file .design-thumb { aspect-ratio: 1; display: grid; place-items: center; }
+.drive-file .design-thumb::before { content: "🖼️"; font-size: 2rem; opacity: 0.35; grid-area: 1 / 1; }
+.drive-file .design-thumb img { grid-area: 1 / 1; position: relative; z-index: 1; }
+.drive-file.picked { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.55); }
+.drive-file.unsupported { opacity: 0.45; }
+.drive-kind { position: absolute; z-index: 2; left: 0.4rem; bottom: 0.4rem; font-size: 0.72rem; font-weight: 700; background: rgba(1, 9, 36, 0.75); border-radius: 999px; padding: 0.1rem 0.45rem; }
+.drive-check { position: absolute; z-index: 2; top: 0.4rem; right: 0.4rem; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: 999px; border: 2px solid rgba(255, 255, 255, 0.8); background: rgba(1, 9, 36, 0.45); font-weight: 800; color: #fff; }
+.drive-file.picked .drive-check { background: var(--ok); border-color: var(--ok); color: #04131f; }
+.drive-folder { display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem; min-height: 64px; }
+.drive-folder strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-icon { font-size: 1.6rem; }
+.drive-foot { gap: 0.6rem; flex-wrap: wrap; padding: 0.8rem 1.1rem 1rem; border-top: 1px solid var(--border); }
+.drive-foot #drive-import { flex: 1 1 220px; justify-content: center; }
+@media (max-width: 640px) {
+  #btn-drive { grid-column: 1 / -1; order: 4; }
+  dialog#drive-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; margin: 0; }
+}

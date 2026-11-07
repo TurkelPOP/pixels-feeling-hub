@@ -8,6 +8,7 @@ const PROVIDER = {
   threads: { label: "Threads", color: "#cfcfcf" },
   x: { label: "X", color: "#f5f5f5" },
   canva: { label: "Canva", color: "#20c4cb" },
+  gdrive: { label: "Google Drive", color: "#34a853" },
 };
 
 /** Petits logos des réseaux (SVG 24×24 dessinés en traits simples, couleur = celle du réseau). */
@@ -18,6 +19,7 @@ const ICON_PATHS = {
   threads: '<path d="M16.6 11.3c-.3-2.6-2-3.9-4.4-3.9-1.8 0-3.2.8-3.9 2.1M16.4 11.2c-3.6-.9-7 .1-7 2.6 0 1.7 1.7 2.6 3.4 2.4 2.4-.3 3.5-2.2 3.4-5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.4 11.2c2.4.9 3.2 3 2.4 5.2-1 2.6-3.6 4.1-6.8 4.1-4.6 0-7.5-3.1-7.5-8.5S7.4 3.5 12 3.5c3.7 0 6.2 1.9 7.2 5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   x: '<path d="M4 4h4.6l11.4 16h-4.6z" fill="currentColor"/><path d="M19.2 4 4.8 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   tiktok: '<path d="M13.5 3.5v11.2a3.3 3.3 0 1 1-3.3-3.3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M13.5 3.8c.4 2.6 2.2 4.3 4.8 4.5" fill="none" stroke="#fe2c55" stroke-width="2.4" stroke-linecap="round"/>',
+  gdrive: '<path d="M8.6 3.5h6.8l6.1 10.6h-6.8z" fill="#fbbc04"/><path d="M8.6 3.5 2.5 14.1l3.4 5.9 6.1-10.6z" fill="#34a853"/><path d="M5.9 20h12.2l3.4-5.9H9.3z" fill="#4285f4"/>',
   canva: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M15.4 9.4a3.8 3.8 0 1 0 .1 5.2" fill="none" stroke="#0b1440" stroke-width="2.2" stroke-linecap="round"/>',
 };
 function netIcon(provider, size = "1em") {
@@ -51,6 +53,7 @@ const state = {
   media: [],
   uploading: 0,
   canva: { status: null, items: [], continuation: null, query: "" },
+  drive: { status: null, items: [], next: null, query: "", mode: "recent", path: [], picked: new Map() },
   profiles: [],
   profileFilter: "",
   me: null,
@@ -273,6 +276,159 @@ function canvaCard() {
     s?.connected ? rulesBox() : null,
     s?.configured && state.me?.role === "owner" ? setupPanel("canva", true) : null,
   );
+}
+
+async function loadDriveStatus() {
+  try {
+    state.drive.status = await api("/gdrive/status");
+  } catch {
+    state.drive.status = { configured: false, connected: false };
+  }
+}
+
+function driveCard() {
+  const s = state.drive.status;
+  const owner = state.me?.role === "owner";
+  const cb = `${location.origin}/oauth/gdrive/callback`;
+  return h("div", { class: "card flow canva" },
+    h("div", {},
+      h("div", { class: "card-title" }, h("strong", { class: "net-label" }, netIcon("gdrive", "1.25em"), "Google Drive"), helpQ("net-gdrive")),
+      h("p", { class: "muted small" }, "Importe tes photos et vidéos du Drive dans un post, même depuis ton téléphone : le fichier va directement de Google au serveur, sans passer par ton téléphone. Accès en lecture seule.")),
+    !s?.configured
+      ? (owner
+          ? h("p", { class: "muted small" }, "Drive utilise les mêmes clés Google que YouTube : active d'abord la carte YouTube (Google), puis suis le tuto ci-dessous.")
+          : h("p", { class: "muted small" }, "Pas encore activé : le propriétaire de l'app doit l'activer une fois, ensuite tu pourras connecter ton Drive ici."))
+      : s.connected
+        ? h("div", { class: "row connected-row" },
+            h("div", { class: "connected-chip" },
+              h("span", { class: "avatar-initial", "aria-hidden": "true" }, (s.name ?? "G").trim().charAt(0).toUpperCase()),
+              h("span", { class: "connected-text" },
+                h("span", { class: "connected-label" }, h("span", { class: "dot-ok", "aria-hidden": "true" }), "Connecté"),
+                h("strong", {}, s.name ?? "Google Drive"))),
+            h("button", {
+              class: "btn ghost small danger",
+              onclick: async () => {
+                if (!confirm("Déconnecter Google Drive ? L'accès est aussi retiré chez Google.")) return;
+                await api("/gdrive", { method: "DELETE" });
+                await loadDriveStatus();
+                renderAccounts();
+              },
+            }, "Déconnecter"))
+        : h("a", { class: "btn primary small", href: "/oauth/gdrive/start" }, "Connecter Google Drive"),
+    !s?.connected ? userTuto("gdrive") : null,
+    owner && NETS().gdrive
+      ? h("details", { class: "tuto-box" }, h("summary", {}, "Activer Drive (propriétaire)"),
+          h("div", { class: "callback" }, h("span", { class: "small" }, "Adresse de retour à ajouter au client OAuth Google :"), h("div", { class: "row" }, h("code", {}, cb), copyBtn(cb))),
+          tuto(NETS().gdrive.owner))
+      : null,
+  );
+}
+
+// ---------- import depuis Google Drive ----------
+
+async function openDrive() {
+  if (!state.drive.status) await loadDriveStatus();
+  const s = state.drive.status;
+  if (!s.connected) {
+    toast(s.configured ? "Connecte d'abord Google Drive dans l'onglet Comptes." : "Google Drive n'est pas encore activé.", "err");
+    location.hash = "#accounts";
+    return;
+  }
+  state.drive.picked.clear();
+  updateDriveImport();
+  $("#drive-dialog").showModal();
+  loadDrive();
+}
+
+const driveFolder = () => state.drive.path.at(-1)?.id ?? (state.drive.mode === "folders" ? "root" : null);
+
+async function loadDrive(more = false) {
+  const d = state.drive, list = $("#drive-list");
+  if (!more) list.replaceChildren(h("p", { class: "muted" }, "Chargement de ton Drive…"));
+  renderDrivePath();
+  try {
+    const q = new URLSearchParams();
+    const folder = driveFolder();
+    if (folder) q.set("folder", folder);
+    if (d.query) q.set("q", d.query);
+    if (more && d.next) q.set("page", d.next);
+    const r = await api(`/gdrive/files?${q}`);
+    d.items = more ? [...d.items, ...r.items] : r.items;
+    d.next = r.next;
+    renderDrive();
+  } catch (e) {
+    list.replaceChildren(h("p", { class: "error" }, e.message));
+  }
+}
+
+function renderDrivePath() {
+  const d = state.drive, nav = $("#drive-path");
+  if (d.mode !== "folders") return nav.replaceChildren();
+  const crumb = (label, i) => h("button", { type: "button", class: "crumb", onclick: () => { d.path = d.path.slice(0, i); loadDrive(); } }, label);
+  nav.replaceChildren(crumb("Mon Drive", 0), ...d.path.flatMap((f, i) => [h("span", { class: "muted" }, "›"), crumb(f.name, i + 1)]));
+}
+
+function renderDrive() {
+  const d = state.drive;
+  $("#drive-more").hidden = !d.next;
+  if (!d.items.length) return $("#drive-list").replaceChildren(h("p", { class: "muted" }, d.query ? "Aucun fichier trouvé." : "Aucune image ni vidéo ici."));
+  const fmtDur = (ms) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, "0")}`;
+  $("#drive-list").replaceChildren(...d.items.map((f) => {
+    if (f.folder)
+      return h("button", { type: "button", class: "design drive-folder", onclick: () => { d.path.push({ id: f.id, name: f.name }); loadDrive(); } },
+        h("span", { class: "folder-icon", "aria-hidden": "true" }, "📁"), h("strong", { title: f.name }, f.name));
+    const picked = d.picked.has(f.id);
+    const thumb = h("div", { class: "design-thumb" },
+      f.thumbnail ? h("img", { src: f.thumbnail, alt: "", loading: "lazy", referrerpolicy: "no-referrer", onerror: (e) => e.target.remove() }) : null,
+      h("span", { class: "drive-kind" }, f.mime.startsWith("video/") ? `🎥${f.duration ? ` ${fmtDur(f.duration)}` : ""}` : "🖼️"),
+      h("span", { class: "drive-check", "aria-hidden": "true" }, picked ? "✓" : ""));
+    const card = h("button", {
+      type: "button",
+      class: `design drive-file${picked ? " picked" : ""}${f.supported ? "" : " unsupported"}`,
+      "aria-pressed": picked ? "true" : "false",
+      title: f.supported ? f.name : `${f.name} : format non pris en charge (exporte-le en JPG ou MP4)`,
+      onclick: () => {
+        if (!f.supported) return toast("Format non pris en charge : exporte-le en JPG, PNG ou MP4.", "err");
+        if (d.picked.has(f.id)) d.picked.delete(f.id);
+        else if (d.picked.size >= 20) return toast("20 fichiers maximum à la fois.", "err");
+        else d.picked.set(f.id, f);
+        renderDrive();
+        updateDriveImport();
+      },
+    }, thumb,
+      h("div", { class: "design-body" },
+        h("strong", {}, f.name),
+        h("small", { class: "muted" }, `${f.modifiedAt ? relTime(f.modifiedAt) : ""}${f.size ? ` · ${fmtSize(f.size)}` : ""}${f.supported ? "" : " · format non pris en charge"}`)));
+    return card;
+  }));
+}
+
+
+function updateDriveImport() {
+  const n = state.drive.picked.size;
+  const btn = $("#drive-import");
+  btn.disabled = n === 0;
+  btn.textContent = n ? `Importer ${n} fichier${n > 1 ? "s" : ""}` : "Touche des fichiers pour les choisir";
+}
+
+async function importDrive() {
+  const d = state.drive, btn = $("#drive-import");
+  const files = [...d.picked.values()];
+  btn.disabled = true;
+  btn.textContent = files.some((f) => f.mime.startsWith("video/")) ? "Import en cours (une vidéo peut prendre un moment)…" : "Import en cours…";
+  try {
+    const { media, errors } = await api("/gdrive/import", { method: "POST", body: JSON.stringify({ ids: files.map((f) => f.id) }) });
+    state.media.push(...media);
+    renderMedia();
+    renderComposeMeta?.();
+    if (media.length) toast(`${media.length} fichier${media.length > 1 ? "s" : ""} ajouté${media.length > 1 ? "s" : ""} depuis Google Drive.`);
+    if (errors?.length) toast(errors.join(" · "), "err");
+    if (media.length) $("#drive-dialog").close();
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    updateDriveImport();
+  }
 }
 
 async function loadCanvaStatus() {
@@ -730,6 +886,7 @@ function renderAccounts() {
   if (!state.meta) return; // pas encore chargé : init() redessinera
   $("#flows").replaceChildren(
     canvaCard(),
+    driveCard(),
     ...state.meta.flows.map((f) =>
       h(
         "div",
@@ -1652,7 +1809,7 @@ async function init() {
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();
-  await loadCanvaStatus();
+  await Promise.all([loadCanvaStatus(), loadDriveStatus()]);
   await loadAccounts();
 
   $("#btn-canva").onclick = openCanva;
@@ -1674,6 +1831,22 @@ async function init() {
     renderQueue();
   });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
+  $("#btn-drive").onclick = openDrive;
+  $("#drive-close").onclick = () => $("#drive-dialog").close();
+  $("#drive-more").onclick = () => loadDrive(true);
+  $("#drive-import").onclick = importDrive;
+  for (const b of document.querySelectorAll("[data-drive]"))
+    b.addEventListener("click", () => {
+      state.drive.mode = b.dataset.drive;
+      state.drive.path = [];
+      for (const x of document.querySelectorAll("[data-drive]")) x.classList.toggle("active", x === b);
+      loadDrive();
+    });
+  let driveTimer;
+  $("#drive-search").addEventListener("input", (e) => {
+    clearTimeout(driveTimer);
+    driveTimer = setTimeout(() => { state.drive.query = e.target.value.trim(); loadDrive(); }, 350);
+  });
   $("#canva-more").onclick = () => loadDesigns(true);
   let searchTimer;
   $("#canva-search").addEventListener("input", (e) => {

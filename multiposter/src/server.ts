@@ -18,6 +18,7 @@ import { applyAppSettings, registerAppSettingsApi } from "./appsettings.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
+import { driveApi, driveRoutes } from "./gdrive.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
@@ -156,6 +157,8 @@ app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png|mp3)}", (c) => sendFile(c, r
 
 app.use("/oauth/canva/start", requireAuth);
 app.route("/", canvaRoutes);
+app.use("/oauth/gdrive/start", requireAuth);
+app.route("/", driveRoutes);
 
 app.get("/oauth/:flow/start", requireAuth, (c) => {
   const flow = flows[c.req.param("flow") ?? ""] as (typeof flows)[string] | undefined;
@@ -471,6 +474,7 @@ api.post("/posts/:id/duplicate", (c) => {
 });
 
 api.route("/canva", canvaApi);
+api.route("/gdrive", driveApi);
 app.route("/api", api);
 
 app.get("/", requireAuth, async (c) => c.html(await readFile(resolve(PUBLIC, "index.html"), "utf8")));
