@@ -321,7 +321,8 @@ Commande de démarrage : `node --disable-warning=ExperimentalWarning src/server.
 dossier `multiposter`, avec Node.js 22.18 ou plus récent.
 
 **À plusieurs** : chaque personne a son propre accès. Dans **Comptes → Personnes ayant accès**, le
-propriétaire crée un **lien d'invitation** (à usage unique, valable 48 h). La personne y choisit son
+propriétaire ou un administrateur crée un **lien d'invitation** (à usage unique, valable 48 h),
+en cochant « Administrateur » pour donner les mêmes droits (inviter, retirer, réinitialiser une 2FA). La personne y choisit son
 identifiant et son mot de passe, puis active sa propre double authentification sur son téléphone.
 Le journal indique qui a fait quoi. Le propriétaire peut retirer un accès (ses sessions sont
 fermées immédiatement) ou réinitialiser la double authentification d'un membre.

@@ -321,12 +321,14 @@ async function renderUsers() {
   } catch {
     return;
   }
-  const isOwner = me.role === "owner";
+  const isOwner = me.role === "owner" || me.role === "admin";
+  const ROLE = { owner: "propriétaire", admin: "administrateur", member: "membre" };
+  const asAdmin = h("input", { type: "checkbox", id: "invite-admin" });
   const linkBox = h("div", { class: "invite-box", hidden: true });
   const invite = async (btn) => {
     btn.disabled = true;
     try {
-      const { link, expiresAt } = await api("/users/invite", { method: "POST" });
+      const { link, expiresAt } = await api(`/users/invite${asAdmin.checked ? "?role=admin" : ""}`, { method: "POST" });
       const input = h("input", { readonly: true, value: link, id: "invite-link" });
       const copy = h("button", { class: "btn ghost small", type: "button" }, "Copier");
       copy.addEventListener("click", async () => {
@@ -353,11 +355,11 @@ async function renderUsers() {
     h("li", {},
       h("div", { class: "grow" },
         h("strong", {}, u.name), u.name === me.name ? h("small", { class: "muted" }, " (toi)") : null,
-        h("span", { class: "via" }, u.role === "owner" ? "propriétaire" : "membre"),
+        h("span", { class: "via" }, ROLE[u.role] ?? u.role),
         h("p", { class: "muted small" },
           u.twoFactor ? `Double authentification active · ${u.recoveryCodesLeft} code(s) de secours` : "Double authentification à activer",
           " · ", u.lastLogin ? `dernière connexion ${new Date(u.lastLogin).toLocaleString("fr-FR")}` : "jamais connecté")),
-      isOwner && u.role !== "owner"
+      isOwner && u.role !== "owner" && u.name !== me.name
         ? h("div", { class: "row" },
             h("button", {
               class: "btn ghost small", type: "button",
@@ -379,8 +381,10 @@ async function renderUsers() {
       h("strong", {}, "Personnes ayant accès"),
       h("ul", { class: "user-list" }, ...rows),
       isOwner
-        ? h("div", { class: "row" }, h("button", { class: "btn primary small", type: "button", onclick: (e) => invite(e.currentTarget) }, "Inviter une personne"))
-        : h("p", { class: "muted small" }, "Seul le propriétaire peut inviter ou retirer des personnes."),
+        ? h("div", { class: "row invite-row" },
+            h("label", { class: "tcheck", for: "invite-admin" }, asAdmin, h("span", {}, "Administrateur (peut inviter et retirer des personnes)")),
+            h("button", { class: "btn primary small", type: "button", onclick: (e) => invite(e.currentTarget) }, "Inviter une personne"))
+        : h("p", { class: "muted small" }, "Seuls les administrateurs peuvent inviter ou retirer des personnes."),
       linkBox),
   );
 }
@@ -393,7 +397,7 @@ async function renderSecurity() {
     return;
   }
   const status = [
-    `Connecté en tant que « ${s.user} » (${s.role === "owner" ? "propriétaire" : "membre"})`,
+    `Connecté en tant que « ${s.user} » (${{ owner: "propriétaire", admin: "administrateur", member: "membre" }[s.role] ?? s.role})`,
     s.serverMode ? "En ligne (HTTPS)" : "Uniquement sur ce PC",
     s.twoFactor ? `Double authentification active · ${s.recoveryCodesLeft} code(s) de secours restant(s)` : "Double authentification non activée",
     s.passwordHashed ? "Mot de passe stocké sous forme d'empreinte" : "Mot de passe dans .env (acceptable seulement sur ton PC)",

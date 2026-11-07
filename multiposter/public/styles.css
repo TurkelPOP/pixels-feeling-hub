@@ -360,3 +360,4 @@ dialog.sheet::backdrop { background: rgba(8, 5, 14, 0.7); backdrop-filter: blur(
 .invite-box { display: grid; gap: 0.4rem; }
 .invite-box p { margin: 0; }
 .invite-box input { flex: 1 1 260px; width: auto; font-size: 0.85rem; }
+.invite-row { align-items: center; justify-content: space-between; }

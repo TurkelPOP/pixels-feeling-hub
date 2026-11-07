@@ -42,10 +42,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE TABLE IF NOT EXISTS invites (token_hash TEXT PRIMARY KEY, created_by INTEGER, expires_at INTEGER NOT NULL);
 `);
-try {
-  db.exec("ALTER TABLE security_events ADD COLUMN user TEXT");
-} catch {
-  /* colonne déjà présente */
+for (const sql of ["ALTER TABLE security_events ADD COLUMN user TEXT", "ALTER TABLE invites ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"]) {
+  try {
+    db.exec(sql);
+  } catch {
+    /* colonne déjà présente */
+  }
 }
 
 const getSetting = (k: string) => (db.prepare("SELECT value FROM settings WHERE key = ?").get(k) as { value: string } | undefined)?.value;
@@ -58,7 +60,8 @@ const delSetting = (k: string) => db.prepare("DELETE FROM settings WHERE key = ?
 interface User {
   id: number;
   name: string;
-  role: "owner" | "member";
+  /** owner = propriétaire (compte de secours, mot de passe sur le serveur) ; admin = mêmes droits ; member = publication seulement. */
+  role: "owner" | "admin" | "member";
   password_hash: string | null;
   totp_secret: string | null;
   totp_pending: string | null;
@@ -351,8 +354,8 @@ function invitePage(error = "") {
 
 const tokenHash = (t: string) => createHash("sha256").update(`invite:${t}`).digest("hex");
 const validInvite = (t: string) =>
-  db.prepare("SELECT token_hash FROM invites WHERE token_hash = ? AND expires_at > ?").get(tokenHash(t), Date.now()) as
-    | { token_hash: string }
+  db.prepare("SELECT token_hash, role FROM invites WHERE token_hash = ? AND expires_at > ?").get(tokenHash(t), Date.now()) as
+    | { token_hash: string; role: string }
     | undefined;
 
 // ---------- Routes ----------
@@ -462,15 +465,16 @@ export function registerAuth(app: Hono) {
     if (password.length < 12) return c.html(invitePage("Mot de passe trop court (12 caractères minimum)."), 400);
     if (password !== String(b.password2 ?? "")) return c.html(invitePage("Les deux mots de passe ne correspondent pas."), 400);
     // Le lien ne sert qu'une fois : supprimé avant la création du compte.
+    const role = validInvite(token)?.role === "admin" ? "admin" : "member";
     const del = db.prepare("DELETE FROM invites WHERE token_hash = ?").run(tokenHash(token));
     if (!del.changes) return c.html(page("Invitation", "<h1>Lien déjà utilisé</h1>"), 409);
     const id = Number(
-      db.prepare("INSERT INTO users (name, role, password_hash, created_at) VALUES (?, 'member', ?, ?)").run(name, hashPassword(password), Date.now())
+      db.prepare("INSERT INTO users (name, role, password_hash, created_at) VALUES (?, ?, ?, ?)").run(name, role, hashPassword(password), Date.now())
         .lastInsertRowid,
     );
     const user = userById(id)!;
-    logEvent(c, "user_created", name, "via une invitation");
-    void alert(`👤 Nouvel utilisateur « ${name} » créé sur Multiposter via une invitation.`);
+    logEvent(c, "user_created", name, `via une invitation (${role === "admin" ? "administrateur" : "membre"})`);
+    void alert(`👤 Nouvel utilisateur « ${name} » (${role === "admin" ? "administrateur" : "membre"}) créé sur Multiposter via une invitation.`);
     if (needs2fa(user)) {
       await openSession(c, user, "e");
       return c.redirect("/2fa/setup");
@@ -496,7 +500,8 @@ export function registerAuth(app: Hono) {
 // ---------- API (montée sous /api, déjà protégée par requireAuth) ----------
 
 export function registerUserApi(api: Hono) {
-  const ownerOnly = (c: Context) => (currentUser(c)?.role === "owner" ? null : c.json({ error: "Réservé au propriétaire." }, 403));
+  const isAdmin = (u?: User) => u?.role === "owner" || u?.role === "admin";
+  const ownerOnly = (c: Context) => (isAdmin(currentUser(c)) ? null : c.json({ error: "Réservé aux administrateurs." }, 403));
 
   api.get("/me", (c) => {
     const u = currentUser(c)!;
@@ -520,11 +525,12 @@ export function registerUserApi(api: Hono) {
   api.post("/users/invite", (c) => {
     const denied = ownerOnly(c);
     if (denied) return denied;
+    const role = c.req.query("role") === "admin" ? "admin" : "member";
     const token = randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + 48 * 3_600_000;
     db.prepare("DELETE FROM invites WHERE expires_at < ?").run(Date.now());
-    db.prepare("INSERT INTO invites (token_hash, created_by, expires_at) VALUES (?, ?, ?)").run(tokenHash(token), currentUser(c)!.id, expiresAt);
-    logEvent(c, "invite_created", currentUser(c)!.name);
+    db.prepare("INSERT INTO invites (token_hash, created_by, expires_at, role) VALUES (?, ?, ?, ?)").run(tokenHash(token), currentUser(c)!.id, expiresAt, role);
+    logEvent(c, "invite_created", currentUser(c)!.name, role === "admin" ? "administrateur" : "membre");
     return c.json({ link: `${config.appUrl}/invite/${token}`, expiresAt });
   });
 
@@ -532,7 +538,7 @@ export function registerUserApi(api: Hono) {
     const denied = ownerOnly(c);
     if (denied) return denied;
     const u = userById(Number(c.req.param("id")));
-    if (!u || u.role === "owner") return c.json({ error: "Impossible de retirer ce compte." }, 400);
+    if (!u || u.role === "owner" || u.id === currentUser(c)!.id) return c.json({ error: "Impossible de retirer ce compte." }, 400);
     db.prepare("DELETE FROM users WHERE id = ?").run(u.id); // ses sessions deviennent invalides
     logEvent(c, "user_removed", currentUser(c)!.name, `« ${u.name} » retiré`);
     void alert(`👤 L'accès de « ${u.name} » à Multiposter a été retiré.`);
@@ -544,6 +550,7 @@ export function registerUserApi(api: Hono) {
     if (denied) return denied;
     const u = userById(Number(c.req.param("id")));
     if (!u || u.role === "owner") return c.json({ error: "Pour le propriétaire, utilise TWOFA_RESET=1 sur le serveur." }, 400);
+    if (u.id === currentUser(c)!.id) return c.json({ error: "Demande à un autre administrateur de réinitialiser ta double authentification." }, 400);
     db.prepare("UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last = -1, recovery_codes = '[]' WHERE id = ?").run(u.id);
     logEvent(c, "2fa_reset", currentUser(c)!.name, `pour « ${u.name} »`);
     void alert(`🔐 Double authentification de « ${u.name} » réinitialisée : à réactiver à sa prochaine connexion.`);
