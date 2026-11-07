@@ -116,6 +116,7 @@ function route() {
     loadAccounts();
     renderSystem();
     renderSecurity();
+    renderUsers();
   }
 }
 window.addEventListener("hashchange", route);
@@ -306,8 +307,83 @@ const EVENT_LABEL = {
   login_fail: "Échec de connexion",
   login_setup: "Connexion (activation 2FA)",
   "2fa_enabled": "Double authentification activée",
+  "2fa_reset": "Double authentification réinitialisée",
+  user_created: "Nouvel utilisateur",
+  user_removed: "Utilisateur retiré",
+  invite_created: "Invitation créée",
   logout_all: "Tous les appareils déconnectés",
 };
+
+async function renderUsers() {
+  let me, users;
+  try {
+    [me, users] = await Promise.all([api("/me"), api("/users")]);
+  } catch {
+    return;
+  }
+  const isOwner = me.role === "owner";
+  const linkBox = h("div", { class: "invite-box", hidden: true });
+  const invite = async (btn) => {
+    btn.disabled = true;
+    try {
+      const { link, expiresAt } = await api("/users/invite", { method: "POST" });
+      const input = h("input", { readonly: true, value: link, id: "invite-link" });
+      const copy = h("button", { class: "btn ghost small", type: "button" }, "Copier");
+      copy.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(link);
+          toast("Lien copié.");
+        } catch {
+          input.select();
+        }
+      });
+      linkBox.hidden = false;
+      linkBox.replaceChildren(
+        h("p", { class: "small" }, "Envoie ce lien à la personne, par un canal privé. Il ne marche qu'une fois et expire le ",
+          new Date(expiresAt).toLocaleString("fr-FR"), "."),
+        h("div", { class: "row" }, input, copy),
+      );
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  };
+  const rows = users.map((u) =>
+    h("li", {},
+      h("div", { class: "grow" },
+        h("strong", {}, u.name), u.name === me.name ? h("small", { class: "muted" }, " (toi)") : null,
+        h("span", { class: "via" }, u.role === "owner" ? "propriétaire" : "membre"),
+        h("p", { class: "muted small" },
+          u.twoFactor ? `Double authentification active · ${u.recoveryCodesLeft} code(s) de secours` : "Double authentification à activer",
+          " · ", u.lastLogin ? `dernière connexion ${new Date(u.lastLogin).toLocaleString("fr-FR")}` : "jamais connecté")),
+      isOwner && u.role !== "owner"
+        ? h("div", { class: "row" },
+            h("button", {
+              class: "btn ghost small", type: "button",
+              onclick: async () => {
+                if (!confirm(`Réinitialiser la double authentification de « ${u.name} » ? Il devra la réactiver à sa prochaine connexion.`)) return;
+                try { await api(`/users/${u.id}/reset-2fa`, { method: "POST" }); toast("Double authentification réinitialisée."); renderUsers(); } catch (e) { toast(e.message, "err"); }
+              },
+            }, "Réinitialiser sa 2FA"),
+            h("button", {
+              class: "btn ghost small danger", type: "button",
+              onclick: async () => {
+                if (!confirm(`Retirer l'accès de « ${u.name} » ? Ses sessions seront fermées immédiatement.`)) return;
+                try { await api(`/users/${u.id}`, { method: "DELETE" }); toast("Accès retiré."); renderUsers(); } catch (e) { toast(e.message, "err"); }
+              },
+            }, "Retirer"))
+        : null));
+  $("#users").replaceChildren(
+    h("div", { class: "card system" },
+      h("strong", {}, "Personnes ayant accès"),
+      h("ul", { class: "user-list" }, ...rows),
+      isOwner
+        ? h("div", { class: "row" }, h("button", { class: "btn primary small", type: "button", onclick: (e) => invite(e.currentTarget) }, "Inviter une personne"))
+        : h("p", { class: "muted small" }, "Seul le propriétaire peut inviter ou retirer des personnes."),
+      linkBox),
+  );
+}
 
 async function renderSecurity() {
   let s;
@@ -317,6 +393,7 @@ async function renderSecurity() {
     return;
   }
   const status = [
+    `Connecté en tant que « ${s.user} » (${s.role === "owner" ? "propriétaire" : "membre"})`,
     s.serverMode ? "En ligne (HTTPS)" : "Uniquement sur ce PC",
     s.twoFactor ? `Double authentification active · ${s.recoveryCodesLeft} code(s) de secours restant(s)` : "Double authentification non activée",
     s.passwordHashed ? "Mot de passe stocké sous forme d'empreinte" : "Mot de passe dans .env (acceptable seulement sur ton PC)",
@@ -324,6 +401,7 @@ async function renderSecurity() {
   const rows = s.events.map((e) =>
     h("tr", { class: e.type === "login_fail" ? "bad" : "" },
       h("td", {}, new Date(e.at).toLocaleString("fr-FR")),
+      h("td", {}, e.user ?? "—"),
       h("td", {}, EVENT_LABEL[e.type] ?? e.type, e.detail ? h("small", { class: "muted" }, ` · ${e.detail}`) : null),
       h("td", {}, e.ip ?? "—"),
       h("td", { class: "agent", title: e.agent ?? "" }, (e.agent ?? "").slice(0, 60))));
@@ -339,7 +417,7 @@ async function renderSecurity() {
       h("details", { class: "journal" },
         h("summary", {}, `Journal de sécurité (${s.events.length} derniers événements)`),
         rows.length
-          ? h("div", { class: "table-scroll" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Date"), h("th", {}, "Événement"), h("th", {}, "Adresse"), h("th", {}, "Navigateur"))), h("tbody", {}, ...rows)))
+          ? h("div", { class: "table-scroll" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Date"), h("th", {}, "Qui"), h("th", {}, "Événement"), h("th", {}, "Adresse"), h("th", {}, "Navigateur"))), h("tbody", {}, ...rows)))
           : h("p", { class: "muted small" }, "Aucun événement."))),
   );
 }

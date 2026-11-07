@@ -8,6 +8,9 @@ if (e) {
 fetch("/login/info")
   .then((r) => r.json())
   .then((d) => {
+    const name = document.getElementById("name");
+    if (d.nameRequired) name.required = true;
+    else name.placeholder = "vide = propriétaire";
     if (!d.twoFactor) return;
     document.getElementById("code-row").hidden = false;
     document.getElementById("code").required = true;

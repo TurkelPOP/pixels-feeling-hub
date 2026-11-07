@@ -302,6 +302,7 @@ Variables d'environnement à définir dans le site Node.js d'alwaysdata :
 | Variable | Valeur |
 | --- | --- |
 | `APP_URL` et `PUBLIC_URL` | `https://ton-compte.alwaysdata.net` |
+| `ADMIN_NAME` | ton identifiant de propriétaire (par défaut `admin` ; mieux vaut en choisir un autre) |
 | `ADMIN_PASSWORD_HASH` | résultat de `node scripts/hash-password.ts` |
 | `APP_SECRET` | 64 caractères aléatoires (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
 | `HOST` | `::` (adresse d'écoute recommandée par alwaysdata ; le port arrive par `PORT`) |
@@ -318,6 +319,12 @@ alors à l'heure, et les brouillons Canva sont créés, même sans personne sur 
 
 Commande de démarrage : `node --disable-warning=ExperimentalWarning src/server.ts`, dans le
 dossier `multiposter`, avec Node.js 22.18 ou plus récent.
+
+**À plusieurs** : chaque personne a son propre accès. Dans **Comptes → Personnes ayant accès**, le
+propriétaire crée un **lien d'invitation** (à usage unique, valable 48 h). La personne y choisit son
+identifiant et son mot de passe, puis active sa propre double authentification sur son téléphone.
+Le journal indique qui a fait quoi. Le propriétaire peut retirer un accès (ses sessions sont
+fermées immédiatement) ou réinitialiser la double authentification d'un membre.
 
 **Téléphone perdu et plus de codes de secours ?** Ajoute `TWOFA_RESET=1` aux variables,
 redémarre, reconnecte-toi pour réactiver la double authentification, puis retire la variable.

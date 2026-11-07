@@ -15,7 +15,7 @@ import { checkMediaSignature, getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
-import { isLogged, registerAuth, requireAuth, securityEvents, securityStatus } from "./auth.ts";
+import { isLogged, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { startCleanup } from "./cleanup.ts";
@@ -201,7 +201,8 @@ api.get("/system", (c) =>
   c.json({ autostart: autostartStatus(), publicUrl: config.publicUrl, mediaPublicUrl: config.mediaPublicUrl, tailscale: tailscaleState }),
 );
 
-api.get("/security", (c) => c.json({ ...securityStatus(), events: securityEvents(30) }));
+api.get("/security", (c) => c.json({ ...securityStatus(c), events: securityEvents(30) }));
+registerUserApi(api);
 
 api.post("/system/tailscale/retry", async (c) => {
   await setupTailscale(useTailscaleHost);
