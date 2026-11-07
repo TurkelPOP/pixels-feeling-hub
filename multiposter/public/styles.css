@@ -331,3 +331,23 @@ dialog.sheet::backdrop { background: rgba(8, 5, 14, 0.7); backdrop-filter: blur(
 .check-list .bad { color: var(--err); }
 .card.system p { margin: 0; overflow-wrap: anywhere; }
 .ok-text { color: var(--ok); }
+
+/* Double authentification */
+.login-card.wide { width: min(480px, 100%); text-align: left; display: grid; gap: 0.6rem; }
+.login-card.wide h1 { margin: 0.2rem 0 0; }
+.login-card.wide p { margin: 0; }
+.steps { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+.qr { justify-self: center; width: min(240px, 70vw); background: #fff; border-radius: 12px; padding: 6px; }
+.qr svg { display: block; width: 100%; height: auto; }
+.key { font-size: 0.95rem; letter-spacing: 0.05em; word-break: break-all; background: rgba(0, 0, 0, 0.3); padding: 0.1rem 0.35rem; border-radius: 6px; }
+.codes { list-style: none; padding: 0; margin: 0.3rem 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+.codes code { display: block; text-align: center; font-size: 1.05rem; padding: 0.4rem; border-radius: 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border); }
+.login-card.wide form { display: grid; gap: 0.4rem; }
+
+.journal summary { font-size: 0.88rem; }
+.table-scroll { overflow-x: auto; margin-top: 0.5rem; }
+.journal table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.journal th, .journal td { text-align: left; padding: 0.3rem 0.45rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.journal th { color: var(--muted); font-weight: 600; }
+.journal tr.bad td { color: var(--err); }
+.journal td.agent { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }

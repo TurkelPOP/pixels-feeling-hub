@@ -3,19 +3,18 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
-import { timingSafeEqual, createHash } from "node:crypto";
 
 import { serve } from "@hono/node-server";
 import { Hono, type Context, type Next } from "hono";
-import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 
 import { accountsPage, config, mediaDir } from "./config.ts";
 import { pkcePair, randomId } from "./crypto.ts";
 import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db.ts";
-import { getMediaList, saveUpload } from "./media.ts";
+import { checkMediaSignature, getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, startCanvaWatcher } from "./canva.ts";
+import { isLogged, registerAuth, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { startCleanup } from "./cleanup.ts";
@@ -23,10 +22,6 @@ import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
 
 const app = new Hono();
 const PUBLIC = resolve(import.meta.dirname, "../public");
-const SESSION = "mp_session";
-const SESSION_DAYS = 30;
-/** Cookie « Secure » sauf en accès local (http://127.0.0.1), où le navigateur le refuserait. */
-const isLocalRequest = (c: Context) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(c.req.header("host") ?? "");
 
 // Adresses par lesquelles l'app accepte d'être appelée. Bloque le « DNS rebinding » : un site
 // malveillant ouvert dans ton navigateur ne peut pas se faire passer pour 127.0.0.1.
@@ -65,39 +60,13 @@ app.use("*", async (c, next) => {
   c.header("Cross-Origin-Opener-Policy", "same-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   if ((c.res.headers.get("content-type") ?? "").startsWith("text/html")) c.header("Content-Security-Policy", CSP);
+  // En ligne : le navigateur refusera toujours la version non chiffrée du site.
+  if (config.serverMode) c.header("Strict-Transport-Security", "max-age=31536000");
 });
 
-// ---------- Authentification (mot de passe unique) ----------
+// ---------- Authentification (voir auth.ts) ----------
 
-// La session contient : expiration . « époque » . empreinte du mot de passe.
-// Changer le mot de passe, ou cliquer « Déconnecter tous les appareils » (époque +1),
-// invalide toutes les sessions existantes.
-const passwordFingerprint = createHash("sha256").update(`session:${config.adminPassword}:${config.appSecret}`).digest("hex").slice(0, 24);
-db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
-const sessionEpoch = () =>
-  (db.prepare("SELECT value FROM settings WHERE key = 'session_epoch'").get() as { value: string } | undefined)?.value ?? "0";
-
-async function isLogged(c: Context): Promise<boolean> {
-  const v = await getSignedCookie(c, config.appSecret, SESSION);
-  if (!v) return false;
-  const [exp, epoch, fp] = v.split(".");
-  return Number(exp) > Date.now() && epoch === sessionEpoch() && fp === passwordFingerprint;
-}
-
-async function requireAuth(c: Context, next: Next) {
-  if (await isLogged(c)) {
-    // Les requêtes d'API qui modifient quelque chose doivent venir de notre JS (anti-CSRF).
-    if (c.req.path.startsWith("/api/") && c.req.method !== "GET" && c.req.header("x-requested-with") !== "multiposter") {
-      return c.json({ error: "Requête refusée" }, 403);
-    }
-    return next();
-  }
-  if (c.req.path.startsWith("/api/")) return c.json({ error: "Non connecté" }, 401);
-  return c.redirect("/login");
-}
-
-const failedLogins = new Map<string, { count: number; until: number }>();
-const sha = (s: string) => createHash("sha256").update(s).digest();
+registerAuth(app);
 
 // Le lanceur Windows ouvre /open, qui mène à l'interface.
 app.get("/open", (c) => c.redirect(`${config.appUrl}/`));
@@ -105,45 +74,6 @@ app.get("/open", (c) => c.redirect(`${config.appUrl}/`));
 // Petits points de contrôle pour vérifier que /oauth et /media sont bien joignables depuis Internet.
 app.get("/oauth/ping", (c) => c.text("multiposter-ok"));
 app.get("/media/ping", (c) => c.text("multiposter-ok"));
-
-app.get("/login", async (c) => c.html(await readFile(resolve(PUBLIC, "login.html"), "utf8")));
-
-app.post("/login", async (c) => {
-  // X-Forwarded-For n'est pris en compte que derrière un proxy de confiance (TRUST_PROXY=1).
-  const ip = (process.env.TRUST_PROXY === "1" && c.req.header("x-forwarded-for")?.split(",")[0].trim()) || "local";
-  const f = failedLogins.get(ip);
-  if (f && f.until > Date.now()) return c.redirect("/login?e=wait");
-  const body = await c.req.parseBody();
-  const ok = timingSafeEqual(sha(String(body.password ?? "")), sha(config.adminPassword));
-  if (!ok) {
-    const count = (f?.count ?? 0) + 1;
-    failedLogins.set(ip, { count, until: count >= 5 ? Date.now() + 15 * 60_000 : 0 });
-    return c.redirect("/login?e=1");
-  }
-  failedLogins.delete(ip);
-  const value = `${Date.now() + SESSION_DAYS * 86_400_000}.${sessionEpoch()}.${passwordFingerprint}`;
-  await setSignedCookie(c, SESSION, value, config.appSecret, {
-    httpOnly: true,
-    secure: !isLocalRequest(c),
-    sameSite: "Lax",
-    path: "/",
-    maxAge: SESSION_DAYS * 86_400,
-  });
-  return c.redirect("/");
-});
-
-app.post("/logout", (c) => {
-  deleteCookie(c, SESSION, { path: "/" });
-  return c.redirect("/login");
-});
-
-// Déconnecte toutes les sessions ouvertes (téléphone, autre navigateur…), y compris celle-ci.
-app.post("/logout-all", requireAuth, (c) => {
-  const next = String(Number(sessionEpoch()) + 1);
-  db.prepare("INSERT INTO settings (key, value) VALUES ('session_epoch', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(next);
-  deleteCookie(c, SESSION, { path: "/" });
-  return c.redirect("/login");
-});
 
 // ---------- Fichiers publics ----------
 
@@ -186,11 +116,13 @@ function sendFile(c: Context, path: string, cache = "no-cache") {
   });
 }
 
-// Médias : publics car Instagram, Facebook et Threads viennent les télécharger.
-// Les noms sont aléatoires (144 bits) donc non devinables.
-app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", (c) =>
-  sendFile(c, resolve(mediaDir, c.req.param("file")), "public, max-age=86400"),
-);
+// Médias : lisibles par toi (connecté) ou via un lien signé de 24 h donné aux réseaux au moment
+// de publier. Sans l'un ou l'autre : introuvable, même en connaissant l'adresse.
+app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", async (c) => {
+  const file = c.req.param("file");
+  if (!checkMediaSignature(file, c.req.query("exp"), c.req.query("sig")) && !(await isLogged(c))) return c.notFound();
+  return sendFile(c, resolve(mediaDir, file), "private, max-age=3600");
+});
 
 app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png)}", (c) => sendFile(c, resolve(PUBLIC, c.req.param("file"))));
 
@@ -253,6 +185,8 @@ api.get("/system", (c) =>
   c.json({ autostart: autostartStatus(), publicUrl: config.publicUrl, mediaPublicUrl: config.mediaPublicUrl, tailscale: tailscaleState }),
 );
 
+api.get("/security", (c) => c.json({ ...securityStatus(), events: securityEvents(30) }));
+
 api.post("/system/tailscale/retry", async (c) => {
   await setupTailscale(useTailscaleHost);
   return c.json({ tailscale: tailscaleState, publicUrl: config.publicUrl });
@@ -307,7 +241,7 @@ api.put("/media", async (c) => {
   if (!c.req.raw.body) return c.json({ error: "Corps vide" }, 400);
   try {
     const m = await saveUpload(c.req.raw.body, filename, mime);
-    return c.json({ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: `/media/${m.publicUrl.split("/").pop()}` });
+    return c.json({ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: m.localUrl });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : "Upload impossible" }, 400);
   }
@@ -335,7 +269,7 @@ function serializePost(p: Record<string, any>) {
       kind: m.kind,
       mime: m.mime,
       size: m.size,
-      url: `/media/${m.publicUrl.split("/").pop()}`,
+      url: m.localUrl,
     })),
     targets: targets.map((t) => ({
       id: t.id,

@@ -282,6 +282,45 @@ TikTok n'accepte ici que les vidéos, une par post.
 
 L'éditeur affiche les erreurs en direct dès que tu sélectionnes un compte.
 
+## En ligne sur alwaysdata (mode serveur)
+
+Quand `APP_URL` est une adresse HTTPS, l'app passe en **mode serveur**, avec une sécurité renforcée
+et obligatoire :
+
+- **Pas de mot de passe en clair** : seule son empreinte (`ADMIN_PASSWORD_HASH`) est acceptée.
+  Calcule-la sur ton PC avec `node scripts/hash-password.ts` (12 caractères minimum). L'app refuse
+  de démarrer si `ADMIN_PASSWORD` est présent.
+- **Double authentification obligatoire.** À la première connexion, l'app impose l'activation : QR
+  code à scanner avec Google Authenticator, puis **10 codes de secours** affichés une seule fois.
+  Ensuite, chaque connexion demande le mot de passe et le code du téléphone. Un code déjà utilisé
+  est refusé (anti-rejeu).
+- **Cookie `__Host-`, Secure, HttpOnly, sessions de 7 jours**, et en-tête HSTS.
+- **Alerte (webhook) à chaque connexion**, à chaque blocage et à l'utilisation d'un code de secours.
+
+Variables d'environnement à définir dans le site Node.js d'alwaysdata :
+
+| Variable | Valeur |
+| --- | --- |
+| `APP_URL` et `PUBLIC_URL` | `https://ton-compte.alwaysdata.net` |
+| `ADMIN_PASSWORD_HASH` | résultat de `node scripts/hash-password.ts` |
+| `APP_SECRET` | 64 caractères aléatoires (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+| `HOST` | `::` (adresse d'écoute recommandée par alwaysdata ; le port arrive par `PORT`) |
+| `TRUST_PROXY` | `1` (pour voir la vraie adresse IP des visiteurs derrière le proxy d'alwaysdata) |
+| `TAILSCALE` | `off` |
+| `ALERT_WEBHOOK_URL` | ton webhook Discord (fortement recommandé) |
+| `MEDIA_RETENTION_DAYS` | par exemple `30`, selon l'espace disque de ton offre |
+
+Commande de démarrage : `node --disable-warning=ExperimentalWarning src/server.ts`, dans le
+dossier `multiposter`, avec Node.js 22.18 ou plus récent.
+
+**Téléphone perdu et plus de codes de secours ?** Ajoute `TWOFA_RESET=1` aux variables,
+redémarre, reconnecte-toi pour réactiver la double authentification, puis retire la variable.
+Seul quelqu'un qui a accès à ton compte alwaysdata peut faire ça.
+
+**Ce qui protège le reste de la chaîne** (à activer de ton côté) : double authentification sur
+ton compte alwaysdata, sur ton compte GitHub (le code installé vient de là) et sur ton compte
+Meta.
+
 ## Sécurité
 
 - **Accessible uniquement depuis ton PC.** L'app écoute sur `127.0.0.1` : les autres appareils du
@@ -297,8 +336,18 @@ L'éditeur affiche les erreurs en direct dès que tu sélectionnes un compte.
 - **Tokens des réseaux chiffrés** (AES-256-GCM) dans la base. La clé est dérivée de `APP_SECRET` :
   le fichier `.env` est donc le fichier sensible. Ne le partage pas et ne le mets pas sur un
   cloud public.
-- Les médias (`/media/...`) sont les seuls fichiers lisibles sans mot de passe, car les réseaux
-  doivent pouvoir les télécharger. Leurs noms aléatoires (144 bits) les rendent impossibles à deviner.
+- **Images privées** : un fichier de `/media` n'est lisible que connecté, ou via un **lien signé
+  valable 24 h** créé au moment de publier, pour Instagram et Threads. Un brouillon n'est donc
+  jamais accessible publiquement, même avec son adresse.
+- **Vérification du contenu des fichiers envoyés** : un fichier dont le contenu ne correspond pas
+  au format annoncé (par exemple un faux PNG) est refusé.
+- **Double authentification** (obligatoire en ligne, activable sur ton PC depuis l'onglet
+  Comptes), avec codes de secours à usage unique.
+- **Journal de sécurité** dans l'onglet Comptes : connexions, échecs et blocages, avec la date,
+  l'adresse IP et le navigateur.
+- **Contre les attaques par essais répétés** : blocage de l'adresse IP pendant 15 min après 5
+  échecs, puis ralentissement de tous les essais au-delà de 20 échecs par heure, sans bloquer le
+  vrai propriétaire.
 
 ## Fiabilité
 

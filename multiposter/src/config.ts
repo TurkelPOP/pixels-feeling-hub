@@ -22,7 +22,11 @@ export const config = {
   /** Adresse de l'interface (toujours sur ce PC). */
   appUrl: (opt("APP_URL") ?? `http://127.0.0.1:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
   mediaPublicUrl: (opt("MEDIA_PUBLIC_URL") ?? opt("PUBLIC_URL") ?? `http://localhost:${process.env.PORT ?? 3210}`).replace(/\/+$/, ""),
-  adminPassword: required("ADMIN_PASSWORD"),
+  serverMode: false,
+  /** Empreinte scrypt du mot de passe (scripts/hash-password.ts). Obligatoire en mode serveur. */
+  adminPasswordHash: opt("ADMIN_PASSWORD_HASH"),
+  /** Mot de passe en clair : accepté seulement sur ton PC. */
+  adminPassword: opt("ADMIN_PASSWORD"),
   /** Clé de chiffrement des tokens et de signature des cookies (32+ caractères). */
   appSecret: required("APP_SECRET"),
   dataDir: resolve(process.env.DATA_DIR ?? "./data"),
@@ -40,6 +44,19 @@ export const config = {
 };
 
 if (config.appSecret.length < 32) throw new Error("APP_SECRET doit faire au moins 32 caractères");
+
+/**
+ * Mode serveur : l'interface est en ligne (APP_URL en HTTPS). Sécurité renforcée : empreinte du
+ * mot de passe obligatoire, double authentification obligatoire, cookies et en-têtes durcis.
+ */
+export const serverMode = config.appUrl.startsWith("https://");
+config.serverMode = serverMode;
+if (serverMode) {
+  if (!config.adminPasswordHash) throw new Error("Mode serveur : ADMIN_PASSWORD_HASH est obligatoire (voir scripts/hash-password.ts). Ne mets pas le mot de passe en clair.");
+  if (config.adminPassword) throw new Error("Mode serveur : retire ADMIN_PASSWORD, seul ADMIN_PASSWORD_HASH est accepté.");
+} else if (!config.adminPasswordHash && !config.adminPassword) {
+  throw new Error("Variable d'environnement manquante : ADMIN_PASSWORD (ou ADMIN_PASSWORD_HASH)");
+}
 
 export const mediaDir = resolve(config.dataDir, "media");
 mkdirSync(mediaDir, { recursive: true });

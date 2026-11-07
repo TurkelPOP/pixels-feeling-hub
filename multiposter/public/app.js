@@ -115,6 +115,7 @@ function route() {
   if (view === "accounts") {
     loadAccounts();
     renderSystem();
+    renderSecurity();
   }
 }
 window.addEventListener("hashchange", route);
@@ -298,6 +299,49 @@ function publicCard(sys) {
       ts.mode === "auto" && !ts.funnelOk ? h("button", { class: "btn primary small", type: "button", onclick: (e) => retry(e.currentTarget) }, "Réessayer") : null,
       h("button", { class: "btn ghost small", type: "button", onclick: (e) => run(e.currentTarget) }, "Vérifier")),
     out);
+}
+
+const EVENT_LABEL = {
+  login_ok: "Connexion réussie",
+  login_fail: "Échec de connexion",
+  login_setup: "Connexion (activation 2FA)",
+  "2fa_enabled": "Double authentification activée",
+  logout_all: "Tous les appareils déconnectés",
+};
+
+async function renderSecurity() {
+  let s;
+  try {
+    s = await api("/security");
+  } catch {
+    return;
+  }
+  const status = [
+    s.serverMode ? "En ligne (HTTPS)" : "Uniquement sur ce PC",
+    s.twoFactor ? `Double authentification active · ${s.recoveryCodesLeft} code(s) de secours restant(s)` : "Double authentification non activée",
+    s.passwordHashed ? "Mot de passe stocké sous forme d'empreinte" : "Mot de passe dans .env (acceptable seulement sur ton PC)",
+  ];
+  const rows = s.events.map((e) =>
+    h("tr", { class: e.type === "login_fail" ? "bad" : "" },
+      h("td", {}, new Date(e.at).toLocaleString("fr-FR")),
+      h("td", {}, EVENT_LABEL[e.type] ?? e.type, e.detail ? h("small", { class: "muted" }, ` · ${e.detail}`) : null),
+      h("td", {}, e.ip ?? "—"),
+      h("td", { class: "agent", title: e.agent ?? "" }, (e.agent ?? "").slice(0, 60))));
+  $("#security").replaceChildren(
+    h("div", { class: "card system" },
+      h("strong", {}, "Sécurité"),
+      h("ul", { class: "check-list" }, ...status.map((t) => h("li", {}, t))),
+      !s.twoFactor && !s.serverMode
+        ? h("p", { class: "small" }, h("a", { href: "/2fa/setup" }, "Activer la double authentification"), " (recommandé)")
+        : null,
+      h("p", { class: "muted small" }, "Si une session est restée ouverte ailleurs, déconnecte-les toutes : il faudra se reconnecter partout, ici compris."),
+      h("form", { method: "post", action: "/logout-all" }, h("button", { class: "btn ghost small danger", type: "submit" }, "Déconnecter tous les appareils")),
+      h("details", { class: "journal" },
+        h("summary", {}, `Journal de sécurité (${s.events.length} derniers événements)`),
+        rows.length
+          ? h("div", { class: "table-scroll" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Date"), h("th", {}, "Événement"), h("th", {}, "Adresse"), h("th", {}, "Navigateur"))), h("tbody", {}, ...rows)))
+          : h("p", { class: "muted small" }, "Aucun événement."))),
+  );
 }
 
 async function renderSystem() {

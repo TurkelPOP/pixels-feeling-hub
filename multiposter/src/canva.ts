@@ -205,7 +205,7 @@ canvaApi.post("/designs/:id/import", async (c) => {
   try {
     const media = await importDesign(c.req.param("id"), format, !!horizontal);
     return c.json({
-      media: media.map((m) => ({ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: `/media/${m.publicUrl.split("/").pop()}` })),
+      media: media.map((m) => ({ id: m.id, filename: m.filename, mime: m.mime, size: m.size, kind: m.kind, url: m.localUrl })),
     });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : "Import impossible" }, 502);
