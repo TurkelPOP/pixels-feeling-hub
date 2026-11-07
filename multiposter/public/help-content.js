@@ -159,12 +159,12 @@
 <p class="tip">Formats pris en charge : JPG, PNG, WebP, GIF, MP4, MOV, WebM. Les photos HEIC (iPhone en « Haute efficacité ») sont grisées : exporte-les en JPG, ou règle ton iPhone sur « Le plus compatible ».</p>
 <p class="warn">« Accès bloqué » ou « app non validée » sans bouton pour continuer ? Demande au propriétaire de t'ajouter comme <strong>utilisateur test</strong> dans Google Cloud.</p>`,
       owner: `
-<p>Drive utilise <strong>le même projet et les mêmes clés Google que YouTube</strong> : fais d'abord le tuto YouTube. Ensuite, trois réglages en plus :</p>
+<p>Drive utilise <strong>le même projet, les mêmes clés et la même adresse de retour que YouTube</strong> : fais d'abord le tuto YouTube. Ensuite, une seule chose :</p>
 <ol class="steps">
-  <li><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">API et services → Bibliothèque</a> : cherche <strong>Google Drive API</strong> → <strong>Activer</strong>.</li>
-  <li><strong>Google Auth Platform → Accès aux données</strong> → <em>Ajouter ou supprimer des niveaux d'accès</em> : coche <code>…/auth/drive.readonly</code> (tape « drive.readonly » dans le filtre), <strong>Mettre à jour</strong>, <strong>Enregistrer</strong>.</li>
-  <li><strong>Clients</strong> → ouvre ton client <em>PTZ Posting</em> → <em>URI de redirection autorisés</em> → <strong>Ajouter un URI</strong> : <code class="cb">{{origin}}/oauth/gdrive/callback</code> → <strong>Enregistrer</strong>. (Garde aussi celle de YouTube.)</li>
+  <li>Ouvre <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">Google Drive API</a> (connecté avec le compte Google du projet) et clique sur <strong>Activer</strong>. C'est tout.</li>
 </ol>
+<p class="tip">Si tu l'oublies, l'app te le dira à la première ouverture du Drive, avec un bouton qui mène directement au bon projet.</p>
+<p class="tip">Facultatif : dans <em>Google Auth Platform → Accès aux données</em>, tu peux déclarer <code>…/auth/drive.readonly</code> pour que l'écran de Google l'affiche proprement. Si Google bloque la connexion avec un message sur un « niveau d'accès » (scope), c'est cette étape qu'il faut faire.</p>
 <p class="tip">Pas de nouvelle clé à coller dans PTZ Posting : le bouton « Connecter Google Drive » apparaît dès que YouTube est activé. Les personnes qui se connectent doivent être dans les <strong>utilisateurs test</strong> (Audience), comme pour YouTube.</p>
 <p class="tip">Sécurité : l'accès est en lecture seule, chaque personne ne voit que son propre Drive, et les jetons d'accès sont chiffrés. « Déconnecter » retire aussi l'autorisation chez Google.</p>`,
     },

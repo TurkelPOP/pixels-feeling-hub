@@ -316,10 +316,13 @@ function driveCard() {
             }, "Déconnecter"))
         : h("a", { class: "btn primary small", href: "/oauth/gdrive/start" }, "Connecter Google Drive"),
     !s?.connected ? userTuto("gdrive") : null,
-    owner && NETS().gdrive
-      ? h("details", { class: "tuto-box" }, h("summary", {}, "Activer Drive (propriétaire)"),
-          h("div", { class: "callback" }, h("span", { class: "small" }, "Adresse de retour à ajouter au client OAuth Google :"), h("div", { class: "row" }, h("code", {}, cb), copyBtn(cb))),
-          tuto(NETS().gdrive.owner))
+    owner && s?.configured
+      ? h("div", { class: "drive-owner" },
+          h("p", { class: "small" }, h("strong", {}, "Propriétaire, une seule chose à faire : "), "autoriser Drive dans ton projet Google (le même que YouTube). Un clic sur « Activer » chez Google, c'est tout : mêmes clés, même adresse de retour."),
+          h("a", { class: "btn ghost small", href: "https://console.cloud.google.com/apis/library/drive.googleapis.com", target: "_blank", rel: "noopener" }, "Activer l'API Google Drive ↗"))
+      : null,
+    owner && !s?.configured && NETS().gdrive
+      ? h("details", { class: "tuto-box" }, h("summary", {}, "Activer Drive (propriétaire)"), tuto(NETS().gdrive.owner))
       : null,
   );
 }
@@ -357,7 +360,14 @@ async function loadDrive(more = false) {
     d.next = r.next;
     renderDrive();
   } catch (e) {
-    list.replaceChildren(h("p", { class: "error" }, e.message));
+    const url = e.data?.enableUrl;
+    list.replaceChildren(h("div", { class: "drive-error" },
+      h("p", { class: "error" }, e.message),
+      url && state.me?.role === "owner"
+        ? h("div", { class: "row" },
+            h("a", { class: "btn primary", href: url, target: "_blank", rel: "noopener" }, "Activer l'API Drive chez Google ↗"),
+            h("button", { class: "btn ghost", type: "button", onclick: () => loadDrive() }, "C'est fait, réessayer"))
+        : url ? h("p", { class: "muted small" }, "Le propriétaire de l'app doit l'activer en un clic (onglet Comptes, carte Google Drive).") : null));
   }
 }
 

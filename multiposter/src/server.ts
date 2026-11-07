@@ -18,7 +18,7 @@ import { applyAppSettings, registerAppSettingsApi } from "./appsettings.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
-import { driveApi, driveRoutes } from "./gdrive.ts";
+import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
@@ -186,6 +186,16 @@ app.get("/oauth/:flow/callback", async (c) => {
     | { provider: string; verifier: string | null; owner_id: number }
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
+  // Google Drive partage l'adresse de retour de YouTube : le « state » dit lequel des deux.
+  if (row?.provider === "gdrive" && flow?.id === "google") {
+    if (error || !code) return back(`Connexion Google Drive annulée${error ? ` (${error})` : ""}.`);
+    try {
+      return back(`Google Drive connecté (${await finishDriveOAuth(row.owner_id, row.verifier!, code)}).`, true);
+    } catch (e) {
+      console.error("[oauth gdrive]", e);
+      return back(e instanceof Error ? e.message : "Échec de la connexion Google Drive");
+    }
+  }
   if (!flow || !row || row.provider !== flow.id) return back("Lien de connexion expiré, recommence.");
   if (error || !code) return back(`Connexion annulée : ${error_description ?? error ?? "pas de code"}`);
   try {

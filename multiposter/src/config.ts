@@ -81,7 +81,7 @@ mkdirSync(mediaDir, { recursive: true });
  * reviennent sur PUBLIC_URL (HTTPS), où seul le chemin /oauth a besoin d'être ouvert.
  */
 export const callbackUrl = (provider: string) =>
-  `${provider === "canva" || provider === "gdrive" ? config.appUrl : config.publicUrl}/oauth/${provider}/callback`;
+  `${provider === "canva" ? config.appUrl : config.publicUrl}/oauth/${provider}/callback`;
 
 /** Après une connexion, on revient toujours sur l'interface locale. */
 export const accountsPage = (msg: string, ok: boolean) => `${config.appUrl}/#accounts?${ok ? "ok" : "err"}=${encodeURIComponent(msg)}`;

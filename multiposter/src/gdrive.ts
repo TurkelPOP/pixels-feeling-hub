@@ -6,7 +6,7 @@
 import { Hono } from "hono";
 
 import { currentUser } from "./auth.ts";
-import { accountsPage, callbackUrl, config } from "./config.ts";
+import { callbackUrl, config } from "./config.ts";
 import { pkcePair, randomId, seal, unseal } from "./crypto.ts";
 import { db } from "./db.ts";
 import { form, json, request } from "./http.ts";
@@ -18,6 +18,9 @@ const DRIVE = (process.env.GDRIVE_API_URL ?? "https://www.googleapis.com/drive/v
 const TOKEN_URL = process.env.GOOGLE_TOKEN_URL ?? "https://oauth2.googleapis.com/token";
 /** Formats acceptés par l'app (les mêmes que pour un envoi depuis le téléphone). */
 const ACCEPTED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/webm"]);
+
+/** Même adresse de retour que YouTube : déjà autorisée dans le client Google. */
+const driveRedirect = () => callbackUrl("google");
 
 export const driveConfigured = () => !!(config.google.clientId && config.google.clientSecret);
 const keyOf = (uid: number) => `gdrive:${uid}`;
@@ -88,7 +91,7 @@ driveRoutes.get("/oauth/gdrive/start", (c) => {
     "https://accounts.google.com/o/oauth2/v2/auth?" +
       new URLSearchParams({
         client_id: config.google.clientId!,
-        redirect_uri: callbackUrl("gdrive"),
+        redirect_uri: driveRedirect(),
         response_type: "code",
         scope: SCOPE,
         access_type: "offline",
@@ -100,27 +103,20 @@ driveRoutes.get("/oauth/gdrive/start", (c) => {
   );
 });
 
-driveRoutes.get("/oauth/gdrive/callback", async (c) => {
-  const { state, code, error } = c.req.query();
-  const row = db.prepare("DELETE FROM oauth_states WHERE state = ? AND provider = 'gdrive' RETURNING verifier, owner_id").get(state ?? "") as
-    | { verifier: string; owner_id: number }
-    | undefined;
-  const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
-  if (!row) return back("Lien de connexion Google Drive expiré, recommence.");
-  if (error || !code) return back(`Connexion Google Drive annulée${error ? ` (${error})` : ""}.`);
-  try {
-    const t = await tokenRequest({ grant_type: "authorization_code", code, code_verifier: row.verifier, redirect_uri: callbackUrl("gdrive") });
-    if (!String(t.scope ?? "").includes("drive")) return back("Google Drive : coche la case d'accès à tes fichiers Drive, puis recommence.");
-    saveTokens(row.owner_id, t);
-    const about = await driveGet(row.owner_id, "/about?fields=user(displayName,emailAddress)").catch(() => ({}));
-    const name = about.user?.emailAddress ?? about.user?.displayName ?? "Google Drive";
-    db.prepare("UPDATE integrations SET name = ? WHERE id = ?").run(name, keyOf(row.owner_id));
-    return back(`Google Drive connecté (${name}).`, true);
-  } catch (e) {
-    console.error("[oauth gdrive]", e);
-    return back(e instanceof Error ? e.message : "Échec de la connexion Google Drive");
-  }
-});
+/**
+ * Fin de la connexion Drive. Le retour de Google arrive sur l'adresse de YOUTUBE
+ * (/oauth/google/callback, déjà déclarée chez Google) : server.ts reconnaît le « state » Drive et
+ * appelle cette fonction. Rien de plus à déclarer chez Google pour Drive.
+ */
+export async function finishDriveOAuth(ownerId: number, verifier: string, code: string): Promise<string> {
+  const t = await tokenRequest({ grant_type: "authorization_code", code, code_verifier: verifier, redirect_uri: driveRedirect() });
+  if (!String(t.scope ?? "").includes("drive")) throw new Error("Google Drive : coche la case d'accès à tes fichiers Drive, puis recommence.");
+  saveTokens(ownerId, t);
+  const about = await driveGet(ownerId, "/about?fields=user(displayName,emailAddress)").catch(() => ({}));
+  const name = about.user?.emailAddress ?? about.user?.displayName ?? "Google Drive";
+  db.prepare("UPDATE integrations SET name = ? WHERE id = ?").run(name, keyOf(ownerId));
+  return name;
+}
 
 // ---------- API (sous /api, donc réservée à la personne connectée) ----------
 
@@ -183,9 +179,22 @@ driveApi.get("/files", async (c) => {
       })),
     });
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : "Google Drive indisponible" }, 502);
+    return c.json(driveError(e), 502);
   }
 });
+
+/** Erreur lisible ; si l'API Drive n'est pas activée dans le projet Google, on donne le lien direct. */
+function driveError(e: unknown) {
+  const msg = e instanceof Error ? e.message : "Google Drive indisponible";
+  if (/has not been used|accessNotConfigured|is disabled|SERVICE_DISABLED/i.test(msg)) {
+    const project = msg.match(/project[= ](\d{4,})/)?.[1];
+    return {
+      error: "L'API Google Drive n'est pas encore activée dans le projet Google de l'app.",
+      enableUrl: `https://console.cloud.google.com/apis/library/drive.googleapis.com${project ? `?project=${project}` : ""}`,
+    };
+  }
+  return { error: msg };
+}
 
 /** Importe des fichiers du Drive dans la médiathèque de la personne (copie directe Google → serveur). */
 driveApi.post("/import", async (c) => {
