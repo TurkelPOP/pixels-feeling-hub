@@ -612,3 +612,13 @@ body.help { min-height: 100vh; }
 .toc { display: grid; gap: 0.5rem; }
 .toc a { color: var(--turquin-light); text-decoration: none; }
 .toc a:hover { text-decoration: underline; }
+
+/* Réglages des réseaux (propriétaire) */
+.appset { border: 1px solid var(--border); border-radius: 12px; padding: 0.55rem 0.8rem; background: rgba(7, 6, 20, 0.35); display: grid; gap: 0.5rem; }
+.appset summary { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; cursor: pointer; font-weight: 600; }
+.appset[open] { gap: 0.6rem; }
+.appset[open] > summary { margin-bottom: 0.3rem; }
+.appset > * + * { margin-top: 0.45rem; }
+.appset .callback { align-items: center; }
+.appset .callback code { flex: 1 1 260px; font-size: 0.82rem; background: rgba(99, 102, 241, 0.14); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.5rem; overflow-wrap: anywhere; }
+.appset .tfield input:disabled { opacity: 0.6; }

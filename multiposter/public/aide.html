@@ -89,6 +89,8 @@
         <li>Le réseau te demande si tu autorises « PTZ Posting » à publier pour toi : <strong>accepte toutes les autorisations</strong> proposées, sinon la publication échouera.</li>
         <li>Tu reviens automatiquement dans PTZ Posting, avec le message « compte(s) connecté(s) ».</li>
       </ol>
+      <p class="tip">Chacun connecte <strong>ses propres</strong> comptes, depuis le site, sans rien installer ni configurer : les autres personnes ne voient ni tes réseaux ni tes posts.</p>
+      <p class="tip">Pas de bouton « Connecter » mais le message « Pas encore activé » ? Le réseau n'a pas encore été activé par le propriétaire de l'app (une seule fois pour tout le monde, voir la partie 12). Demande-lui.</p>
       <p class="tip">Tes réseaux restent connectés : tu n'as pas à refaire ça à chaque fois. Si un réseau te déconnecte (mot de passe changé, accès retiré), il suffit de recliquer sur « Connecter ».</p>
 
       <details><summary>Facebook et Instagram (un seul bouton pour les deux)</summary>
@@ -205,9 +207,18 @@
 
     <section id="proprietaire" class="card">
       <h2>12. Réglages du propriétaire <span class="tag">Propriétaire</span></h2>
-      <p>Ces réglages se font une seule fois, sur le serveur (panneau alwaysdata → Web → Sites → Environnement), pas dans l'app. Après chaque modification : <strong>redémarrer le site</strong>.</p>
+      <h3>Activer un réseau (une seule fois, depuis le site)</h3>
+      <p>Un réseau social n'accepte de publier que pour une application qu'il connaît. Il faut donc « présenter » PTZ Posting une fois à chaque réseau, exactement comme Fedica ou Buffer l'ont fait pour leurs clients. Ensuite, chaque personne connecte ses propres comptes d'un clic.</p>
+      <ol class="steps">
+        <li>Dans PTZ Posting : <strong>Comptes → Réglages des réseaux</strong>, ouvre le réseau voulu.</li>
+        <li>Clique sur <strong>« Copier »</strong> à côté de l'adresse de retour, puis sur <strong>« Ouvrir la console développeur »</strong>.</li>
+        <li>Chez le réseau : crée une app (une seule pour Facebook + Instagram + Threads), colle l'adresse de retour là où elle est demandée (« Redirect URL », « URI de redirection »…).</li>
+        <li>Copie les deux clés que le réseau affiche (un identifiant et un secret), colle-les dans PTZ Posting, <strong>Enregistrer</strong>. Le réseau passe à « Activé » et le bouton « Connecter » apparaît pour tout le monde, sans redémarrage.</li>
+      </ol>
+      <p class="tip">Les clés secrètes sont chiffrées dans la base et ne sont plus jamais réaffichées, même à toi : pour les changer, colle simplement la nouvelle. Chaque modification est notée dans le journal de sécurité et envoyée en alerte. Ces clés ne donnent accès à aucun compte : elles identifient seulement l'app auprès du réseau ; l'accès à un compte n'existe qu'après que son propriétaire a cliqué sur « Connecter ».</p>
+      <p class="tip">Le webhook d'alertes (Discord…) se règle au même endroit.</p>
+      <h3>Autres réglages</h3>
       <ul>
-        <li><strong>Apps développeur des réseaux</strong> : pour que le bouton « Connecter » d'un réseau apparaisse, il faut créer une fois une « app développeur » chez ce réseau (Meta, Google, TikTok, X, Canva) et mettre ses deux clés dans l'environnement (par exemple <code>META_APP_ID</code> et <code>META_APP_SECRET</code>). L'adresse de retour à déclarer chez le réseau est <code>https://ptzcorp.alwaysdata.net/oauth/&lt;réseau&gt;/callback</code>. Le détail est dans le README technique.</li>
         <li><strong>Ajouter les autres personnes comme testeurs</strong> dans chaque app développeur (Meta : Rôles de l'app → Testeurs ; Google : écran de consentement → Utilisateurs test ; TikTok : Sandbox → utilisateurs cibles ; Canva : collaborateurs de l'intégration). Sans ça, elles ne pourront pas connecter leurs comptes tant que l'app n'est pas validée par le réseau.</li>
         <li><strong>Nouveau mot de passe</strong> : dans la console SSH, <code>node scripts/hash-password.ts</code>, puis remplacer la valeur de <code>ADMIN_PASSWORD_HASH</code> (sans espace, sans &lt; &gt;).</li>
         <li><strong>Téléphone perdu et plus de codes de secours</strong> : ajouter <code>TWOFA_RESET=1</code>, redémarrer, se reconnecter pour réactiver la double authentification, puis <strong>retirer</strong> <code>TWOFA_RESET</code> et redémarrer.</li>

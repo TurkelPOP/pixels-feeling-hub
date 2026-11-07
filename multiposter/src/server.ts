@@ -14,6 +14,7 @@ import { db, deleteAccount, getOwnedAccount, listAccounts, upsertAccount } from 
 import { checkMediaSignature, getMediaList, mediaOwner, saveUpload } from "./media.ts";
 import { migrateWorkspaces } from "./workspace.ts";
 import { registerProfileApi } from "./profiles.ts";
+import { applyAppSettings, registerAppSettingsApi } from "./appsettings.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
@@ -25,6 +26,8 @@ import { publishPost, rollupStatus, startScheduler, tick } from "./scheduler.ts"
 
 // Espaces personnels : les données de l'ancienne version partagée reviennent au propriétaire.
 migrateWorkspaces(ownerId());
+// Clés des réseaux saisies dans l'interface par le propriétaire (les variables du serveur priment).
+applyAppSettings();
 
 const app = new Hono();
 const PUBLIC = resolve(import.meta.dirname, "../public");
@@ -257,6 +260,7 @@ api.get("/accounts", (c) =>
 );
 
 registerProfileApi(api);
+registerAppSettingsApi(api);
 
 api.delete("/accounts/:id", (c) => {
   deleteAccount(Number(c.req.param("id")), uid(c));
@@ -489,6 +493,7 @@ serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.
       `ADMIN_PASSWORD_HASH ${config.adminPasswordHash ? "présent" : "absent"}`,
       `CRON_SECRET ${config.cronSecret && config.cronSecret.length >= 32 ? "présent" : "absent"}`,
       `alertes ${config.alertWebhookUrl ? "configurées" : "non configurées"}`,
+      `réseaux activés : ${[...Object.values(flows).filter((f) => f.configured()).map((f) => f.label), ...(config.canva.clientId && config.canva.clientSecret ? ["Canva"] : [])].join(", ") || "aucun"}`,
       `TRUST_PROXY=${process.env.TRUST_PROXY ?? "non"}`,
     ].join(" · "),
   );

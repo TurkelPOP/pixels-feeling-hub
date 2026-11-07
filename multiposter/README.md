@@ -159,8 +159,8 @@ Mise en place :
 3. Ajoute l'URL de retour `https://<PUBLIC_URL>/oauth/canva/callback`. En local, Canva refuse
    `localhost` : utilise `http://127.0.0.1:3210/oauth/canva/callback` et mets
    `PUBLIC_URL=http://127.0.0.1:3210`.
-4. Mets l'ID client et le secret dans `.env` (`CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`), redémarre,
-   puis va dans **Comptes → Connecter Canva**.
+4. Colle l'ID client et le secret dans **Comptes → Réglages des réseaux → Canva** (ou, au choix,
+   `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` dans `.env`), puis va dans **Comptes → Connecter Canva**.
 
 ## Sur Windows : sans ligne de commande
 
@@ -222,9 +222,16 @@ les posts à publier toutes les 20 secondes.
 
 ## Brancher les réseaux
 
-Pour chaque réseau, tu crées une « app développeur » chez lui. Tu reportes ensuite ses clés dans
-`.env`, puis tu redémarres l'app et tu cliques sur **Comptes → Connecter**. Tu n'as besoin que des
-réseaux que tu utilises.
+Pour chaque réseau, le propriétaire crée une fois une « app développeur » chez lui, puis colle ses
+deux clés dans **Comptes → Réglages des réseaux** (réservé au propriétaire). La page affiche
+l'adresse de retour à déclarer avec un bouton Copier, et le réseau s'active aussitôt, sans
+redémarrage. Ensuite, **chaque utilisateur** connecte ses propres comptes avec **Comptes → Connecter**.
+Tu n'as besoin que des réseaux que tu utilises.
+
+Les secrets saisis dans l'app sont chiffrés dans la base (AES-256-GCM, clé dérivée de `APP_SECRET`)
+et ne sont jamais renvoyés au navigateur ; chaque modification est journalisée et alertée. Les
+variables d'environnement ci-dessous restent possibles et sont alors **prioritaires** (affichées
+« défini sur le serveur », non modifiables dans l'app).
 
 L'URL de retour à déclarer est toujours de la forme `https://<PUBLIC_URL>/oauth/<id>/callback` :
 
