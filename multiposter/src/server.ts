@@ -151,6 +151,14 @@ app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", async (c) => {
   return sendFile(c, resolve(mediaDir, file), "private, max-age=3600");
 });
 
+// Outil privé : rien à indexer ni à explorer pour les moteurs de recherche.
+app.get("/robots.txt", (c) => c.text("User-agent: *\nDisallow: /\n"));
+// Validation du site dans Google Search Console (méthode « fichier HTML ») : GOOGLE_SITE_VERIFICATION
+// contient le nom du fichier donné par Google, par exemple google1234abcd5678ef90.html.
+app.get("/:file{google[0-9a-f]{8,32}\\.html}", (c) => {
+  const file = c.req.param("file");
+  return process.env.GOOGLE_SITE_VERIFICATION?.trim() === file ? c.text(`google-site-verification: ${file}`) : c.notFound();
+});
 app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png|mp3)}", (c) => sendFile(c, resolve(PUBLIC, c.req.param("file"))));
 
 // ---------- OAuth ----------

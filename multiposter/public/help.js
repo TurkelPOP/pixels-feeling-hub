@@ -3,25 +3,35 @@
 (() => {
   const H = window.PTZ_HELP;
   if (!H) return;
-  const byId = new Map(H.topics.map((t) => [t.id, t]));
+  // Avant connexion (page de connexion, page /aide) : seulement l'aide pour se connecter.
+  const PUBLIC_IDS = ["principe", "connexion", "secours"];
+  const loggedOut = document.body.classList.contains("login") || !!document.getElementById("help-full");
+  const visible = loggedOut ? H.topics.filter((t) => PUBLIC_IDS.includes(t.id)) : H.topics;
+  const byId = new Map(visible.map((t) => [t.id, t]));
   const fill = (html) => html.replaceAll("{{origin}}", location.origin).replaceAll("{{host}}", location.host);
 
   /** Contenu d'un sujet (HTML statique de help-content.js, jamais de données utilisateur). */
   function topicHtml(id) {
     if (id === "index") {
       return `<p class="muted small">Clique sur un « ? » dans une section pour l'aide qui la concerne.</p>
-<ol class="help-index">${H.topics.map((t) => `<li><a data-help="${t.id}" href="#">${t.title}</a></li>`).join("")}</ol>`;
+<ol class="help-index">${visible.map((t) => `<li><a data-help="${t.id}" href="#">${t.title}</a></li>`).join("")}</ol>`;
     }
-    return fill(byId.get(id)?.html ?? "<p>Sujet introuvable.</p>");
+    return fill(byId.get(id)?.html ?? (loggedOut ? "<p>Cette partie de l'aide est disponible dans l'app, une fois connecté.</p>" : "<p>Sujet introuvable.</p>"));
   }
   const topicTitle = (id) => (id === "index" ? "Aide" : (byId.get(id)?.title ?? "Aide"));
 
   // ---------- page /aide complète (accessible sans être connecté) ----------
   const full = document.getElementById("help-full");
   if (full) {
+    // Page publique (avant connexion) : seulement l'aide pour se connecter. Les tutos des réseaux
+    // restent dans l'app : une page publique qui explique comment se connecter à Facebook ou
+    // Google ressemble, pour les robots anti-hameçonnage, à une page de piratage.
+    const PUBLIC = PUBLIC_IDS;
+    const shown = visible;
     full.innerHTML =
-      `<div class="toc card"><strong>Sommaire</strong><ol>${H.topics.map((t) => `<li><a href="#${t.id}">${t.title}</a></li>`).join("")}</ol></div>` +
-      H.topics.map((t) => `<section id="${t.id}" class="card help-body"><h2>${t.title}</h2>${topicHtml(t.id)}</section>`).join("");
+      shown.map((t) => `<section id="${t.id}" class="card help-body"><h2>${t.title}</h2>${topicHtml(t.id)}</section>`).join("") +
+      `<p class="tip">Le reste de l'aide (publier, réseaux, Canva, planning…) est dans l'app : clique sur les « ? » de chaque section une fois connecté.</p>`;
+    for (const a of full.querySelectorAll("[data-help]")) if (!PUBLIC.includes(a.dataset.help)) a.replaceWith(...a.childNodes);
     // Sur cette page, les liens entre sujets font défiler au lieu d'ouvrir le volet.
     full.addEventListener("click", (e) => {
       const a = e.target.closest("[data-help]");
