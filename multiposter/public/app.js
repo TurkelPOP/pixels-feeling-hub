@@ -403,6 +403,9 @@ const EVENT_LABEL = {
   user_created: "Nouvel utilisateur",
   user_removed: "Utilisateur retiré",
   invite_created: "Invitation créée",
+  reset_link_created: "Lien de nouveau mot de passe créé",
+  password_reset: "Mot de passe réinitialisé",
+  "2fa_new_secret": "Nouveau QR code généré",
   logout_all: "Tous les appareils déconnectés",
 };
 
@@ -453,6 +456,20 @@ async function renderUsers() {
           " · ", u.lastLogin ? `dernière connexion ${new Date(u.lastLogin).toLocaleString("fr-FR")}` : "jamais connecté")),
       isOwner && u.role !== "owner" && u.name !== me.name
         ? h("div", { class: "row" },
+            h("button", {
+              class: "btn ghost small", type: "button",
+              onclick: async () => {
+                try {
+                  const { link, expiresAt } = await api(`/users/${u.id}/reset-password`, { method: "POST" });
+                  const input = h("input", { readonly: true, value: link, id: "invite-link" });
+                  const copy = h("button", { class: "btn ghost small", type: "button", onclick: async () => { try { await navigator.clipboard.writeText(link); toast("Lien copié."); } catch { input.select(); } } }, "Copier");
+                  linkBox.hidden = false;
+                  linkBox.replaceChildren(
+                    h("p", { class: "small" }, `Lien pour que « ${u.name} » choisisse un nouveau mot de passe (ses données sont conservées). Usage unique, expire le ${new Date(expiresAt).toLocaleString("fr-FR")}.`),
+                    h("div", { class: "row" }, input, copy));
+                } catch (e) { toast(e.message, "err"); }
+              },
+            }, "Nouveau mot de passe"),
             h("button", {
               class: "btn ghost small", type: "button",
               onclick: async () => {

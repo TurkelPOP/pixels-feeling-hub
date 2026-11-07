@@ -46,7 +46,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE TABLE IF NOT EXISTS invites (token_hash TEXT PRIMARY KEY, created_by INTEGER, expires_at INTEGER NOT NULL);
 `);
-for (const sql of ["ALTER TABLE security_events ADD COLUMN user TEXT", "ALTER TABLE invites ADD COLUMN role TEXT NOT NULL DEFAULT 'member'"]) {
+for (const sql of [
+  "ALTER TABLE security_events ADD COLUMN user TEXT",
+  "ALTER TABLE invites ADD COLUMN role TEXT NOT NULL DEFAULT 'member'",
+  // Lien de réinitialisation du mot de passe d'une personne existante (au lieu d'une invitation).
+  "ALTER TABLE invites ADD COLUMN reset_user INTEGER",
+]) {
   try {
     db.exec(sql);
   } catch {
@@ -364,14 +369,31 @@ function invitePage(error = "") {
 
 const tokenHash = (t: string) => createHash("sha256").update(`invite:${t}`).digest("hex");
 const validInvite = (t: string) =>
-  db.prepare("SELECT token_hash, role FROM invites WHERE token_hash = ? AND expires_at > ?").get(tokenHash(t), Date.now()) as
-    | { token_hash: string; role: string }
+  db.prepare("SELECT token_hash, role, reset_user FROM invites WHERE token_hash = ? AND expires_at > ?").get(tokenHash(t), Date.now()) as
+    | { token_hash: string; role: string; reset_user: number | null }
     | undefined;
+
+function resetPage(name: string, error = "") {
+  return page("Nouveau mot de passe", `
+<img src="/assets/logo.png" alt="" width="84" height="84">
+<h1>Nouveau mot de passe</h1>
+<p class="muted">Compte <strong>${esc(name)}</strong>. Tes réseaux, tes posts et ta double authentification sont conservés.</p>
+<form method="post">
+  <label for="password">Nouveau mot de passe (12 caractères minimum)</label>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" required autofocus>
+  <label for="password2">Confirme le mot de passe</label>
+  <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="12" required>
+  ${error ? `<p class="error">${esc(error)}</p>` : ""}
+  <button class="btn primary" type="submit">Enregistrer</button>
+</form>`);
+}
 
 // ---------- Routes ----------
 
 export function registerAuth(app: Hono) {
   app.get("/login", async (c) => c.html(await readFile(resolve(PUBLIC, "login.html"), "utf8")));
+  // Aide accessible à tous, même avant de se connecter (aucune donnée personnelle dedans).
+  app.get("/aide", async (c) => c.html(await readFile(resolve(PUBLIC, "aide.html"), "utf8")));
   app.get("/login/info", (c) => c.json({ twoFactor: config.serverMode || anyTwoFactor(), nameRequired: config.serverMode }));
 
   app.post("/login", async (c) => {
@@ -469,14 +491,35 @@ export function registerAuth(app: Hono) {
   });
 
   // Invitation : création d'un accès membre avec un lien à usage unique.
-  app.get("/invite/:token{[A-Za-z0-9_-]{20,100}}", (c) =>
-    validInvite(c.req.param("token")) ? c.html(invitePage()) : c.html(page("Invitation", "<h1>Lien expiré</h1><p>Ce lien d'invitation n'est plus valable. Demande-en un nouveau.</p>"), 404),
-  );
+  app.get("/invite/:token{[A-Za-z0-9_-]{20,100}}", (c) => {
+    const inv = validInvite(c.req.param("token"));
+    if (!inv) return c.html(page("Invitation", "<h1>Lien expiré</h1><p>Ce lien n'est plus valable. Demande-en un nouveau.</p>"), 404);
+    if (inv.reset_user) {
+      const u = userById(inv.reset_user);
+      return u ? c.html(resetPage(u.name)) : c.html(page("Lien", "<h1>Compte introuvable</h1>"), 404);
+    }
+    return c.html(invitePage());
+  });
 
   app.post("/invite/:token{[A-Za-z0-9_-]{20,100}}", async (c) => {
     const token = c.req.param("token");
-    if (!validInvite(token)) return c.html(page("Invitation", "<h1>Lien expiré</h1><p>Ce lien d'invitation n'est plus valable. Demande-en un nouveau.</p>"), 404);
+    const inv = validInvite(token);
+    if (!inv) return c.html(page("Invitation", "<h1>Lien expiré</h1><p>Ce lien n'est plus valable. Demande-en un nouveau.</p>"), 404);
     const b = await c.req.parseBody();
+    if (inv.reset_user) {
+      // Réinitialisation : nouveau mot de passe, le reste du compte est conservé.
+      const u = userById(inv.reset_user);
+      if (!u) return c.html(page("Lien", "<h1>Compte introuvable</h1>"), 404);
+      const pw = String(b.password ?? "");
+      if (pw.length < 12) return c.html(resetPage(u.name, "Mot de passe trop court (12 caractères minimum)."), 400);
+      if (pw !== String(b.password2 ?? "")) return c.html(resetPage(u.name, "Les deux mots de passe ne correspondent pas."), 400);
+      const del = db.prepare("DELETE FROM invites WHERE token_hash = ?").run(tokenHash(token));
+      if (!del.changes) return c.html(page("Lien", "<h1>Lien déjà utilisé</h1>"), 409);
+      db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(pw), u.id); // ferme ses anciennes sessions
+      logEvent(c, "password_reset", u.name);
+      void alert(`🔑 Mot de passe de « ${u.name} » réinitialisé sur PTZ Posting.`);
+      return c.html(page("Mot de passe changé", `<h1>Mot de passe changé</h1><p>Tu peux te connecter avec ton nouveau mot de passe et le code de ton téléphone.</p><a class="btn primary" href="/login">Se connecter</a>`));
+    }
     const name = String(b.name ?? "").trim().toLowerCase();
     const password = String(b.password ?? "");
     if (!NAME_RE.test(name)) return c.html(invitePage("Identifiant invalide : une adresse e-mail, ou un pseudo (a-z, 0-9, point, tiret, tiret bas)."), 400);
@@ -564,6 +607,21 @@ export function registerUserApi(api: Hono) {
     logEvent(c, "user_removed", currentUser(c)!.name, `« ${u.name} » retiré`);
     void alert(`👤 L'accès de « ${u.name} » à PTZ Posting a été retiré, ainsi que son espace (réseaux, posts, Canva).`);
     return c.json({ ok: true });
+  });
+
+  api.post("/users/:id/reset-password", (c) => {
+    const denied = ownerOnly(c);
+    if (denied) return denied;
+    const u = userById(Number(c.req.param("id")));
+    if (!u || u.role === "owner") return c.json({ error: "Le mot de passe du propriétaire se change sur le serveur (ADMIN_PASSWORD_HASH)." }, 400);
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = Date.now() + 48 * 3_600_000;
+    db.prepare("DELETE FROM invites WHERE reset_user = ?").run(u.id); // un seul lien valable à la fois
+    db.prepare("INSERT INTO invites (token_hash, created_by, expires_at, role, reset_user) VALUES (?, ?, ?, ?, ?)").run(
+      tokenHash(token), currentUser(c)!.id, expiresAt, u.role, u.id,
+    );
+    logEvent(c, "reset_link_created", currentUser(c)!.name, `pour « ${u.name} »`);
+    return c.json({ link: `${config.appUrl}/invite/${token}`, expiresAt });
   });
 
   api.post("/users/:id/reset-2fa", (c) => {

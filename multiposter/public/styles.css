@@ -583,3 +583,32 @@ body.login .login-card > img { width: 104px; height: 104px; margin: 0 auto; }
   .brand img { width: 44px; height: 44px; }
 }
 .login-card .hint { margin: 0.35rem 0 0; text-align: left; }
+
+/* Page d'aide */
+body.help { min-height: 100vh; }
+.help-main { max-width: 860px; display: grid; gap: 1rem; }
+.help-main .lead { color: var(--muted); margin: -0.4rem 0 0.2rem; font-size: 1.02rem; }
+.help-main section { scroll-margin-top: 90px; display: grid; gap: 0.5rem; }
+.help-main section h2 { font-size: 1.05rem; letter-spacing: 0; text-transform: none; color: var(--fg); margin: 0; }
+.help-main section h3 { text-transform: none; font-size: 0.98rem; color: #ddd6fe; margin: 0.6rem 0 0; }
+.help-main p, .help-main ul, .help-main ol { margin: 0; }
+.help-main ul, .help-main ol { padding-left: 1.25rem; display: grid; gap: 0.35rem; }
+.help-main code { font-size: 0.86em; background: rgba(99, 102, 241, 0.14); border: 1px solid var(--border); border-radius: 6px; padding: 0.05rem 0.35rem; overflow-wrap: anywhere; }
+.toc ol { columns: 2 240px; column-gap: 1.5rem; padding-left: 1.2rem; }
+.toc li { break-inside: avoid; margin-bottom: 0.25rem; }
+.tag { font-size: 0.72rem; font-weight: 700; color: #120f2b; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-radius: 999px; padding: 0.05rem 0.5rem; vertical-align: middle; }
+.tip, .warn { padding: 0.55rem 0.75rem; border-radius: 10px; font-size: 0.93rem; }
+.tip { background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(143, 177, 238, 0.35); }
+.warn { background: rgba(251, 113, 133, 0.08); border: 1px solid rgba(251, 113, 133, 0.35); }
+.help-main details { border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.75rem; background: rgba(7, 6, 20, 0.35); }
+.help-main details summary { font-weight: 600; }
+.help-main details[open] summary { margin-bottom: 0.4rem; }
+.faq { margin: 0; display: grid; gap: 0.25rem; }
+.faq dt { font-weight: 700; margin-top: 0.4rem; }
+.faq dd { margin: 0; color: var(--muted); }
+.help-foot { text-align: center; }
+.help-link { margin: 0.8rem 0 0; font-size: 0.9rem; }
+.topbar > .btn { margin-left: auto; }
+.toc { display: grid; gap: 0.5rem; }
+.toc a { color: var(--turquin-light); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }

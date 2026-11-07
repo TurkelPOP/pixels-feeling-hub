@@ -347,6 +347,15 @@ Canva**, et ne voit que **ses** posts, brouillons, médias et règles. Personne 
 ou publier le contenu d'un autre, même un administrateur. Seuls la liste des personnes et le journal
 de sécurité sont communs aux administrateurs. Retirer quelqu'un supprime aussi tout son espace.
 
+**Aide pour tout le monde** : `https://<adresse>/aide`, accessible sans être connecté (lien
+« Besoin d'aide ? » sur la page de connexion et onglet « Aide » dans l'app). Elle explique en langage
+simple la première connexion, la double authentification, la connexion de chaque réseau, etc.
+
+**Mot de passe oublié (membre ou administrateur invité)** : Comptes → Personnes ayant accès →
+« Nouveau mot de passe » crée un lien à usage unique (48 h). La personne choisit un nouveau mot de
+passe ; ses réseaux, ses posts et sa double authentification sont conservés, et ses anciennes
+sessions sont fermées.
+
 Chaque personne a son propre accès. Dans **Comptes → Personnes ayant accès**, le
 propriétaire ou un administrateur crée un **lien d'invitation** (à usage unique, valable 48 h),
 en cochant « Administrateur » pour donner les mêmes droits (inviter, retirer, réinitialiser une 2FA). La personne y choisit son
