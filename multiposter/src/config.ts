@@ -33,6 +33,8 @@ export const config = {
   timezone: process.env.TZ_DISPLAY ?? "Europe/Paris",
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
 
+  /** Secret de l'adresse de réveil /cron/tick (tâche planifiée de l'hébergeur). 32 caractères min. */
+  cronSecret: opt("CRON_SECRET"),
   /** Webhook Discord / Slack / ntfy pour les alertes (facultatif). */
   alertWebhookUrl: opt("ALERT_WEBHOOK_URL"),
   canva: { clientId: opt("CANVA_CLIENT_ID"), clientSecret: opt("CANVA_CLIENT_SECRET") },

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -13,12 +14,12 @@ import { db, deleteAccount, getAccount, listAccounts, upsertAccount } from "./db
 import { checkMediaSignature, getMediaList, saveUpload } from "./media.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
-import { canvaApi, canvaRoutes, startCanvaWatcher } from "./canva.ts";
+import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
 import { isLogged, registerAuth, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { startCleanup } from "./cleanup.ts";
-import { publishPost, rollupStatus, startScheduler } from "./scheduler.ts";
+import { publishPost, rollupStatus, startScheduler, tick } from "./scheduler.ts";
 
 const app = new Hono();
 const PUBLIC = resolve(import.meta.dirname, "../public");
@@ -74,6 +75,21 @@ app.get("/open", (c) => c.redirect(`${config.appUrl}/`));
 // Petits points de contrôle pour vérifier que /oauth et /media sont bien joignables depuis Internet.
 app.get("/oauth/ping", (c) => c.text("multiposter-ok"));
 app.get("/media/ping", (c) => c.text("multiposter-ok"));
+
+// Réveil par une tâche planifiée de l'hébergeur (toutes les 5 min) : publie les posts arrivés à
+// échéance et vérifie Canva, même si le site s'était mis en veille faute de visites.
+// Protégé par CRON_SECRET (en-tête Authorization: Bearer … ou ?token=…).
+app.get("/cron/tick", async (c) => {
+  const secret = config.cronSecret;
+  const given = c.req.header("authorization")?.replace(/^Bearer\s+/i, "") ?? c.req.query("token") ?? "";
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(secret ?? randomUUID()).digest();
+  if (!secret || secret.length < 32 || !timingSafeEqual(a, b)) return c.notFound();
+  // On répond tout de suite ; la publication continue en arrière-plan dans le processus du site.
+  void tick();
+  void checkCanvaRules();
+  return c.text("ok");
+});
 
 // ---------- Fichiers publics ----------
 

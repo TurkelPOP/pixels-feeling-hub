@@ -80,7 +80,7 @@ export async function publishPost(postId: number): Promise<void> {
   rollupStatus(postId);
 }
 
-async function tick() {
+export async function tick() {
   if (running) return;
   running = true;
   try {

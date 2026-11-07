@@ -310,6 +310,12 @@ Variables d'environnement à définir dans le site Node.js d'alwaysdata :
 | `ALERT_WEBHOOK_URL` | ton webhook Discord (fortement recommandé) |
 | `MEDIA_RETENTION_DAYS` | par exemple `30`, selon l'espace disque de ton offre |
 
+**Réveil automatique** : alwaysdata peut mettre en veille un site sans visites. Ajoute
+`CRON_SECRET` (64 caractères aléatoires) aux variables, puis une **tâche planifiée** alwaysdata
+toutes les 5 minutes, de type « Accès à une URL » :
+`https://ton-compte.alwaysdata.net/cron/tick?token=<CRON_SECRET>`. Les posts programmés partent
+alors à l'heure, et les brouillons Canva sont créés, même sans personne sur le site.
+
 Commande de démarrage : `node --disable-warning=ExperimentalWarning src/server.ts`, dans le
 dossier `multiposter`, avec Node.js 22.18 ou plus récent.
 
