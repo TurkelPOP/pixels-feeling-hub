@@ -729,7 +729,20 @@ async function renderDevice() {
           renderDevice();
         } }, "🔔 Activer les notifications sur cet appareil"),
         h("small", { class: "muted" }, "Publication réussie ou en échec, récap du matin."));
-  box.replaceChildren(h("div", { class: "card system" }, cardTitle("Appli et notifications", "appli"), installRow, notifRow));
+  let recap = { enabled: true, hour: 8 };
+  try { recap = await api("/recap"); } catch { /* garde le défaut */ }
+  const hourSel = h("select", { "aria-label": "Heure du récap" }, ...Array.from({ length: 24 }, (_, i) => h("option", { value: String(i), selected: i === recap.hour }, `${i} h`)));
+  const onOff = h("input", { type: "checkbox", role: "switch", checked: recap.enabled });
+  const saveRecap = async () => { await api("/recap", { method: "PUT", body: JSON.stringify({ enabled: onOff.checked, hour: Number(hourSel.value) }) }); toast("Récap enregistré."); };
+  onOff.addEventListener("change", saveRecap);
+  hourSel.addEventListener("change", saveRecap);
+  const recapRow = h("div", { class: "row recap-row" },
+    h("label", { class: "check" }, onOff, h("span", {}, "☀️ Récap du matin à")), hourSel,
+    h("button", { class: "btn ghost small", type: "button", onclick: async () => {
+      const r = await api("/recap/test", { method: "POST" });
+      toast(r.body.replace(/\n/g, " · "));
+    } }, "Voir le récap d'aujourd'hui"));
+  box.replaceChildren(h("div", { class: "card system" }, cardTitle("Appli et notifications", "appli"), installRow, notifRow, recapRow));
 }
 
 // ---------- Maintenance (propriétaire) ----------

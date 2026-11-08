@@ -900,3 +900,6 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .maint-updates { display: grid; gap: 0.5rem; }
 .maint-updates:empty { display: none; }
 #maintenance h3 { margin: 0.6rem 0 0; text-transform: none; letter-spacing: 0; font-size: 0.95rem; }
+
+.recap-row { align-items: center; gap: 0.5rem; }
+.recap-row label.check { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0; }
