@@ -927,3 +927,42 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .cal-post[draggable="true"] { cursor: grab; }
 .cal-post.dragging { opacity: 0.45; }
 .cal-day.drop { outline: 2px dashed var(--turquin-light); outline-offset: -3px; background: rgba(2, 49, 151, 0.35); }
+
+/* Aperçu par réseau */
+.pv-dialog { width: min(460px, calc(100vw - 1rem)); }
+.pv { background: #fff; color: #111; border-radius: 14px; overflow: hidden; display: grid; gap: 0; font-size: 0.92rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+.pv .muted { color: #666; }
+.pv-head { display: flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.75rem; }
+.pv-head .avatar { width: 32px; height: 32px; }
+.pv-head .avatar-net { box-shadow: 0 0 0 1.5px #fff; background: #fff; }
+.pv-text { padding: 0 0.75rem 0.6rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+.pv-link { color: #00376b; }
+.pv-x .pv-link, .pv-threads .pv-link { color: #1d9bf0; }
+.pv-facebook .pv-link { color: #385898; font-weight: 600; }
+.pv-more { border: 0; background: none; padding: 0; font: inherit; color: #737373; cursor: pointer; }
+.pv-media { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; background: #000; }
+.pv-media.carousel { scrollbar-width: none; }
+.pv-slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; display: grid; place-items: center; }
+.pv-slide img, .pv-slide video { width: 100%; max-height: 520px; object-fit: contain; display: block; }
+.pv-instagram .pv-slide img { aspect-ratio: 4 / 5; object-fit: cover; }
+.pv-count { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.75rem; color: #fff; background: rgba(0, 0, 0, 0.6); border-radius: 999px; padding: 0.1rem 0.5rem; }
+.pv-actions { display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.75rem 0.2rem; font-size: 1.15rem; letter-spacing: 0.2em; }
+.pv-dots { display: flex; gap: 0.2rem; margin-right: auto; margin-left: 1.5rem; }
+.pv-dots i { width: 6px; height: 6px; border-radius: 999px; background: #c7c7c7; }
+.pv-dots i.on { background: #0095f6; }
+.pv-caption { padding: 0.2rem 0.75rem 0.75rem; }
+.pv-caption .pv-text { display: inline; padding: 0; }
+.pv-x .pv-media, .pv-threads .pv-media, .pv-facebook .pv-media { margin: 0 0.75rem 0.75rem; border-radius: 14px; }
+.pv-x, .pv-threads { background: #000; color: #e7e9ea; }
+.pv-x .muted, .pv-threads .muted { color: #71767b; }
+.pv-x .pv-head .avatar-net, .pv-threads .pv-head .avatar-net { box-shadow: 0 0 0 1.5px #000; background: #000; }
+.pv-tiktok { background: #000; color: #fff; }
+.pv-youtube .pv-title { padding: 0.2rem 0.75rem; font-size: 1rem; }
+.pv-story { position: relative; background: #000; aspect-ratio: 9 / 16; max-height: 70vh; }
+.pv-story .pv-media { height: 100%; }
+.pv-story .pv-slide img { height: 100%; object-fit: cover; }
+.pv-story-head { position: absolute; top: 0; left: 0; right: 0; color: #fff; }
+.pv-tabs { margin-bottom: 0.2rem; }
+
+.share-body { overflow-y: auto; min-height: 0; }
+.pv-slide img, .pv-slide video { max-height: 52vh; }

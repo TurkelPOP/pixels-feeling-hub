@@ -1671,6 +1671,73 @@ function slotEditor() {
     ...state.slots.map(row), row(null));
 }
 
+// ---------- Aperçu par réseau ----------
+// Une maquette simplifiée de chaque réseau : texte final (mentions, texte propre au réseau),
+// coupure « … plus », médias envoyés à ce réseau (carrousel qu'on fait défiler).
+
+const TRUNC = { instagram: 125, facebook: 480, threads: 500, x: 280, tiktok: 100, youtube: 160 };
+
+/** Texte avec hashtags et @mentions mis en valeur (nœuds DOM, jamais de HTML injecté). */
+function richText(text) {
+  const out = [];
+  let last = 0;
+  for (const m of text.matchAll(/(^|\s)([#@][\p{L}\p{N}_.]+)/gu)) {
+    const i = m.index + m[1].length;
+    out.push(text.slice(last, i), h("span", { class: "pv-link" }, m[2]));
+    last = i + m[2].length;
+  }
+  out.push(text.slice(last));
+  return out;
+}
+
+function previewCard(a) {
+  const o = optionsFor(a);
+  const media = chosenMedia(o);
+  const text = finalText(a);
+  const limit = TRUNC[a.provider] ?? 300;
+  const cut = countChars(text) > limit || text.split("\n").length > (a.provider === "instagram" ? 2 : 6);
+  const short = cut ? [...new Intl.Segmenter().segment(text)].map((s) => s.segment).slice(0, limit).join("").split("\n").slice(0, a.provider === "instagram" ? 2 : 6).join("\n") : text;
+  const caption = h("div", { class: "pv-text" }, ...richText(short), cut ? h("button", { type: "button", class: "pv-more", onclick: (e) => e.currentTarget.parentElement.replaceChildren(...richText(text)) }, a.provider === "facebook" ? "… Voir plus" : "… plus") : null);
+  const mediaEl = media.length
+    ? h("div", { class: `pv-media ${media.length > 1 ? "carousel" : ""} pv-${a.provider}` },
+        ...media.map((m, i) => h("div", { class: "pv-slide" },
+          m.kind === "video" ? h("video", { src: m.url, muted: true, playsinline: true, controls: true, preload: "metadata" }) : h("img", { src: m.url, alt: "" }),
+          media.length > 1 ? h("span", { class: "pv-count" }, `${i + 1}/${media.length}`) : null)))
+    : null;
+  const head = h("div", { class: "pv-head" }, h("span", { class: "avatar-wrap" }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider))),
+    h("div", {}, h("strong", {}, a.name), h("small", { class: "muted" }, a.provider === "x" || a.provider === "threads" ? " · maintenant" : "")));
+  const story = a.provider === "instagram" && o.format === "story";
+  if (story) return h("div", { class: "pv pv-story" }, mediaEl ?? h("p", { class: "muted" }, "Pas de média"), h("div", { class: "pv-story-head" }, head));
+  if (a.provider === "instagram")
+    return h("div", { class: "pv pv-instagram" }, head, mediaEl ?? h("p", { class: "error small" }, "Instagram exige une image ou une vidéo."),
+      h("div", { class: "pv-actions" }, "♡  💬  ➤", media.length > 1 ? h("span", { class: "pv-dots" }, ...media.map((_, i) => h("i", { class: i === 0 ? "on" : "" }))) : null),
+      h("div", { class: "pv-caption" }, h("strong", {}, a.name.replace(/^@/, "")), " ", caption));
+  if (a.provider === "youtube" || a.provider === "tiktok")
+    return h("div", { class: `pv pv-${a.provider}` }, mediaEl ?? h("p", { class: "error small" }, "Une vidéo est nécessaire."), head,
+      a.provider === "youtube" ? h("strong", { class: "pv-title" }, o.title || text.split("\n")[0] || "(sans titre)") : null, caption);
+  return h("div", { class: `pv pv-${a.provider}` }, head, caption, mediaEl);
+}
+
+function openPreview() {
+  const accs = selectedAccounts();
+  if (!accs.length) return toast("Coche d'abord au moins un compte.", "err");
+  const dlg = $("#share-dialog"), body = $("#share-body");
+  $("#share-title").textContent = "Aperçu par réseau";
+  let current = accs[0].id;
+  const paint = () => {
+    const a = accs.find((x) => x.id === current);
+    body.replaceChildren(
+      h("div", { class: "text-tabs pv-tabs" }, ...accs.map((x) => h("button", { type: "button", class: `text-tab${x.id === current ? " active" : ""}`, onclick: () => { current = x.id; paint(); } },
+        netIcon(x.provider), accs.filter((y) => y.provider === x.provider).length > 1 ? h("span", {}, x.name) : x.provider === "x" ? null : h("span", {}, PROVIDER[x.provider]?.label ?? x.provider)))),
+      previewCard(a),
+      h("p", { class: "muted small" }, "Aperçu simplifié : l'affichage réel peut varier un peu selon l'appareil."));
+  };
+  paint();
+  dlg.classList.add("pv-dialog");
+  dlg.addEventListener("close", () => dlg.classList.remove("pv-dialog"), { once: true });
+  dlg.showModal();
+}
+
 // ---------- Programmation en lot ----------
 
 state.batch = new Set();
@@ -2815,6 +2882,7 @@ async function init() {
   });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
   $("#share-close").onclick = () => $("#share-dialog").close();
+  $("#btn-preview").onclick = openPreview;
   $("#btn-templates").onclick = () => ($("#template-box").hidden ? renderTemplateBox() : ($("#template-box").hidden = true));
   $("#btn-mention").onclick = () => ($("#mention-box").hidden ? renderMentionBox() : ($("#mention-box").hidden = true));
   $("#net-text-custom").onclick = () => {
