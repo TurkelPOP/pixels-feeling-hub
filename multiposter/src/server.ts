@@ -23,6 +23,7 @@ import { registerHashtagApi } from "./hashtags.ts";
 import { registerMentionApi, resolveMentions } from "./mentions.ts";
 import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
 import { registerPushApi } from "./push.ts";
+import { registerPresetApi } from "./presets.ts";
 import { registerRecapApi, sendDueRecaps, startRecaps } from "./recap.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
@@ -315,6 +316,7 @@ registerHashtagApi(api);
 registerMentionApi(api);
 registerMaintenanceApi(api, sendFile);
 registerPushApi(api);
+registerPresetApi(api);
 registerRecapApi(api);
 registerMusicApi(api);
 // Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).

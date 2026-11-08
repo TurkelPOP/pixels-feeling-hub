@@ -903,3 +903,14 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 
 .recap-row { align-items: center; gap: 0.5rem; }
 .recap-row label.check { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0; }
+
+/* Créneaux */
+.slot-box { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
+.slot-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.slot-chip strong { font-weight: 700; }
+.slot-row { display: grid; gap: 0.4rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
+.slot-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.day-pick { display: flex; gap: 0.25rem; }
+.day-pick .day { width: 2rem; height: 2rem; border-radius: 999px; font: inherit; font-size: 0.8rem; font-weight: 700; color: var(--muted); background: rgba(1, 9, 36, 0.4); border: 1px solid var(--border); cursor: pointer; }
+.day-pick .day.on { color: #fff; background: var(--grad); border-color: transparent; }
+#template-box textarea { min-height: 7rem; }

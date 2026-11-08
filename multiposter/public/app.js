@@ -56,6 +56,9 @@ const state = {
   hashtags: { sets: [], top: [], editing: false },
   mentions: [],
   textTab: "all",
+  slots: [],
+  templates: [],
+  slotEditing: false,
   drive: { status: null, items: [], next: null, query: "", mode: "recent", path: [], picked: new Map() },
   profiles: [],
   profileFilter: "",
@@ -1230,6 +1233,7 @@ function renderComposeMeta() {
 
   renderTextTabs();
   renderMentionPreview();
+  renderSlots();
   renderHashtags();
   renderTargetCards();
   scheduleValidation();
@@ -1577,6 +1581,152 @@ function renderMentionBox(editing = null) {
           renderComposeMeta();
         } }, "Supprimer") : null),
       h("p", { class: "muted small" }, "Un réseau laissé vide : le nom est écrit en texte simple sur ce réseau.")),
+  );
+  box.hidden = false;
+}
+
+// ---------- Créneaux habituels ----------
+
+const DAYS = [[1, "L"], [2, "M"], [3, "M"], [4, "J"], [5, "V"], [6, "S"], [0, "D"]];
+const DAY_NAMES = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
+
+async function loadPresets() {
+  try { [state.slots, state.templates] = await Promise.all([api("/slots"), api("/templates")]); } catch { /* garde l'existant */ }
+}
+
+/** Le créneau s'applique-t-il aux comptes cochés ? (créneau général, ou profil dont un compte est coché) */
+const slotFits = (s) => s.profileId == null || (() => {
+  const pr = state.profiles.find((p) => p.id === s.profileId);
+  return !!pr && profileAccounts(pr).some((id) => state.selected.has(id));
+})();
+
+/** Prochaines dates libres d'un créneau (un post déjà programmé à ±10 min occupe la place). */
+function nextFree(slot, count = 1) {
+  const [hh, mm] = slot.time.split(":").map(Number);
+  const pr = slot.profileId != null ? state.profiles.find((p) => p.id === slot.profileId) : null;
+  const prAcc = pr ? new Set(profileAccounts(pr)) : null;
+  const taken = (t) => (state.posts ?? []).some((p) => p.status === "scheduled" && p.id !== state.editingId && Math.abs((p.scheduledAt ?? 0) - t) < 10 * 60e3
+    && (!prAcc || p.targets.some((x) => prAcc.has(x.accountId))));
+  const out = [];
+  const d = new Date();
+  for (let i = 0; i < 21 && out.length < count; i++) {
+    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i, hh, mm);
+    if (!slot.days.includes(day.getDay()) || day.getTime() < Date.now() + 2 * 60e3) continue;
+    if (!taken(day.getTime())) out.push(day.getTime());
+  }
+  return out;
+}
+
+const slotLabel = (t) => {
+  const d = new Date(t), today = new Date();
+  const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 864e5);
+  const day = diff === 0 ? "aujourd'hui" : diff === 1 ? "demain" : `${DAY_NAMES[d.getDay()]} ${d.getDate()}`;
+  return `${day} ${d.getHours()} h${d.getMinutes() ? String(d.getMinutes()).padStart(2, "0") : ""}`;
+};
+
+function renderSlots() {
+  const box = $("#slot-box");
+  if (!box) return;
+  const fits = state.slots.filter(slotFits);
+  const chips = fits.flatMap((s) => nextFree(s, 1).map((t) => ({ s, t }))).sort((a, b) => a.t - b.t);
+  box.replaceChildren(
+    chips.length
+      ? h("div", { class: "slot-chips" }, h("small", { class: "muted" }, "Prochain créneau libre :"),
+          ...chips.map(({ s, t }) => h("button", { type: "button", class: "chip small-chip slot-chip", title: `${s.label} · ${s.time}`, onclick: () => {
+            $("#when").value = toLocalInput(t);
+            $("#when").dispatchEvent(new Event("change"));
+            toast(`Programmé sur le créneau « ${s.label} » : ${slotLabel(t)}.`);
+          } }, h("strong", {}, s.label), ` · ${slotLabel(t)}`)))
+      : null,
+    h("button", { type: "button", class: "link-btn small", onclick: () => { state.slotEditing = !state.slotEditing; renderSlots(); } },
+      state.slotEditing ? "Fermer" : state.slots.length ? "Gérer mes créneaux" : "＋ Enregistrer mes heures habituelles de publication"),
+    state.slotEditing ? slotEditor() : null,
+  );
+}
+
+function slotEditor() {
+  const row = (s) => {
+    const label = h("input", { value: s?.label ?? "", placeholder: "Nom (ex. NEWZ)", maxlength: 40 });
+    const time = h("input", { type: "time", value: s?.time ?? "08:30" });
+    const days = new Set(s?.days ?? [1, 2, 3, 4, 5]);
+    const dayBtns = h("div", { class: "day-pick" }, ...DAYS.map(([n, l]) => {
+      const b = h("button", { type: "button", class: `day${days.has(n) ? " on" : ""}`, "aria-pressed": String(days.has(n)), title: DAY_NAMES[n] }, l);
+      b.onclick = () => { days.has(n) ? days.delete(n) : days.add(n); b.classList.toggle("on", days.has(n)); b.setAttribute("aria-pressed", String(days.has(n))); };
+      return b;
+    }));
+    const profile = h("select", {}, h("option", { value: "" }, "Tous mes posts"), ...state.profiles.map((p) => h("option", { value: String(p.id), selected: p.id === s?.profileId }, `Profil : ${p.name}`)));
+    return h("div", { class: "slot-row" }, label, time, dayBtns, profile,
+      h("div", { class: "row" },
+        h("button", { class: "btn primary small", type: "button", onclick: async () => {
+          try {
+            await api(s ? `/slots/${s.id}` : "/slots", { method: s ? "PUT" : "POST", body: JSON.stringify({ label: label.value, time: time.value, days: [...days], profileId: profile.value ? Number(profile.value) : null }) });
+            await loadPresets(); toast("Créneau enregistré."); renderSlots();
+          } catch (e) { toast(e.message, "err"); }
+        } }, s ? "Enregistrer" : "Ajouter"),
+        s ? h("button", { class: "btn ghost small danger", type: "button", onclick: async () => { await api(`/slots/${s.id}`, { method: "DELETE" }); await loadPresets(); renderSlots(); } }, "✕") : null));
+  };
+  return h("div", { class: "tagset-editor" },
+    h("p", { class: "muted small" }, "Tes heures habituelles : l'app propose le prochain créneau libre (pas déjà pris par un post programmé). Lié à un profil, un créneau n'est proposé que quand ce profil est coché."),
+    ...state.slots.map(row), row(null));
+}
+
+// ---------- Modèles de légende ----------
+
+/** Remplit {date}, {jour}, {heure} d'après la date choisie dans « Quand ? ». */
+function fillTemplate(text) {
+  const t = Date.parse($("#when").value) || Date.now();
+  const d = new Date(t);
+  return text
+    .replace(/\{date\}/g, d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }))
+    .replace(/\{jour\}/g, d.toLocaleDateString("fr-FR", { weekday: "long" }))
+    .replace(/\{heure\}/g, `${d.getHours()} h${d.getMinutes() ? String(d.getMinutes()).padStart(2, "0") : ""}`);
+}
+
+function applyTemplate(tpl) {
+  const ta = $("#text");
+  const text = fillTemplate(tpl.text);
+  if (ta.value.trim()) {
+    const replace = confirm(`Appliquer le modèle « ${tpl.name} » ?\n\nOK : remplacer le texte actuel\nAnnuler : l'ajouter à la fin`);
+    ta.value = replace ? text : `${ta.value.replace(/\s+$/, "")}\n\n${text}`;
+  } else ta.value = text;
+  state.textTab = "all";
+  ta.dispatchEvent(new Event("input"));
+  $("#template-box").hidden = true;
+  toast(`Modèle « ${tpl.name} » appliqué.`);
+}
+
+function renderTemplateBox(editing = null) {
+  const box = $("#template-box");
+  const fits = state.templates.filter((t) => t.profileId == null || slotFits(t));
+  const name = h("input", { placeholder: "Nom (ex. Trame NEWZ)", maxlength: 60, value: editing?.name ?? "" });
+  const text = h("textarea", { rows: 5, placeholder: "🎮 NEWZ du {date}\n\n…\n\n@[Nintendo France] #gaming #jeuxvideo" });
+  text.value = editing?.text ?? "";
+  const profile = h("select", {}, h("option", { value: "" }, "Pour tous mes posts"), ...state.profiles.map((p) => h("option", { value: String(p.id), selected: p.id === editing?.profileId }, `Profil : ${p.name}`)));
+  const save = async () => {
+    try {
+      await api(editing ? `/templates/${editing.id}` : "/templates", { method: editing ? "PUT" : "POST", body: JSON.stringify({ name: name.value, text: text.value, profileId: profile.value ? Number(profile.value) : null }) });
+      await loadPresets(); toast("Modèle enregistré."); renderTemplateBox();
+    } catch (e) { toast(e.message, "err"); }
+  };
+  box.replaceChildren(
+    h("div", { class: "mention-head" }, h("strong", {}, "Modèles de légende"), h("small", { class: "muted" }, "Un clic applique le modèle. {date}, {jour} et {heure} prennent la date de « Quand ? »."),
+      h("button", { type: "button", class: "btn ghost small", onclick: () => { box.hidden = true; } }, "Fermer")),
+    h("div", { class: "chips mention-chips" },
+      ...fits.map((t) => h("span", { class: "mention-chip-wrap" },
+        h("button", { type: "button", class: "chip small-chip mention-chip", title: t.text.slice(0, 200), onclick: () => applyTemplate(t) }, "📄 ", t.name),
+        h("button", { type: "button", class: "mention-edit", "aria-label": `Modifier ${t.name}`, onclick: () => renderTemplateBox(t) }, "✎"))),
+      fits.length ? null : h("p", { class: "muted small" }, state.templates.length ? "Aucun modèle pour les comptes cochés." : "Aucun modèle pour l'instant.")),
+    h("details", { class: "tuto-box mention-form", open: !!editing || !state.templates.length },
+      h("summary", {}, editing ? `Modifier « ${editing.name} »` : "＋ Nouveau modèle"),
+      name, text, profile,
+      h("div", { class: "row" },
+        h("button", { class: "btn primary small", type: "button", onclick: save }, editing ? "Enregistrer" : "Créer le modèle"),
+        editing ? null : h("button", { class: "btn ghost small", type: "button", onclick: () => { text.value = $("#text").value; } }, "Reprendre le texte actuel"),
+        editing ? h("button", { class: "btn ghost small", type: "button", onclick: () => renderTemplateBox() }, "Annuler") : null,
+        editing ? h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
+          if (!confirm(`Supprimer le modèle « ${editing.name} » ?`)) return;
+          await api(`/templates/${editing.id}`, { method: "DELETE" }); await loadPresets(); renderTemplateBox();
+        } }, "Supprimer") : null)),
   );
   box.hidden = false;
 }
@@ -2548,7 +2698,7 @@ async function init() {
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();
-  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags(), loadMentions()]);
+  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags(), loadMentions(), loadPresets()]);
   await loadAccounts();
 
   $("#btn-canva").onclick = openCanva;
@@ -2571,6 +2721,7 @@ async function init() {
   });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
   $("#share-close").onclick = () => $("#share-dialog").close();
+  $("#btn-templates").onclick = () => ($("#template-box").hidden ? renderTemplateBox() : ($("#template-box").hidden = true));
   $("#btn-mention").onclick = () => ($("#mention-box").hidden ? renderMentionBox() : ($("#mention-box").hidden = true));
   $("#net-text-custom").onclick = () => {
     const id = state.textTab;

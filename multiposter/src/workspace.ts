@@ -61,6 +61,7 @@ export function removeUserData(userId: number): void {
     db.prepare("DELETE FROM profiles WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM hashtag_sets WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM mention_contacts WHERE owner_id = ?").run(userId);
+    for (const t of ["time_slots", "caption_templates", "push_subs"]) db.prepare(`DELETE FROM ${t} WHERE owner_id = ?`).run(userId);
     db.prepare("DELETE FROM canva_rules WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM canva_daily_drafts WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM integrations WHERE id IN (?, ?)").run(`canva:${userId}`, `gdrive:${userId}`);
