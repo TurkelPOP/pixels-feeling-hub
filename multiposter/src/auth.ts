@@ -231,7 +231,7 @@ export function clientIp(c: Context): string {
   return "local";
 }
 
-function logEvent(c: Context | null, type: string, user: string | null, detail = "") {
+export function logEvent(c: Context | null, type: string, user: string | null, detail = "") {
   db.prepare("INSERT INTO security_events (at, type, ip, agent, detail, user) VALUES (?, ?, ?, ?, ?, ?)").run(
     Date.now(), type, c ? clientIp(c) : null, c ? (c.req.header("user-agent") ?? "").slice(0, 200) : null, detail.slice(0, 300), user,
   );

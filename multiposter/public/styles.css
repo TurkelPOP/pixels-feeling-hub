@@ -891,3 +891,12 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .mentions-preview { display: grid; gap: 0.2rem; }
 .mentions-preview:empty { display: none; }
 .mentions-preview p { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+
+/* Maintenance */
+.maint-commits, .maint-backups { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.maint-commits li { font-size: 0.88rem; }
+.maint-backups li { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(1, 9, 36, 0.3); font-size: 0.88rem; }
+.maint-backups li > .row { margin-left: auto; }
+.maint-updates { display: grid; gap: 0.5rem; }
+.maint-updates:empty { display: none; }
+#maintenance h3 { margin: 0.6rem 0 0; text-transform: none; letter-spacing: 0; font-size: 0.95rem; }

@@ -21,6 +21,7 @@ import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./can
 import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
 import { registerHashtagApi } from "./hashtags.ts";
 import { registerMentionApi, resolveMentions } from "./mentions.ts";
+import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
@@ -288,6 +289,7 @@ api.get("/accounts", (c) =>
 registerProfileApi(api);
 registerHashtagApi(api);
 registerMentionApi(api);
+registerMaintenanceApi(api, sendFile);
 registerMusicApi(api);
 // Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).
 api.get("/music/:id/file", (c) => {
@@ -545,6 +547,7 @@ void setupTailscale(useTailscaleHost).then((s) => {
 });
 startCanvaWatcher();
 startCleanup();
+startBackups();
 // Par défaut, l'app n'écoute que sur ce PC (127.0.0.1) : elle n'est pas visible depuis les
 // autres appareils du Wi-Fi. HOST=0.0.0.0 seulement pour Docker ou un serveur.
 serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {

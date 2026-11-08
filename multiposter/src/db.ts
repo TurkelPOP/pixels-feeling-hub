@@ -1,10 +1,28 @@
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { resolve } from "node:path";
 
 import { config } from "./config.ts";
 import { seal, unseal } from "./crypto.ts";
 
-export const db = new DatabaseSync(resolve(config.dataDir, "multiposter.db"));
+export const DB_PATH = resolve(config.dataDir, "multiposter.db");
+
+// Restauration demandée depuis l'app : appliquée ici, au démarrage, avant d'ouvrir la base.
+// La base actuelle est gardée de côté (backups/avant-restauration-…), jamais effacée.
+{
+  const pending = resolve(config.dataDir, "restore-pending.db");
+  if (existsSync(pending)) {
+    const dir = resolve(config.dataDir, "backups");
+    mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    if (existsSync(DB_PATH)) renameSync(DB_PATH, resolve(dir, `avant-restauration-${stamp}.db`));
+    for (const ext of ["-wal", "-shm"]) if (existsSync(DB_PATH + ext)) renameSync(DB_PATH + ext, resolve(dir, `avant-restauration-${stamp}.db${ext}`));
+    renameSync(pending, DB_PATH);
+    console.log("[sauvegarde] restauration appliquée");
+  }
+}
+
+export const db = new DatabaseSync(DB_PATH);
 
 db.exec(`
 PRAGMA journal_mode = WAL;

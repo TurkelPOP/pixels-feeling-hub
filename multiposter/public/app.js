@@ -170,6 +170,7 @@ function route() {
     renderSecurity();
     renderUsers();
     loadAppSettings().then(() => { renderAccounts(); renderAppSettings(); });
+    renderMaintenance();
   }
 }
 window.addEventListener("hashchange", route);
@@ -670,8 +671,101 @@ function publicCard(sys) {
     out);
 }
 
+// ---------- Maintenance (propriétaire) ----------
+
+const frDateTime = (ms) => new Date(ms).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+
+/** Attend que l'app revienne après un redémarrage, puis recharge la page. */
+function waitForRestart(msg) {
+  toast(msg);
+  const started = Date.now();
+  const poll = async () => {
+    try {
+      const r = await fetch("/login/info", { cache: "no-store" });
+      if (r.ok && Date.now() - started > 3000) return location.reload();
+    } catch { /* pas encore revenu */ }
+    if (Date.now() - started > 90_000) return toast("L'app ne revient pas : redémarre le site dans le panneau alwaysdata (Web → Sites).", "err");
+    setTimeout(poll, 2000);
+  };
+  setTimeout(poll, 2500);
+}
+
+async function renderMaintenance() {
+  const box = $("#maintenance");
+  if (state.me?.role !== "owner") return box.replaceChildren();
+  let m;
+  try { m = await api("/maintenance"); } catch { return; }
+  const updBox = h("div", { class: "maint-updates" });
+  const check = h("button", { class: "btn ghost small", type: "button" }, "Vérifier les mises à jour");
+  check.onclick = async () => {
+    check.disabled = true; check.textContent = "Vérification…";
+    try {
+      const { commits } = await api("/maintenance/update/check", { method: "POST" });
+      if (!commits.length) updBox.replaceChildren(h("p", { class: "small" }, "✅ PTZ Posting est à jour."));
+      else {
+        const go = h("button", { class: "btn primary small", type: "button" }, `Installer ${plural(commits.length, "nouveauté")} et redémarrer`);
+        go.onclick = async () => {
+          if (!confirm("Installer la mise à jour ? L'app sera indisponible quelques secondes (une sauvegarde est faite avant).")) return;
+          go.disabled = true; go.textContent = "Installation…";
+          try {
+            const r = await api("/maintenance/update/apply", { method: "POST" });
+            if (r.restarting) waitForRestart("Mise à jour installée, redémarrage de l'app…");
+            else { toast("Déjà à jour."); renderMaintenance(); }
+          } catch (e) { toast(e.message, "err"); go.disabled = false; go.textContent = "Réessayer"; }
+        };
+        updBox.replaceChildren(
+          h("ul", { class: "maint-commits" }, ...commits.slice(0, 15).map((x) => h("li", {}, h("span", {}, x.subject), h("small", { class: "muted" }, ` · ${frDateTime(Date.parse(x.date))}`)))),
+          commits.length > 15 ? h("p", { class: "muted small" }, `… et ${commits.length - 15} autres.`) : null,
+          go);
+      }
+    } catch (e) { updBox.replaceChildren(h("p", { class: "error small" }, e.message)); }
+    check.disabled = false; check.textContent = "Vérifier les mises à jour";
+  };
+
+  const backupRow = (b) => h("li", {},
+    h("span", {}, b.name.startsWith("avant-") ? "Avant restauration · " : "", frDateTime(b.at)),
+    h("small", { class: "muted" }, ` ${Math.max(1, Math.round(b.size / 1024))} Ko`),
+    h("span", { class: "row" },
+      h("a", { class: "btn ghost small", href: `/api/maintenance/backups/${encodeURIComponent(b.name)}`, download: b.name }, "Télécharger"),
+      h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
+        if (prompt(`Restaurer la sauvegarde du ${frDateTime(b.at)} ?\nTout ce qui a été fait depuis sera perdu (la base actuelle est gardée de côté).\n\nTape RESTAURER pour confirmer :`) !== "RESTAURER") return;
+        try {
+          await api(`/maintenance/backups/${encodeURIComponent(b.name)}/restore`, { method: "POST" });
+          waitForRestart("Restauration en cours, redémarrage de l'app…");
+        } catch (e) { toast(e.message, "err"); }
+      } }, "Restaurer")));
+
+  box.replaceChildren(
+    h("div", { class: "card system" },
+      cardTitle("Maintenance", "proprietaire"),
+      h("h3", {}, "Mise à jour"),
+      h("p", { class: "small" }, m.version
+        ? ["Version installée : ", h("strong", {}, m.version.commit), ` du ${frDateTime(Date.parse(m.version.date))} — « ${m.version.subject} »`]
+        : "Version inconnue (l'app n'a pas été installée avec git)."),
+      h("div", { class: "row" }, check,
+        h("button", { class: "btn ghost small", type: "button", onclick: async () => {
+          if (!confirm("Redémarrer l'app maintenant ?")) return;
+          await api("/maintenance/restart", { method: "POST" });
+          waitForRestart("Redémarrage…");
+        } }, "Redémarrer l'app")),
+      updBox,
+      h("h3", {}, "Sauvegardes"),
+      h("p", { class: "muted small" }, `Copie automatique de la base chaque nuit (les ${m.keep} dernières sont gardées) : réseaux connectés, posts, réglages. Les fichiers images et vidéos ne sont pas inclus. Une sauvegarde contient des données sensibles (chiffrées) : ne la partage pas.`),
+      h("div", { class: "row" }, h("button", { class: "btn ghost small", type: "button", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { await api("/maintenance/backups", { method: "POST" }); toast("Sauvegarde faite."); renderMaintenance(); } catch (err) { toast(err.message, "err"); }
+      } }, "Sauvegarder maintenant")),
+      m.backups.length ? h("ul", { class: "maint-backups" }, ...m.backups.map(backupRow)) : h("p", { class: "muted small" }, "Pas encore de sauvegarde (la première est faite quelques minutes après le démarrage)."),
+    ));
+}
+
 const EVENT_LABEL = {
   login_ok: "Connexion réussie",
+  app_updated: "Mise à jour de l'app",
+  app_restart: "Redémarrage de l'app",
+  backup_created: "Sauvegarde créée",
+  backup_downloaded: "Sauvegarde téléchargée",
+  backup_restored: "Sauvegarde restaurée",
   login_fail: "Échec de connexion",
   login_setup: "Connexion (activation 2FA)",
   "2fa_enabled": "Double authentification activée",
