@@ -814,6 +814,12 @@ function waitForRestart(msg) {
   setTimeout(poll, 2500);
 }
 
+/** Code de l'appli d'authentification, redemandé avant une action sensible. */
+const askCode = (what) => {
+  const c = prompt(`${what}\n\nPour confirmer, tape le code à 6 chiffres de ton appli d'authentification :`);
+  return c == null ? null : c.trim();
+};
+
 async function renderMaintenance() {
   const box = $("#maintenance");
   if (state.me?.role !== "owner") return box.replaceChildren();
@@ -824,22 +830,26 @@ async function renderMaintenance() {
   check.onclick = async () => {
     check.disabled = true; check.textContent = "Vérification…";
     try {
-      const { commits } = await api("/maintenance/update/check", { method: "POST" });
+      const { commits, files, target, remote, branch } = await api("/maintenance/update/check", { method: "POST" });
       if (!commits.length) updBox.replaceChildren(h("p", { class: "small" }, "✅ PTZ Posting est à jour."));
       else {
         const go = h("button", { class: "btn primary small", type: "button" }, `Installer (${commits.length})`);
         go.onclick = async () => {
-          if (!confirm("Installer la mise à jour ? L'app sera indisponible quelques secondes (une sauvegarde est faite avant).")) return;
+          const code = askCode("Installer la mise à jour ? L'app sera indisponible quelques secondes (une sauvegarde est faite avant).");
+          if (!code) return;
           go.disabled = true; go.textContent = "Installation…";
           try {
-            const r = await api("/maintenance/update/apply", { method: "POST" });
+            const r = await api("/maintenance/update/apply", { method: "POST", body: JSON.stringify({ code, target }) });
             if (r.restarting) waitForRestart("Mise à jour installée, redémarrage de l'app…");
             else { toast("Déjà à jour."); renderMaintenance(); }
           } catch (e) { toast(e.message, "err"); go.disabled = false; go.textContent = "Réessayer"; }
         };
         updBox.replaceChildren(
-          h("ul", { class: "maint-commits" }, ...commits.slice(0, 15).map((x) => h("li", {}, h("span", {}, x.subject), h("small", { class: "muted" }, ` · ${frDateTime(Date.parse(x.date))}`)))),
+          h("p", { class: "muted small" }, `Source : ${remote} (${branch}) · version ${target.slice(0, 7)}`),
+          h("ul", { class: "maint-commits" }, ...commits.slice(0, 15).map((x) => h("li", {}, h("span", {}, x.subject), h("small", { class: "muted" }, ` · ${x.author} · ${frDateTime(Date.parse(x.date))}`)))),
           commits.length > 15 ? h("p", { class: "muted small" }, `… et ${commits.length - 15} autres.`) : null,
+          h("details", { class: "tuto-box" }, h("summary", {}, `${files.length} fichier${files.length > 1 ? "s" : ""} modifié${files.length > 1 ? "s" : ""}`),
+            h("ul", { class: "maint-files" }, ...files.map((f) => h("li", {}, h("code", {}, f))))),
           go);
       }
     } catch (e) { updBox.replaceChildren(h("p", { class: "error small" }, e.message)); }
@@ -850,11 +860,23 @@ async function renderMaintenance() {
     h("span", {}, b.name.startsWith("avant-") ? "Avant restauration · " : "", frDateTime(b.at)),
     h("small", { class: "muted" }, ` ${Math.max(1, Math.round(b.size / 1024))} Ko`),
     h("span", { class: "row" },
-      h("a", { class: "btn ghost small", href: `/api/maintenance/backups/${encodeURIComponent(b.name)}`, download: b.name }, "Télécharger"),
+      h("button", { class: "btn ghost small", type: "button", onclick: async () => {
+        const code = askCode("Télécharger cette sauvegarde ? Elle contient des données sensibles (chiffrées).");
+        if (!code) return;
+        try {
+          const r = await fetch(`/api/maintenance/backups/${encodeURIComponent(b.name)}/download`, { method: "POST", headers: { "X-Requested-With": "multiposter", "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+          const url = URL.createObjectURL(await r.blob());
+          const a = h("a", { href: url, download: b.name }); document.body.append(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        } catch (e) { toast(e.message, "err"); }
+      } }, "Télécharger"),
       h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
         if (prompt(`Restaurer la sauvegarde du ${frDateTime(b.at)} ?\nTout ce qui a été fait depuis sera perdu (la base actuelle est gardée de côté).\n\nTape RESTAURER pour confirmer :`) !== "RESTAURER") return;
+        const code = askCode("Dernière vérification avant la restauration.");
+        if (!code) return;
         try {
-          await api(`/maintenance/backups/${encodeURIComponent(b.name)}/restore`, { method: "POST" });
+          await api(`/maintenance/backups/${encodeURIComponent(b.name)}/restore`, { method: "POST", body: JSON.stringify({ code }) });
           waitForRestart("Restauration en cours, redémarrage de l'app…");
         } catch (e) { toast(e.message, "err"); }
       } }, "Restaurer")));
@@ -890,6 +912,7 @@ const EVENT_LABEL = {
   backup_created: "Sauvegarde créée",
   backup_downloaded: "Sauvegarde téléchargée",
   backup_restored: "Sauvegarde restaurée",
+  stepup_fail: "Code de confirmation incorrect",
   login_fail: "Échec de connexion",
   login_setup: "Connexion (activation 2FA)",
   "2fa_enabled": "Double authentification activée",

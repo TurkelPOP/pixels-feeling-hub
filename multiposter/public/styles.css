@@ -1025,3 +1025,4 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
   .media-tools #btn-photo { order: 1; } .media-tools #btn-video { order: 2; } .media-tools #btn-canva { order: 3; grid-column: auto; }
   .media-tools #btn-music { order: 5; }
 }
+.maint-files { margin: 0; padding-left: 1.1rem; max-height: 30vh; overflow: auto; font-size: 0.82rem; }

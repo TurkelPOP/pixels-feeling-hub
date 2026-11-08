@@ -454,7 +454,8 @@ ${networks[id].owner}`,
 <ul>
   <li><strong>Nouveau mot de passe propriétaire</strong> : dans la console SSH, <code>node scripts/hash-password.ts</code>, puis remplacer la valeur de <code>ADMIN_PASSWORD_HASH</code> dans alwaysdata (sans espace, sans &lt; &gt;) et redémarrer.</li>
   <li><strong>Téléphone perdu et plus de codes de secours</strong> : ajouter <code>TWOFA_RESET=1</code>, redémarrer, se reconnecter pour réactiver la double authentification, puis <strong>retirer</strong> <code>TWOFA_RESET</code> et redémarrer.</li>
-  <li><strong>Mettre à jour l'app</strong> : dans la console SSH, <code>cd pixels-feeling-hub/multiposter</code> puis <code>git pull</code>, puis redémarrer le site.</li>
+  <li><strong>Mettre à jour l'app</strong> : Comptes → <strong>Maintenance → Mises à jour</strong> : liste des nouveautés et des fichiers modifiés, puis <strong>Installer</strong> avec le code de ton appli d'authentification. Seule la version affichée est installée (sauvegarde faite avant). Sans l'app : console SSH, <code>git pull</code>, redémarrer.</li>
+  <li><strong>Sauvegardes</strong> : télécharger ou restaurer une sauvegarde demande aussi le code de ton appli d'authentification.</li>
   <li><strong>Protéger le serveur</strong> : double authentification sur les comptes alwaysdata, GitHub, Meta et Google.</li>
 </ul>`,
     },

@@ -217,6 +217,37 @@ function useRecoveryCode(user: User, code: string): boolean {
   return true;
 }
 
+/**
+ * Confirmation d'identité avant une action sensible (mise à jour, restauration, sauvegarde) :
+ * le code à 6 chiffres de l'appli d'authentification, même avec une session ouverte.
+ * Sans double authentification (usage local), le mot de passe. 5 échecs → 15 min de blocage.
+ */
+const stepUpFails = new Map<number, { n: number; until: number }>();
+export function confirmIdentity(c: Context, code: unknown): string | null {
+  const u = userById(currentUser(c)!.id);
+  if (!u) return "Compte introuvable.";
+  const f = stepUpFails.get(u.id);
+  if (f && f.until > Date.now()) return "Trop d'essais : réessaie dans 15 minutes.";
+  const given = String(code ?? "").trim();
+  let ok = false;
+  if (u.totp_secret) {
+    const counter = matchTotp(given, unseal(u.totp_secret)!, u.totp_last);
+    if (counter !== null) {
+      db.prepare("UPDATE users SET totp_last = ? WHERE id = ?").run(counter, u.id);
+      ok = true;
+    }
+  } else ok = !!given && verifyPassword(u, given);
+  if (ok) {
+    stepUpFails.delete(u.id);
+    return null;
+  }
+  const n = (f?.n ?? 0) + 1;
+  stepUpFails.set(u.id, { n, until: n >= 5 ? Date.now() + 15 * 60_000 : 0 });
+  logEvent(c, "stepup_fail", u.name, "code de confirmation incorrect");
+  if (n >= 5) void alert(`🚨 PTZ Posting : 5 codes de confirmation faux pour « ${u.name} » (action sensible). Bloqué 15 min.`);
+  return u.totp_secret ? "Code incorrect (6 chiffres de ton appli d'authentification)." : "Mot de passe incorrect.";
+}
+
 const anyTwoFactor = () => !!db.prepare("SELECT 1 FROM users WHERE totp_secret IS NOT NULL").get();
 export const twoFactorEnabled = anyTwoFactor;
 
