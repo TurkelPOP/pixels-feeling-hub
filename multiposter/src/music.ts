@@ -146,8 +146,8 @@ export function registerMusicApi(api: Hono) {
     const f = musicFile(c.req.param("id"), uid(c));
     if (!f) return c.json({ error: "Musique introuvable" }, 404);
     await unlink(f.path).catch(() => {});
-    db.prepare("DELETE FROM music_tracks WHERE id = ? AND owner_id = ?").run(c.req.param("id"), uid(c));
-    return c.json({ ok: true });
+    const del = db.prepare("DELETE FROM music_tracks WHERE id = ? AND owner_id = ?").run(c.req.param("id"), uid(c));
+    return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
   });
 
   /**

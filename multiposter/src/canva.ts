@@ -369,8 +369,8 @@ canvaApi.put("/rules/:id", async (c) => {
 });
 
 canvaApi.delete("/rules/:id", (c) => {
-  db.prepare("DELETE FROM canva_rules WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uidOf(c));
-  return c.json({ ok: true });
+  const del = db.prepare("DELETE FROM canva_rules WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uidOf(c));
+  return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
 });
 
 canvaApi.post("/rules/run", async (c) => c.json({ count: await checkCanvaRules(uidOf(c)) }));

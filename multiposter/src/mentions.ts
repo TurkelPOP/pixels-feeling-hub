@@ -80,7 +80,7 @@ export function registerMentionApi(api: Hono) {
   api.post("/mentions", (c) => save(c));
   api.put("/mentions/:id", (c) => save(c, Number(c.req.param("id"))));
   api.delete("/mentions/:id", (c) => {
-    db.prepare("DELETE FROM mention_contacts WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
-    return c.json({ ok: true });
+    const del = db.prepare("DELETE FROM mention_contacts WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
+    return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
   });
 }

@@ -48,8 +48,8 @@ export function registerPresetApi(api: Hono) {
   api.post("/slots", (c) => saveSlot(c));
   api.put("/slots/:id", (c) => saveSlot(c, Number(c.req.param("id"))));
   api.delete("/slots/:id", (c) => {
-    db.prepare("DELETE FROM time_slots WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
-    return c.json({ ok: true });
+    const del = db.prepare("DELETE FROM time_slots WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
+    return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
   });
 
   // ---------- modèles de légende ----------
@@ -76,7 +76,7 @@ export function registerPresetApi(api: Hono) {
   api.post("/templates", (c) => saveTpl(c));
   api.put("/templates/:id", (c) => saveTpl(c, Number(c.req.param("id"))));
   api.delete("/templates/:id", (c) => {
-    db.prepare("DELETE FROM caption_templates WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
-    return c.json({ ok: true });
+    const del = db.prepare("DELETE FROM caption_templates WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
+    return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
   });
 }

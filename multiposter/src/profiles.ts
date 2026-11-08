@@ -114,7 +114,7 @@ export function registerProfileApi(api: Hono) {
   });
 
   api.delete("/profiles/:id", (c) => {
-    db.prepare("DELETE FROM profiles WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
-    return c.json({ ok: true });
+    const del = db.prepare("DELETE FROM profiles WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
+    return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
   });
 }

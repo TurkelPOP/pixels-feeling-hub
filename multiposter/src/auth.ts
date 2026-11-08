@@ -269,8 +269,11 @@ export function logEvent(c: Context | null, type: string, user: string | null, d
   db.prepare("DELETE FROM security_events WHERE id NOT IN (SELECT id FROM security_events ORDER BY id DESC LIMIT 500)").run();
 }
 
-export function securityEvents(limit = 50) {
-  return db.prepare("SELECT at, type, ip, agent, detail, user FROM security_events ORDER BY id DESC LIMIT ?").all(limit);
+/** Journal de sécurité : tout pour le propriétaire ; pour les autres, seulement leurs propres événements. */
+export function securityEvents(limit = 50, viewer?: User | null) {
+  if (!viewer || viewer.role === "owner")
+    return db.prepare("SELECT at, type, ip, agent, detail, user FROM security_events ORDER BY id DESC LIMIT ?").all(limit);
+  return db.prepare("SELECT at, type, ip, agent, detail, user FROM security_events WHERE user = ? ORDER BY id DESC LIMIT ?").all(viewer.name, limit);
 }
 
 const failures = new Map<string, { count: number; until: number }>();
@@ -632,7 +635,11 @@ export function registerUserApi(api: Hono) {
 
   api.get("/users", (c) =>
     c.json(
-      (db.prepare("SELECT * FROM users ORDER BY role DESC, name").all() as unknown as User[]).map((u) => ({
+      // Un membre ne voit que lui-même ; les administrateurs voient tout le monde.
+      (isAdmin(currentUser(c))
+        ? (db.prepare("SELECT * FROM users ORDER BY role DESC, name").all() as unknown as User[])
+        : [userById(currentUser(c)!.id)!]
+      ).map((u) => ({
         id: u.id,
         name: u.name,
         role: u.role,

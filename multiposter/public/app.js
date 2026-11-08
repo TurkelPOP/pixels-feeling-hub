@@ -1053,6 +1053,7 @@ async function renderSecurity() {
 }
 
 async function renderSystem() {
+  if (state.me && state.me.role !== "owner") return $("#system").replaceChildren(); // réglages du serveur : propriétaire
   let sys;
   try {
     sys = await api("/system");

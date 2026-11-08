@@ -183,6 +183,6 @@ export function updateTokens(
   ).run(seal(t.accessToken), seal(t.refreshToken ?? null), t.expiresAt, id);
 }
 
-export function deleteAccount(id: number, ownerId: number): void {
-  db.prepare("DELETE FROM accounts WHERE id = ? AND owner_id = ?").run(id, ownerId);
+export function deleteAccount(id: number, ownerId: number): boolean {
+  return db.prepare("DELETE FROM accounts WHERE id = ? AND owner_id = ?").run(id, ownerId).changes > 0;
 }

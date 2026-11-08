@@ -264,16 +264,22 @@ api.get("/system", (c) =>
   c.json({ autostart: autostartStatus(), publicUrl: config.publicUrl, mediaPublicUrl: config.mediaPublicUrl, tailscale: tailscaleState }),
 );
 
-api.get("/security", (c) => c.json({ ...securityStatus(c), events: securityEvents(30) }));
+api.get("/security", (c) => c.json({ ...securityStatus(c), events: securityEvents(30, currentUser(c)) }));
+/** Réglages du serveur (démarrage auto, Tailscale) : propriétaire uniquement. */
+const ownerOnlyApi = (c: Context) => (currentUser(c)?.id === ownerId() ? null : c.json({ error: "Réservé au propriétaire." }, 403));
 registerUserApi(api);
 
 api.post("/system/tailscale/retry", async (c) => {
+  const denied = ownerOnlyApi(c);
+  if (denied) return denied;
   await setupTailscale(useTailscaleHost);
   return c.json({ tailscale: tailscaleState, publicUrl: config.publicUrl });
 });
 
 /** Vérifie depuis Internet que les réseaux pourront joindre /oauth et /media. */
 api.get("/system/public-check", async (c) => {
+  const denied = ownerOnlyApi(c);
+  if (denied) return denied;
   const probe = async (url: string) => {
     if (/^http:\/\/(127\.0\.0\.1|localhost)/.test(url)) return { ok: false, reason: "adresse locale : à remplacer par l'adresse Tailscale" };
     try {
@@ -289,6 +295,8 @@ api.get("/system/public-check", async (c) => {
 });
 
 api.put("/system/autostart", async (c) => {
+  const denied = ownerOnlyApi(c);
+  if (denied) return denied;
   const { enabled } = await c.req.json<{ enabled?: boolean }>();
   try {
     return c.json({ autostart: await setAutostart(!!enabled) });
@@ -334,8 +342,7 @@ api.get("/music/:id/file", (c) => {
 registerAppSettingsApi(api);
 
 api.delete("/accounts/:id", (c) => {
-  deleteAccount(Number(c.req.param("id")), uid(c));
-  return c.json({ ok: true });
+  return deleteAccount(Number(c.req.param("id")), uid(c)) ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);
 });
 
 api.put("/media", async (c) => {
