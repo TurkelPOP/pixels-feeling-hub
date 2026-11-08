@@ -22,6 +22,21 @@ const ICON_PATHS = {
   gdrive: '<path d="M8.6 3.5h6.8l6.1 10.6h-6.8z" fill="#fbbc04"/><path d="M8.6 3.5 2.5 14.1l3.4 5.9 6.1-10.6z" fill="#34a853"/><path d="M5.9 20h12.2l3.4-5.9H9.3z" fill="#4285f4"/>',
   canva: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M15.4 9.4a3.8 3.8 0 1 0 .1 5.2" fill="none" stroke="#0b1440" stroke-width="2.2" stroke-linecap="round"/>',
 };
+/** Icônes des outils médias (galerie, appareil photo, vidéo, musique) + logos Canva et Drive. */
+const TOOL_SVG = {
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.8"/></svg>',
+  video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 6-3.5v10l-6-3.5z"/><circle cx="6.5" cy="10" r="1" fill="currentColor"/></svg>',
+  gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="9.5" r="1.8"/><path d="m3.5 17 5.5-5 4 3.5 2.5-2 5 4"/></svg>',
+  music: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+};
+function paintToolIcons() {
+  for (const el of document.querySelectorAll(".tool-ico[data-ico]")) {
+    const k = el.dataset.ico;
+    if (TOOL_SVG[k]) el.innerHTML = TOOL_SVG[k];
+    else el.replaceChildren(netIcon(k, "100%"));
+  }
+}
+
 function netIcon(provider, size = "1em") {
   const span = h("span", { class: "net-icon", "aria-hidden": "true", style: `--c:${PROVIDER[provider]?.color ?? "#888"};width:${size};height:${size}` });
   if (ICON_PATHS[provider]) span.innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%">${ICON_PATHS[provider]}</svg>`;
@@ -3091,6 +3106,7 @@ function welcomeSound() {
 
 async function init() {
   welcomeSound();
+  paintToolIcons();
   void swRegistration();
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
