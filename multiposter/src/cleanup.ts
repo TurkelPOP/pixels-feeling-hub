@@ -3,7 +3,10 @@
 // - médias des posts publiés (ou en échec) depuis MEDIA_RETENTION_DAYS jours (3) : supprimés ;
 // - fichiers envoyés puis abandonnés sans enregistrer le post : supprimés au bout de 12 h.
 // Les posts programmés ne perdent jamais leurs médias.
-import { unlink } from "node:fs/promises";
+import { readdir, stat, unlink } from "node:fs/promises";
+import { resolve } from "node:path";
+
+import { config } from "./config.ts";
 
 import { db } from "./db.ts";
 import { mediaPath, purgeUnused } from "./media.ts";
@@ -50,6 +53,13 @@ export async function cleanupMedia(): Promise<number> {
     removed++;
   }
   if (removed) console.log(`[nettoyage] ${removed} média(s) supprimé(s)`);
+  // Fichiers temporaires (vidéos musique) laissés par un arrêt brutal.
+  const tmp = resolve(config.dataDir, "tmp");
+  for (const f of await readdir(tmp).catch(() => [] as string[])) {
+    const p = resolve(tmp, f);
+    const age = Date.now() - ((await stat(p).catch(() => null))?.mtimeMs ?? Date.now());
+    if (age > 3_600_000) await unlink(p).catch(() => {});
+  }
   return removed;
 }
 

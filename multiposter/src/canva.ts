@@ -109,7 +109,10 @@ async function importDesign(uid: number, designId: string, format: Format, horiz
   const urls: string[] = job.urls ?? [];
   const media = [];
   for (const [i, url] of urls.entries()) {
-    const res = await request(url, {}, 5 * 60_000);
+    // Adresse fournie par Canva : https vers un vrai nom de domaine, jamais vers le serveur lui-même.
+    const u = new URL(url);
+    if (u.protocol !== "https:" || /^(localhost|[\d.]+|\[.*\])$/i.test(u.hostname) || !u.hostname.includes(".")) throw new Error("Canva : adresse d'export inattendue.");
+    const res = await request(url, { redirect: "error" }, 5 * 60_000);
     const name = urls.length > 1 ? `${title} - ${i + 1}.${f.ext}` : `${title}.${f.ext}`;
     media.push(await saveUpload(res.body!, name, f.mime, uid));
   }

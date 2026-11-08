@@ -59,7 +59,7 @@ export const ffmpegAvailable = () => (ffmpegOk ??= run(FFMPEG, ["-version"], 10_
 
 async function probeDuration(path: string): Promise<number | null> {
   try {
-    const out = await run(FFPROBE, ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path], 20_000);
+    const out = await run(FFPROBE, ["-v", "error", "-protocol_whitelist", "file", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path], 20_000);
     const d = Number(out.trim());
     return Number.isFinite(d) && d > 0 ? Math.round(d * 10) / 10 : null;
   } catch {
@@ -86,7 +86,10 @@ export async function removeMusicData(owner: number) {
 async function slideToVideo(image: string, audio: string, start: number, seconds: number, fade: number, out: string) {
   await run(FFMPEG, [
     "-y", "-hide_banner", "-loglevel", "error",
+    // Fichiers locaux uniquement : ffmpeg ne doit jamais suivre une adresse cachée dans un fichier.
+    "-protocol_whitelist", "file",
     "-loop", "1", "-framerate", "30", "-i", image,
+    "-protocol_whitelist", "file",
     "-ss", String(start), "-i", audio,
     "-map", "0:v", "-map", "1:a",
     "-vf", "scale='trunc(min(1080,iw)/2)*2':-2,setsar=1,format=yuv420p",

@@ -98,13 +98,18 @@ export async function saveUpload(
   ownerId: number,
 ): Promise<MediaFile> {
   if (!ALLOWED[mime]) throw new Error(`Format non pris en charge : ${mime}`);
+  // Espace par personne : un compte (même piraté) ne peut pas remplir le disque du serveur.
+  const used = (db.prepare("SELECT COALESCE(SUM(size), 0) AS n FROM media WHERE owner_id = ?").get(ownerId) as { n: number }).n;
+  const room = config.mediaQuotaBytes - used;
+  if (room <= 0) throw new Error(`Espace plein (${Math.round(config.mediaQuotaBytes / 1024 ** 3)} Go) : supprime des brouillons ou des médias.`);
+  const max = Math.min(config.maxUploadBytes, room);
   const id = randomId(18);
   const path = mediaPath(id, mime);
   let size = 0;
   const limiter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       size += chunk.length;
-      if (size > config.maxUploadBytes) cb(new Error("Fichier trop volumineux"));
+      if (size > max) cb(new Error(max < config.maxUploadBytes ? "Espace presque plein : supprime des brouillons ou des médias." : "Fichier trop volumineux"));
       else cb(null, chunk);
     },
   });
@@ -125,7 +130,7 @@ export async function saveUpload(
   }
   db.prepare("INSERT INTO media (id, filename, mime, size, created_at, owner_id) VALUES (?, ?, ?, ?, ?, ?)").run(
     id,
-    filename.slice(0, 200),
+    filename.replace(/[\u0000-\u001f\u007f/\\]/g, "").trim().slice(0, 200) || "fichier",
     mime,
     size,
     Date.now(),

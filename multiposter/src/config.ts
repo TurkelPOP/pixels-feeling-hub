@@ -37,6 +37,8 @@ export const config = {
   dataDir: resolve(process.env.DATA_DIR ?? "./data"),
   timezone: process.env.TZ_DISPLAY ?? "Europe/Paris",
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
+  /** Espace média maximum par personne (Mo). */
+  mediaQuotaBytes: Number(process.env.MEDIA_QUOTA_MB ?? 5120) * 1024 * 1024,
 
   /** Secret de l'adresse de réveil /cron/tick (tâche planifiée de l'hébergeur). 32 caractères min. */
   cronSecret: opt("CRON_SECRET"),
