@@ -54,6 +54,8 @@ const state = {
   uploading: 0,
   canva: { status: null, items: [], continuation: null, query: "" },
   hashtags: { sets: [], top: [], editing: false },
+  mentions: [],
+  textTab: "all",
   drive: { status: null, items: [], next: null, query: "", mode: "recent", path: [], picked: new Map() },
   profiles: [],
   profileFilter: "",
@@ -1051,13 +1053,15 @@ function renderComposeMeta() {
   const providers = [...new Set(accs.map((a) => a.provider))];
   $("#counters").replaceChildren(
     ...providers.map((p) => {
-      const used = accs.filter((a) => a.provider === p).map((a) => state.overrides[a.id] ?? text);
+      const used = accs.filter((a) => a.provider === p).map((a) => finalText(a));
       const n = Math.max(...used.map(countChars));
       const max = maxFor(p);
       return h("span", { class: `counter ${n > max ? "over" : ""}` }, badge(p), ` ${n} / ${max}`);
     }),
   );
 
+  renderTextTabs();
+  renderMentionPreview();
   renderHashtags();
   renderTargetCards();
   scheduleValidation();
@@ -1269,6 +1273,146 @@ function renderMusic() {
   );
 }
 
+// ---------- Texte par réseau et mentions ----------
+
+const MENTION_NETS = [["instagram", "Instagram"], ["threads", "Threads"], ["x", "X"], ["tiktok", "TikTok"], ["youtube", "YouTube"], ["facebook", "Facebook (nom de la Page)"]];
+const AT_NETS = new Set(["instagram", "threads", "x", "tiktok", "youtube"]);
+
+/** Même règle que le serveur : @[Nom] → le compte de cette personne sur ce réseau, ou son nom. */
+function resolveMentions(text, provider) {
+  if (!text.includes("@[")) return text;
+  return text.replace(/@\[([^\]\n]{1,60})\]/g, (_a, name) => {
+    const c = state.mentions.find((m) => m.name.toLowerCase() === name.trim().toLowerCase());
+    const hdl = c?.handles?.[provider]?.trim();
+    if (!hdl) return name.trim();
+    return AT_NETS.has(provider) ? `@${hdl.replace(/^@+/, "")}` : hdl;
+  });
+}
+/** Texte final envoyé à un compte (texte propre au réseau ou commun, mentions résolues). */
+const finalText = (a) => resolveMentions(state.overrides[a.id] ?? $("#text").value, a.provider);
+
+async function loadMentions() {
+  try { state.mentions = await api("/mentions"); } catch { /* garde l'existant */ }
+}
+
+function renderTextTabs() {
+  const accs = selectedAccounts();
+  if (state.textTab !== "all" && !accs.some((a) => a.id === state.textTab)) state.textTab = "all";
+  const tab = (id, label, custom) =>
+    h("button", { type: "button", role: "tab", class: `text-tab${state.textTab === id ? " active" : ""}${custom ? " custom" : ""}`, "aria-selected": String(state.textTab === id),
+      title: custom ? "Texte modifié pour ce compte" : "", onclick: () => { state.textTab = id; renderTextTabs(); } }, ...label);
+  $("#text-tabs").replaceChildren(
+    accs.length > 1 || accs.some((a) => state.overrides[a.id]) ? tab("all", ["Tous les réseaux"], false) : null,
+    ...(accs.length > 1 || accs.some((a) => state.overrides[a.id])
+      ? accs.map((a) => tab(a.id, [netIcon(a.provider), accs.filter((x) => x.provider === a.provider).length > 1 ? h("span", {}, a.name) : a.provider === "x" ? null : h("span", {}, PROVIDER[a.provider]?.label ?? a.provider), state.overrides[a.id] ? h("span", { class: "dot-custom", "aria-hidden": "true" }) : null], !!state.overrides[a.id]))
+      : []),
+  );
+  const a = accs.find((x) => x.id === state.textTab);
+  $("#text").hidden = !!a;
+  $("#net-text-box").hidden = !a;
+  if (!a) return;
+  const custom = state.overrides[a.id] != null;
+  const ta = $("#net-text");
+  const label = `${PROVIDER[a.provider]?.label} · ${a.name}`;
+  if (custom) {
+    if (document.activeElement !== ta) ta.value = state.overrides[a.id];
+    ta.readOnly = false;
+    $("#net-text-info").textContent = `Texte propre à ${label}. Les slides restent les mêmes.`;
+  } else {
+    ta.value = resolveMentions($("#text").value, a.provider);
+    ta.readOnly = true;
+    $("#net-text-info").textContent = `Aperçu pour ${label} : c'est le texte commun, mentions adaptées à ce réseau.`;
+  }
+  $("#net-text-custom").hidden = custom;
+  $("#net-text-reset").hidden = !custom;
+}
+
+function renderMentionPreview() {
+  // Sous le texte commun : comment chaque mention sera écrite sur les réseaux cochés.
+  const text = $("#text").value + Object.values(state.overrides).join(" ");
+  const names = [...new Set([...text.matchAll(/@\[([^\]\n]{1,60})\]/g)].map((m) => m[1].trim()))];
+  const providers = [...new Set(selectedAccounts().map((a) => a.provider))];
+  const box = $("#mentions-preview") ?? (() => { const d = h("div", { id: "mentions-preview", class: "mentions-preview" }); $("#hashtags-box").before(d); return d; })();
+  box.replaceChildren(...names.map((n) => {
+    const c = state.mentions.find((m) => m.name.toLowerCase() === n.toLowerCase());
+    return h("p", { class: "small" }, h("strong", {}, `@[${n}]`), " → ",
+      ...(providers.length ? providers : ["instagram"]).flatMap((p, i) => [i ? " · " : null, h("span", { class: "net-label" }, netIcon(p), resolveMentions(`@[${n}]`, p))]),
+      c ? null : h("span", { class: "muted" }, "  (contact inconnu : nom écrit tel quel)"));
+  }));
+}
+
+/** Insère du texte à la position du curseur dans le texte affiché (commun ou propre au réseau). */
+function insertAtCursor(snippet) {
+  const net = !$("#net-text-box").hidden;
+  if (net && $("#net-text").readOnly) $("#net-text-custom").click();
+  const ta = net ? $("#net-text") : $("#text");
+  const { selectionStart: s = ta.value.length, selectionEnd: e = ta.value.length } = ta;
+  const before = ta.value.slice(0, s), after = ta.value.slice(e);
+  const pad = before && !/\s$/.test(before) ? " " : "";
+  ta.value = before + pad + snippet + (after.startsWith(" ") ? "" : " ") + after;
+  const pos = (before + pad + snippet).length + 1;
+  ta.focus();
+  ta.setSelectionRange(pos, pos);
+  ta.dispatchEvent(new Event("input"));
+}
+
+function renderMentionBox(editing = null) {
+  const box = $("#mention-box");
+  const search = h("input", { type: "search", placeholder: "Chercher un contact…", class: "mention-search" });
+  const list = h("div", { class: "chips mention-chips" });
+  const paint = () => {
+    const q = search.value.trim().toLowerCase();
+    list.replaceChildren(
+      ...state.mentions.filter((m) => !q || m.name.toLowerCase().includes(q)).map((m) =>
+        h("span", { class: "mention-chip-wrap" },
+          h("button", { type: "button", class: "chip small-chip mention-chip", title: MENTION_NETS.filter(([n]) => m.handles[n]).map(([n, l]) => `${l} : ${m.handles[n]}`).join("\n") || "Aucun compte renseigné",
+            onclick: () => { insertAtCursor(`@[${m.name}]`); } },
+            "@ ", m.name, ...MENTION_NETS.filter(([n]) => m.handles[n]).map(([n]) => netIcon(n))),
+          h("button", { type: "button", class: "mention-edit", title: `Modifier ${m.name}`, "aria-label": `Modifier ${m.name}`, onclick: () => renderMentionBox(m) }, "✎"))),
+      state.mentions.length ? null : h("p", { class: "muted small" }, "Aucun contact pour l'instant : crée le premier ci-dessous."));
+  };
+  search.addEventListener("input", paint);
+  paint();
+
+  const name = h("input", { placeholder: "Nom (ex. Nintendo France)", maxlength: 60, value: editing?.name ?? "" });
+  const fields = MENTION_NETS.map(([n, l]) => {
+    const inp = h("input", { placeholder: n === "facebook" ? "Nom exact de la Page" : "nom du compte, sans @ (ou lien du profil)", value: editing?.handles?.[n] ?? "", autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
+    inp.dataset.net = n;
+    return h("label", { class: "mention-field" }, h("span", { class: "net-label" }, netIcon(n), l), inp);
+  });
+  const save = async () => {
+    const handles = Object.fromEntries(fields.map((f) => { const i = f.querySelector("input"); return [i.dataset.net, i.value]; }));
+    try {
+      await api(editing ? `/mentions/${editing.id}` : "/mentions", { method: editing ? "PUT" : "POST", body: JSON.stringify({ name: name.value, handles }) });
+      await loadMentions();
+      toast(editing ? "Contact modifié." : `Contact « ${name.value.trim()} » créé.`);
+      renderMentionBox();
+      renderComposeMeta();
+    } catch (e) { toast(e.message, "err"); }
+  };
+  box.replaceChildren(
+    h("div", { class: "mention-head" }, h("strong", {}, "Mentionner"), h("small", { class: "muted" }, "Un clic insère @[Nom] : l'app écrit le bon compte sur chaque réseau."),
+      h("button", { type: "button", class: "btn ghost small", onclick: () => { box.hidden = true; } }, "Fermer")),
+    state.mentions.length > 6 ? search : null,
+    list,
+    h("details", { class: "tuto-box mention-form", open: !!editing || !state.mentions.length },
+      h("summary", {}, editing ? `Modifier « ${editing.name} »` : "＋ Nouveau contact"),
+      name, ...fields,
+      h("div", { class: "row" },
+        h("button", { class: "btn primary small", type: "button", onclick: save }, editing ? "Enregistrer" : "Créer le contact"),
+        editing ? h("button", { class: "btn ghost small", type: "button", onclick: () => renderMentionBox() }, "Annuler") : null,
+        editing ? h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
+          if (!confirm(`Supprimer le contact « ${editing.name} » ? Dans les posts, il sera écrit tel quel.`)) return;
+          await api(`/mentions/${editing.id}`, { method: "DELETE" });
+          await loadMentions();
+          renderMentionBox();
+          renderComposeMeta();
+        } }, "Supprimer") : null),
+      h("p", { class: "muted small" }, "Un réseau laissé vide : le nom est écrit en texte simple sur ce réseau.")),
+  );
+  box.hidden = false;
+}
+
 // ---------- hashtags ----------
 
 /** Hashtags d'un texte (même règle que le serveur). */
@@ -1328,7 +1472,7 @@ function renderHashtags() {
   const providers = [...new Set(accs.map((a) => a.provider))];
   const notes = providers
     .map((p) => {
-      const t = [...new Set(accs.filter((a) => a.provider === p).flatMap((a) => extractHashtags(state.overrides[a.id] ?? text)))];
+      const t = [...new Set(accs.filter((a) => a.provider === p).flatMap((a) => extractHashtags(finalText(a))))];
       return hashtagRule(p, t);
     })
     .filter(Boolean);
@@ -1500,7 +1644,7 @@ function targetCard(a) {
     body.push(h("div", { class: "ig-finish" },
       h("button", { class: "btn ghost small", type: "button", onclick: () => finishInInstagram({
         media: chosenMedia(o),
-        caption: state.overrides[a.id] ?? $("#text").value,
+        caption: finalText(a),
         onPublished: async () => {
           // Publié à la main : on retire Instagram de ce post pour ne pas le publier une 2e fois.
           state.selected.delete(a.id);
@@ -1557,17 +1701,12 @@ function targetCard(a) {
     body.push(h("p", { class: "muted small" }, "Tant que TikTok n'a pas audité ton app, la vidéo est publiée en « Moi uniquement »."));
   }
 
-  // Texte différent
-  const ta = h("textarea", { rows: 3, placeholder: "Laisser vide pour utiliser le texte principal" });
-  ta.value = state.overrides[a.id] ?? "";
-  ta.addEventListener("input", () => {
-    if (ta.value.trim()) state.overrides[a.id] = ta.value;
-    else delete state.overrides[a.id];
-    renderComposeMeta();
-  });
-  const details = h("details", { class: "toverride" }, h("summary", {}, "Texte différent pour ce réseau"), ta);
-  if (state.overrides[a.id]) details.open = true;
-  body.push(details);
+  // Texte propre à ce réseau : il se modifie dans l'onglet du réseau, au-dessus du texte.
+  body.push(h("button", { type: "button", class: "linklike", onclick: () => {
+    state.textTab = a.id;
+    renderTextTabs();
+    $("#text-tabs").scrollIntoView({ behavior: "smooth", block: "center" });
+  } }, state.overrides[a.id] ? "✏️ Texte propre à ce réseau (modifier)" : "✏️ Modifier le texte pour ce réseau"));
 
   return h("article", { class: "tcard", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head, ...body);
 }
@@ -1714,6 +1853,7 @@ function forgetMedia(list) {
 
 function resetCompose() {
   state.editingId = null;
+  state.textTab = "all";
   state.selected = new Set();
   state.overrides = {};
   state.targetOptions = {};
@@ -2239,7 +2379,7 @@ async function init() {
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();
-  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags()]);
+  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags(), loadMentions()]);
   await loadAccounts();
 
   $("#btn-canva").onclick = openCanva;
@@ -2262,6 +2402,24 @@ async function init() {
   });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
   $("#share-close").onclick = () => $("#share-dialog").close();
+  $("#btn-mention").onclick = () => ($("#mention-box").hidden ? renderMentionBox() : ($("#mention-box").hidden = true));
+  $("#net-text-custom").onclick = () => {
+    const id = state.textTab;
+    state.overrides[id] = $("#text").value;
+    renderTextTabs();
+    $("#net-text").focus();
+    renderComposeMeta();
+  };
+  $("#net-text-reset").onclick = () => {
+    if (!confirm("Revenir au texte commun pour ce réseau ? Les modifications propres à ce réseau seront perdues.")) return;
+    delete state.overrides[state.textTab];
+    renderComposeMeta();
+  };
+  $("#net-text").addEventListener("input", (e) => {
+    if (e.target.readOnly) return;
+    state.overrides[state.textTab] = e.target.value;
+    renderComposeMeta();
+  });
   $("#btn-music").onclick = openMusic;
   $("#music-close").onclick = () => $("#music-dialog").close();
   $("#btn-drive").onclick = openDrive;

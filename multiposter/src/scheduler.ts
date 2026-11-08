@@ -1,4 +1,5 @@
 import { alert, appLink } from "./alerts.ts";
+import { resolveMentions } from "./mentions.ts";
 import { db, getAccount, updateTokens, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
 import { publishers } from "./providers/index.ts";
@@ -40,7 +41,7 @@ async function publishTarget(targetId: number): Promise<void> {
 
   const t = db
     .prepare(
-      `SELECT t.id, t.post_id, t.account_id, t.text_override, t.options, p.text, p.title, p.media_ids
+      `SELECT t.id, t.post_id, t.account_id, t.text_override, t.options, p.text, p.title, p.media_ids, p.owner_id
        FROM post_targets t JOIN posts p ON p.id = t.post_id WHERE t.id = ?`,
     )
     .get(targetId) as Record<string, any>;
@@ -49,7 +50,8 @@ async function publishTarget(targetId: number): Promise<void> {
     const account = getAccount(t.account_id);
     if (!account) throw new Error("Compte déconnecté");
     const pub = publishers[account.provider];
-    const text = (t.text_override ?? t.text) as string;
+    // Mentions @[Nom] → le bon compte selon le réseau.
+    const text = resolveMentions((t.text_override ?? t.text) as string, account.provider, t.owner_id);
     const options = sanitizeOptions(JSON.parse(t.options || "{}"));
     const media = effectiveMedia(getMediaList(JSON.parse(t.media_ids)), options);
     const invalid = pub.validate({ text, media, options });

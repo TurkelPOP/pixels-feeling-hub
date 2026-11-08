@@ -20,6 +20,7 @@ import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
 import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
 import { registerHashtagApi } from "./hashtags.ts";
+import { registerMentionApi, resolveMentions } from "./mentions.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
@@ -286,6 +287,7 @@ api.get("/accounts", (c) =>
 
 registerProfileApi(api);
 registerHashtagApi(api);
+registerMentionApi(api);
 registerMusicApi(api);
 // Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).
 api.get("/music/:id/file", (c) => {
@@ -382,7 +384,7 @@ function validateBody(b: PostBody, owner: number): Record<number, string> {
       errors[id] = "Compte introuvable";
       continue;
     }
-    const text = b.overrides?.[id] ?? b.text ?? "";
+    const text = resolveMentions(b.overrides?.[id] ?? b.text ?? "", acc.provider, owner);
     const options = sanitizeOptions(b.options?.[id]);
     const err = publishers[acc.provider].validate({ text, media: effectiveMedia(media, options), options });
     if (err) errors[id] = err;

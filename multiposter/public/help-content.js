@@ -316,6 +316,18 @@ ${networks[id].owner}`,
   <li>Dans Instagram : Publication → <strong>♫ Ajouter de la musique</strong> → colle la légende → Publier.</li>
   <li>Reviens dans PTZ Posting : <strong>« C'est publié sur Instagram »</strong>. Instagram est marqué publié et ne sera pas publié une deuxième fois ; les autres réseaux du post partent comme prévu.</li>
 </ol>
+<h3>Même post, texte adapté à un réseau</h3>
+<ul>
+  <li>Quand plusieurs comptes sont cochés, des <strong>onglets</strong> apparaissent au-dessus du texte : « Tous les réseaux », puis un par compte.</li>
+  <li>Un onglet de réseau montre d'abord un <strong>aperçu</strong> (le texte commun, mentions adaptées). <strong>« ✏️ Modifier pour ce réseau »</strong> crée un texte propre à ce réseau, à partir du texte commun : tu changes juste le détail voulu. Un point orange signale les réseaux personnalisés.</li>
+  <li><strong>« ↺ Revenir au texte commun »</strong> annule la personnalisation. Les slides restent toujours les mêmes pour tous.</li>
+</ul>
+<h3>Mentions (@)</h3>
+<ul>
+  <li><strong>« @ Mentionner »</strong> sous le texte : crée un contact une fois (ex. « Nintendo France ») avec son compte sur chaque réseau (nom du compte ou lien du profil ; pour Facebook, le nom exact de la Page).</li>
+  <li>Un clic sur le contact insère <code>@[Nintendo France]</code> dans le texte. À la publication, l'app écrit <strong>le bon compte sur chaque réseau</strong> (@nintendofrance sur Instagram, @NintendoFrance sur X…). Sur un réseau laissé vide, le nom est écrit en texte simple.</li>
+  <li>Sous le texte, une ligne montre comment chaque mention sera écrite sur les réseaux cochés. Le crayon ✎ à côté d'un contact permet de le modifier.</li>
+</ul>
 <h3>Hashtags</h3>
 <ul>
   <li>Sous le texte, l'app liste les hashtags trouvés et prévient selon les réseaux cochés : <strong>Instagram</strong> 30 maximum (au-delà le post est refusé), <strong>Threads</strong> un seul tag par post (le premier devient le sujet), <strong>YouTube</strong> les ignore tous au-delà de 15, <strong>X</strong> les compte dans les 280 caractères.</li>
