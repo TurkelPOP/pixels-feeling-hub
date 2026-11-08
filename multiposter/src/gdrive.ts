@@ -5,8 +5,7 @@
 // avec une adresse de retour à part : /oauth/gdrive/callback. Accès en LECTURE SEULE.
 import { Hono } from "hono";
 
-import { currentUser, ownerId } from "./auth.ts";
-import { runAs } from "./userkeys.ts";
+import { currentUser } from "./auth.ts";
 import { callbackUrl, config } from "./config.ts";
 import { pkcePair, randomId, seal, unseal } from "./crypto.ts";
 import { db } from "./db.ts";
@@ -81,11 +80,6 @@ const driveGet = async (uid: number, path: string) =>
 // ---------- connexion ----------
 
 export const driveRoutes = new Hono();
-// Drive passe toujours par l'app Google de PTZ Posting (comme « Se connecter avec Google » sur
-// n'importe quel site) : chacun se connecte avec SON compte Google, sans créer d'app ni de clé.
-// L'accès est en lecture seule, et rien n'est publié via Google.
-const asApp = <T>(fn: () => T) => runAs(ownerId(), fn);
-driveRoutes.use("/oauth/gdrive/start", (_c, next) => asApp(next));
 
 driveRoutes.get("/oauth/gdrive/start", (c) => {
   if (!driveConfigured()) return c.text("Google n'est pas encore activé par le propriétaire.", 400);
@@ -115,10 +109,7 @@ driveRoutes.get("/oauth/gdrive/start", (c) => {
  * (/oauth/google/callback, déjà déclarée chez Google) : server.ts reconnaît le « state » Drive et
  * appelle cette fonction. Rien de plus à déclarer chez Google pour Drive.
  */
-export async function finishDriveOAuth(uid: number, verifier: string, code: string): Promise<string> {
-  return asApp(() => finishDrive(uid, verifier, code));
-}
-async function finishDrive(ownerId: number, verifier: string, code: string): Promise<string> {
+export async function finishDriveOAuth(ownerId: number, verifier: string, code: string): Promise<string> {
   const t = await tokenRequest({ grant_type: "authorization_code", code, code_verifier: verifier, redirect_uri: driveRedirect() });
   if (!String(t.scope ?? "").includes("drive")) throw new Error("Google Drive : coche la case d'accès à tes fichiers Drive, puis recommence.");
   saveTokens(ownerId, t);
@@ -131,7 +122,6 @@ async function finishDrive(ownerId: number, verifier: string, code: string): Pro
 // ---------- API (sous /api, donc réservée à la personne connectée) ----------
 
 export const driveApi = new Hono();
-driveApi.use("*", (_c, next) => asApp(next));
 
 driveApi.get("/status", (c) => {
   const s = stored(uidOf(c));

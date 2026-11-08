@@ -312,7 +312,7 @@ function canvaCard() {
         : h("a", { class: "btn primary small", href: "/oauth/canva/start" }, "Connecter Canva"),
     s?.configured && !s.connected ? userTuto("canva") : null,
     s?.connected ? rulesBox() : null,
-    s?.configured ? (isAppOwner() ? setupPanel("canva", true) : myKeysPanel("canva", true)) : null,
+    s?.configured && state.me?.role === "owner" ? setupPanel("canva", true) : null,
   );
 }
 
@@ -336,7 +336,7 @@ function googleButton(label = "Se connecter avec Google") {
 
 function driveCard() {
   const s = state.drive.status;
-  const owner = isAppOwner();
+  const owner = state.me?.role === "owner";
   const head = h("div", {},
     h("div", { class: "card-title" }, h("strong", { class: "net-label" }, netIcon("gdrive", "1.25em"), "Google Drive"), helpQ("net-gdrive")),
     h("p", { class: "muted small" }, "Importe tes photos et vidéos de Google Drive dans tes posts."));
@@ -967,15 +967,6 @@ async function renderUsers() {
   $("#users").replaceChildren(
     h("div", { class: "card system" },
       cardTitle("Personnes ayant accès", "utilisateurs"),
-      state.myKeys?.isOwner ? (() => {
-        const cb = h("input", { type: "checkbox", role: "switch", checked: state.myKeys.strict });
-        cb.addEventListener("change", async () => {
-          await api("/app-policy", { method: "PUT", body: JSON.stringify({ ownApps: cb.checked }) });
-          await loadMyKeys();
-          toast(cb.checked ? "Chacun utilisera sa propre app développeur." : "Les autres pourront utiliser tes apps (s'ils n'ont pas les leurs).");
-        });
-        return h("label", { class: "check own-apps" }, cb, h("span", {}, "Chacun utilise sa propre app développeur (Meta, Google, TikTok, X, Canva) : personne ne passe par les tiennes"));
-      })() : null,
       h("ul", { class: "user-list" }, ...rows),
       isOwner
         ? h("div", { class: "row invite-row" },
@@ -1150,58 +1141,9 @@ function userTuto(id) {
 
 /** Réseau pas encore activé : formulaire pour le propriétaire, explication pour les autres. */
 function notReady(id) {
-  return isAppOwner() ? setupPanel(id, false) : myKeysPanel(id, false);
-}
-
-/** Propriétaire de l'app : il règle les apps « globales » ; les autres utilisent leur propre app. */
-const isAppOwner = () => state.myKeys ? state.myKeys.isOwner : state.me?.role === "owner";
-
-async function loadMyKeys() {
-  try { state.myKeys = await api("/my-app-settings"); } catch { state.myKeys = null; }
-}
-
-/** Réseau de clés pour une carte (Google Drive utilise les clés Google). */
-const keyNet = (id) => (id === "gdrive" ? "google" : id);
-
-/**
- * « Ta propre app » : chaque personne déclare SES clés d'app développeur pour ce réseau ;
- * ses connexions et publications passent par son app, jamais par celle du propriétaire.
- */
-function myKeysPanel(id, configured) {
-  const net = state.myKeys?.networks.find((n) => n.id === keyNet(id));
-  if (!net) return h("p", { class: "muted small" }, "Pas encore activé.");
-  const cb = `${location.origin}/oauth/${id === "gdrive" ? "google" : id}/callback`;
-  const inputs = net.fields.map((f) => {
-    const input = h("input", { type: f.secret ? "password" : "text", autocomplete: "off", spellcheck: "false",
-      placeholder: f.secret && f.set ? "enregistrée ✓ (laisse vide pour la garder)" : "colle ici" });
-    if (!f.secret && f.value) input.value = f.value;
-    input.dataset.key = f.key;
-    return field(f.key.replace(/_/g, " ").replace(/^(META|THREADS|GOOGLE|TIKTOK|X|CANVA) /, "").toLowerCase().replace(/^./, (c) => c.toUpperCase()), input);
-  });
-  const save = async (btn) => {
-    const body = {};
-    for (const el of btn.closest(".appset").querySelectorAll("input[data-key]")) {
-      const f = net.fields.find((x) => x.key === el.dataset.key);
-      if (f.secret && !el.value.trim()) continue;
-      body[el.dataset.key] = el.value.trim();
-    }
-    btn.disabled = true;
-    try {
-      await api("/my-app-settings", { method: "PUT", body: JSON.stringify(body) });
-      toast(`${net.label} : tes clés sont enregistrées.`);
-      state.meta = await api("/meta");
-      await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadMyKeys()]);
-      renderAccounts();
-    } catch (e) { toast(e.message, "err"); } finally { btn.disabled = false; }
-  };
-  const tutoId = id === "gdrive" ? "google" : id;
-  return h("details", { class: `appset${configured ? "" : " todo"}` },
-    h("summary", {}, configured ? "Mes clés d'app (ma propre app)" : "Activer avec ma propre app"),
-    configured ? null : h("p", { class: "muted small" }, `Tu utilises ta propre app développeur ${net.label} : crée-la en suivant le tuto, puis colle ici ses deux clés. Tes comptes passeront uniquement par ton app.`),
-    h("div", { class: "callback" }, h("span", { class: "small" }, "Ton adresse de retour (à coller dans ton app) :"), h("div", { class: "row" }, h("code", {}, cb), copyBtn(cb))),
-    NETS()[tutoId] ? h("details", { class: "tuto-box", open: !configured }, h("summary", {}, "Tuto pas à pas"), tuto(NETS()[tutoId].owner)) : null,
-    ...inputs,
-    h("div", { class: "row" }, h("button", { class: "btn primary small", type: "button", onclick: (e) => save(e.currentTarget) }, "Enregistrer")));
+  return state.me?.role === "owner"
+    ? setupPanel(id, false)
+    : h("p", { class: "muted small" }, "Pas encore activé : le propriétaire de l'app doit l'activer une fois, ensuite tu pourras connecter ton compte ici.");
 }
 
 /** Webhook d'alertes (propriétaire) : le seul réglage qui n'est pas lié à un réseau. */
@@ -1234,7 +1176,7 @@ function renderAccounts() {
           ? h("a", { class: "btn primary small", href: `/oauth/${f.id}/start` }, `Connecter ${f.label}`)
           : notReady(f.id),
         f.configured ? userTuto(f.id) : null,
-        f.configured ? (isAppOwner() ? setupPanel(f.id, true) : myKeysPanel(f.id, true)) : null,
+        f.configured && state.me?.role === "owner" ? setupPanel(f.id, true) : null,
       ),
     ),
   );
@@ -3153,7 +3095,7 @@ async function init() {
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();
-  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags(), loadMentions(), loadPresets(), loadMyKeys()]);
+  await Promise.all([loadCanvaStatus(), loadDriveStatus(), loadHashtags(), loadMentions(), loadPresets()]);
   await loadAccounts();
 
   $("#btn-canva").onclick = openCanva;

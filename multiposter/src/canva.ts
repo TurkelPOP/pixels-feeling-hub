@@ -10,7 +10,6 @@ import { currentUser } from "./auth.ts";
 import { db, getOwnedAccount } from "./db.ts";
 import { form, json, postJson, request, sleep } from "./http.ts";
 import { saveUpload } from "./media.ts";
-import { runAs } from "./userkeys.ts";
 
 const API = (process.env.CANVA_API_URL ?? "https://api.canva.com/rest/v1").replace(/\/+$/, "");
 const SCOPES = "design:meta:read design:content:read profile:read";
@@ -149,26 +148,24 @@ canvaRoutes.get("/oauth/canva/callback", async (c) => {
     | { verifier: string; owner_id: number }
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
-  return runAs(row?.owner_id, async () => {
-    if (!row) return back("Lien de connexion Canva expiré, recommence.");
-    if (error || !code) return back(`Connexion Canva annulée : ${error_description ?? error ?? "pas de code"}`);
-    try {
-      const t = await tokenRequest({
-        grant_type: "authorization_code",
-        code,
-        code_verifier: row.verifier,
-        redirect_uri: callbackUrl("canva"),
-      });
-      saveTokens(row.owner_id, t);
-      const me = await canvaGet(row.owner_id, "/users/me/profile").catch(() => ({}));
-      const name = me.profile?.display_name ?? "Canva";
-      db.prepare("UPDATE integrations SET name = ? WHERE id = ?").run(name, keyOf(row.owner_id));
-      return back(`Canva connecté (${name}).`, true);
-    } catch (e) {
-      console.error("[oauth canva]", e);
-      return back(e instanceof Error ? e.message : "Échec de la connexion Canva");
-    }
-  });
+  if (!row) return back("Lien de connexion Canva expiré, recommence.");
+  if (error || !code) return back(`Connexion Canva annulée : ${error_description ?? error ?? "pas de code"}`);
+  try {
+    const t = await tokenRequest({
+      grant_type: "authorization_code",
+      code,
+      code_verifier: row.verifier,
+      redirect_uri: callbackUrl("canva"),
+    });
+    saveTokens(row.owner_id, t);
+    const me = await canvaGet(row.owner_id, "/users/me/profile").catch(() => ({}));
+    const name = me.profile?.display_name ?? "Canva";
+    db.prepare("UPDATE integrations SET name = ? WHERE id = ?").run(name, keyOf(row.owner_id));
+    return back(`Canva connecté (${name}).`, true);
+  } catch (e) {
+    console.error("[oauth canva]", e);
+    return back(e instanceof Error ? e.message : "Échec de la connexion Canva");
+  }
 });
 
 /** Routes JSON, montées sous /api (donc protégées par le mot de passe). */
@@ -263,7 +260,7 @@ export async function checkCanvaRules(onlyUid?: number): Promise<number> {
     ? [onlyUid]
     : (db.prepare("SELECT DISTINCT owner_id FROM canva_rules").all() as { owner_id: number }[]).map((r) => r.owner_id);
   let total = 0;
-  for (const uid of uids) total += await runAs(uid, () => checkRulesFor(uid));
+  for (const uid of uids) total += await checkRulesFor(uid);
   return total;
 }
 
