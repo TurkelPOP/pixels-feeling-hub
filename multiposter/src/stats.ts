@@ -8,6 +8,7 @@ import { db, getAccount, type Account } from "./db.ts";
 import { json, postJson } from "./http.ts";
 import type { PostStats } from "./providers/types.ts";
 import { freshAccount } from "./scheduler.ts";
+import { runAs } from "./userkeys.ts";
 
 const META = "https://graph.facebook.com/v23.0";
 const THREADS = "https://graph.threads.net/v1.0";
@@ -62,7 +63,7 @@ async function refreshTarget(t: { id: number; account_id: number; external_id: s
   const fetcher = acc && FETCHERS[acc.provider];
   if (!acc || !fetcher) return;
   try {
-    const s = await fetcher(await freshAccount(acc), t.external_id);
+    const s = await runAs(acc.ownerId, async () => fetcher(await freshAccount(acc), t.external_id));
     db.prepare("UPDATE post_targets SET stats = ?, stats_at = ? WHERE id = ?").run(JSON.stringify(s), Date.now(), t.id);
   } catch (e) {
     // On note la tentative pour ne pas réessayer en boucle ; l'erreur n'est pas affichée (pas grave).

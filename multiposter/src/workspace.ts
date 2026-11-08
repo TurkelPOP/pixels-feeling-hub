@@ -60,6 +60,7 @@ export function removeUserData(userId: number): void {
     db.prepare("DELETE FROM accounts WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM profiles WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM profile_shares WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM settings WHERE key LIKE ?").run(`user_app:${userId}:%`);
     db.prepare("DELETE FROM hashtag_sets WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM mention_contacts WHERE owner_id = ?").run(userId);
     for (const t of ["time_slots", "caption_templates", "push_subs"]) db.prepare(`DELETE FROM ${t} WHERE owner_id = ?`).run(userId);

@@ -25,6 +25,7 @@ import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
 import { notify, registerPushApi } from "./push.ts";
 import { registerPresetApi } from "./presets.ts";
 import { registerStatsApi, startStats } from "./stats.ts";
+import { registerUserKeysApi, runAs, userKeysMiddleware } from "./userkeys.ts";
 import { registerRecapApi, sendDueRecaps, startRecaps } from "./recap.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
@@ -193,12 +194,12 @@ app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png|mp3)}", (c) => sendFile(c, r
 
 // ---------- OAuth ----------
 
-app.use("/oauth/canva/start", requireAuth);
+app.use("/oauth/canva/start", requireAuth, userKeysMiddleware);
 app.route("/", canvaRoutes);
-app.use("/oauth/gdrive/start", requireAuth);
+app.use("/oauth/gdrive/start", requireAuth, userKeysMiddleware);
 app.route("/", driveRoutes);
 
-app.get("/oauth/:flow/start", requireAuth, (c) => {
+app.get("/oauth/:flow/start", requireAuth, userKeysMiddleware, (c) => {
   const flow = flows[c.req.param("flow") ?? ""] as (typeof flows)[string] | undefined;
   if (!flow?.configured()) return c.text("Réseau non configuré (voir .env)", 400);
   const state = randomId(24);
@@ -224,32 +225,37 @@ app.get("/oauth/:flow/callback", async (c) => {
     | { provider: string; verifier: string | null; owner_id: number }
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
-  // Google Drive partage l'adresse de retour de YouTube : le « state » dit lequel des deux.
-  if (row?.provider === "gdrive" && flow?.id === "google") {
-    if (error || !code) return back(`Connexion Google Drive annulée${error ? ` (${error})` : ""}.`);
-    try {
-      return back(`Google Drive connecté (${await finishDriveOAuth(row.owner_id, row.verifier!, code)}).`, true);
-    } catch (e) {
-      console.error("[oauth gdrive]", e);
-      return back(e instanceof Error ? e.message : "Échec de la connexion Google Drive");
+  // Les clés d'app de la personne qui a lancé la connexion (sa propre app développeur).
+  return runAs(row?.owner_id, async () => {
+    // Google Drive partage l'adresse de retour de YouTube : le « state » dit lequel des deux.
+    if (row?.provider === "gdrive" && flow?.id === "google") {
+      if (error || !code) return back(`Connexion Google Drive annulée${error ? ` (${error})` : ""}.`);
+      try {
+        return back(`Google Drive connecté (${await finishDriveOAuth(row.owner_id, row.verifier!, code)}).`, true);
+      } catch (e) {
+        console.error("[oauth gdrive]", e);
+        return back(e instanceof Error ? e.message : "Échec de la connexion Google Drive");
+      }
     }
-  }
-  if (!flow || !row || row.provider !== flow.id) return back("Lien de connexion expiré, recommence.");
-  if (error || !code) return back(`Connexion annulée : ${error_description ?? error ?? "pas de code"}`);
-  try {
-    const accounts = await flow.callback(code, row.verifier);
-    for (const a of accounts) upsertAccount(a, row.owner_id);
-    return back(`${accounts.length} compte(s) connecté(s) : ${accounts.map((a) => a.name).join(", ")}`, true);
-  } catch (e) {
-    console.error(`[oauth ${flow.id}]`, e);
-    return back(e instanceof Error ? e.message : "Échec de la connexion");
-  }
+    if (!flow || !row || row.provider !== flow.id) return back("Lien de connexion expiré, recommence.");
+    if (error || !code) return back(`Connexion annulée : ${error_description ?? error ?? "pas de code"}`);
+    try {
+      const accounts = await flow.callback(code, row.verifier);
+      for (const a of accounts) upsertAccount(a, row.owner_id);
+      return back(`${accounts.length} compte(s) connecté(s) : ${accounts.map((a) => a.name).join(", ")}`, true);
+    } catch (e) {
+      console.error(`[oauth ${flow.id}]`, e);
+      return back(e instanceof Error ? e.message : "Échec de la connexion");
+    }
+  });
 });
 
 // ---------- API ----------
 
 const api = new Hono();
 api.use("*", requireAuth);
+// Chaque requête utilise les clés d'app de la personne connectée (sa propre app développeur).
+api.use("*", userKeysMiddleware);
 
 api.get("/meta", (c) =>
   c.json({
@@ -324,6 +330,7 @@ registerMaintenanceApi(api, sendFile);
 registerPushApi(api);
 registerPresetApi(api);
 registerStatsApi(api);
+registerUserKeysApi(api);
 registerRecapApi(api);
 registerMusicApi(api);
 // Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).

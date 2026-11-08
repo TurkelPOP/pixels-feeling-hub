@@ -26,7 +26,7 @@
   <li>Menu <strong>Scopes</strong> : coche en lecture (<em>Read</em>) <code>design:meta</code>, <code>design:content</code> et <code>profile</code>. Rien d'autre.</li>
   <li>Menu <strong>Authentication</strong> → <strong>Add redirect URL</strong> : colle ${cb("canva")}, puis enregistre.</li>
   <li>Menu <strong>Configuration</strong> (ou <em>Credentials</em>) : copie le <strong>Client ID</strong>, puis clique sur <strong>Generate secret</strong> et copie le <strong>Client secret</strong> (il ne s'affiche qu'une fois).</li>
-  <li>Reviens dans PTZ Posting, carte Canva → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>. Le bouton « Connecter Canva » apparaît.</li>
+  <li>Reviens dans PTZ Posting, carte Canva → <strong>« Activer ce réseau »</strong> (ou « Activer avec ma propre app ») : colle les deux, <strong>Enregistrer</strong>. Le bouton « Connecter Canva » apparaît.</li>
 </ol>
 <p class="tip">Pour que papa_subway (ou une autre personne) puisse se connecter avant toute publication de l'intégration, elle doit faire partie de ton <strong>équipe Canva</strong>, ou être ajoutée comme collaborateur de l'intégration.</p>`,
     },
@@ -57,7 +57,7 @@
   <li>Ajoute aussi le produit <strong>Instagram</strong> (API Instagram avec Facebook Login), pour la publication sur Instagram.</li>
   <li><strong>Paramètres de l'app → Général</strong> : dans <em>Domaines de l'app</em>, mets <code>{{host}}</code>. Dans <em>URL de la politique de confidentialité</em>, mets <code>{{origin}}/confidentialite</code>, et dans <em>Conditions d'utilisation</em>, <code>{{origin}}/conditions</code>. Enregistre.</li>
   <li>Toujours dans <strong>Général</strong> : copie l'<strong>ID de l'app</strong>, clique sur <strong>Afficher</strong> à côté de <strong>Clé secrète</strong> (Meta redemande ton mot de passe) et copie-la.</li>
-  <li>Dans PTZ Posting, carte Facebook / Instagram → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
+  <li>Dans PTZ Posting, carte Facebook / Instagram → <strong>« Activer ce réseau »</strong> (ou « Activer avec ma propre app ») : colle les deux, <strong>Enregistrer</strong>.</li>
   <li><strong>Les autres personnes</strong> : <em>Rôles de l'app → Rôles → Ajouter des personnes → Testeur</em>, avec leur nom ou e-mail Facebook. Elles doivent accepter sur <a href="https://developers.facebook.com/requests" target="_blank" rel="noopener">developers.facebook.com/requests</a>. Toi, en tant qu'administrateur de l'app, tu peux te connecter tout de suite.</li>
 </ol>
 <p class="tip">Tant que l'app est « en développement », tout fonctionne pour toi et tes testeurs : c'est suffisant pour vous deux. La validation par Meta (« App Review ») n'est utile que pour ouvrir l'app à d'autres personnes.</p>
@@ -91,7 +91,7 @@
   <li><strong>Cas d'utilisation</strong> → <strong>Accéder à l'API Threads</strong> → <strong>Personnaliser</strong>. Dans <em>Autorisations</em>, ajoute <code>threads_basic</code>, <code>threads_content_publish</code>, <code>threads_manage_replies</code> (réponse automatique sous le post) et <code>threads_manage_insights</code> (statistiques).</li>
   <li>Dans <em>Paramètres</em> de ce cas d'utilisation : <strong>URL de rappel de redirection</strong> = ${cb("threads")}. Remplis aussi <em>Désinstaller</em> et <em>Supprimer</em> avec la même adresse. Enregistre.</li>
   <li>Toujours dans ces paramètres, copie l'<strong>ID de l'app Threads</strong> et la <strong>clé secrète de l'app Threads</strong> (différents de ceux de Facebook !).</li>
-  <li>Dans PTZ Posting, carte Threads → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
+  <li>Dans PTZ Posting, carte Threads → <strong>« Activer ce réseau »</strong> (ou « Activer avec ma propre app ») : colle les deux, <strong>Enregistrer</strong>.</li>
   <li><strong>Testeurs</strong> (toi compris) : <em>Rôles de l'app → Rôles → Ajouter des personnes → Testeur Threads</em>, avec le nom d'utilisateur Threads. Chacun accepte dans l'appli Threads → Paramètres → Compte → <em>Autorisations du site web</em> → <em>Invitations</em>.</li>
 </ol>`,
     },
@@ -116,7 +116,7 @@
   <li><strong>Audience</strong> → <em>Utilisateurs test</em> → <strong>Ajouter des utilisateurs</strong> : ton adresse Google et celles des autres personnes (celle de la chaîne de chacun).</li>
   <li><strong>Clients</strong> → <strong>Créer un client</strong> : type <strong>Application Web</strong>, nom <em>PTZ Posting</em>. Dans <em>URI de redirection autorisés</em>, <strong>Ajouter un URI</strong> : ${cb("google")}. <strong>Créer</strong>.</li>
   <li>Google affiche l'<strong>ID client</strong> et le <strong>code secret du client</strong> : copie les deux <strong>tout de suite</strong> (le secret ne sera plus réaffiché ; sinon, crée-en un nouveau dans le client).</li>
-  <li>Dans PTZ Posting, carte YouTube → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
+  <li>Dans PTZ Posting, carte YouTube → <strong>« Activer ce réseau »</strong> (ou « Activer avec ma propre app ») : colle les deux, <strong>Enregistrer</strong>.</li>
 </ol>
 <p class="warn"><strong>Important :</strong> en mode « Test », Google déconnecte les comptes au bout de <strong>7 jours</strong>. Pour éviter de reconnecter chaque semaine : <em>Audience</em> → <strong>Publier l'application</strong> (« En production »). Pas besoin de la faire valider : vous verrez juste l'écran « app non validée » à la connexion, et vous serez limités à 100 personnes, largement assez.</p>`,
     },
@@ -142,7 +142,7 @@
   <li><strong>Scopes</strong> : vérifie que <code>user.info.basic</code>, <code>video.publish</code> et <code>video.list</code> (statistiques) sont présents. Après l'ajout de <code>video.list</code>, reconnecte TikTok une fois.</li>
   <li>En haut de la page, bascule sur <strong>Sandbox</strong> → <em>Create Sandbox</em>, refais les étapes 4 à 6 dans la sandbox, puis <strong>Target users</strong> → ajoute ton compte TikTok et ceux des autres personnes. La sandbox fonctionne tout de suite, sans validation.</li>
   <li>En haut de la page (sandbox ou production), copie le <strong>Client key</strong> et le <strong>Client secret</strong>.</li>
-  <li>Dans PTZ Posting, carte TikTok → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
+  <li>Dans PTZ Posting, carte TikTok → <strong>« Activer ce réseau »</strong> (ou « Activer avec ma propre app ») : colle les deux, <strong>Enregistrer</strong>.</li>
 </ol>
 <p class="tip">Plus tard, pour publier en public directement : <em>Submit for review</em> en production (TikTok vérifie l'app, avec une courte vidéo de démonstration), puis remplace les clés sandbox par celles de production.</p>`,
     },
@@ -202,7 +202,7 @@
   <li>Dans l'app : <strong>User authentication settings</strong> → <strong>Set up</strong>. <em>App permissions</em> : <strong>Read and write</strong>. <em>Type of App</em> : <strong>Web App, Automated App or Bot</strong>.</li>
   <li><em>Callback URI / Redirect URL</em> : colle ${cb("x")}. <em>Website URL</em> : <code>{{origin}}</code>. Enregistre.</li>
   <li>X affiche le <strong>Client ID</strong> et le <strong>Client Secret</strong> (OAuth 2.0) : copie-les. Tu les retrouves ensuite dans <strong>Keys and tokens</strong> (le secret peut être régénéré, pas réaffiché).</li>
-  <li>Dans PTZ Posting, carte X → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
+  <li>Dans PTZ Posting, carte X → <strong>« Activer ce réseau »</strong> (ou « Activer avec ma propre app ») : colle les deux, <strong>Enregistrer</strong>.</li>
 </ol>`,
     },
   };
@@ -282,6 +282,7 @@ ${networks[id].owner}`,
 <ul class="net-links">
   ${Object.keys(networks).map((id) => `<li><a data-help="net-${id}" href="#">${networks[id].title}</a></li>`).join("")}
 </ul>
+<p class="tip"><strong>Chacun sa propre app</strong> (réglage du propriétaire, activé par défaut) : chaque personne crée sa propre app développeur chez le réseau (même tuto, partie « Activer ») et colle ses clés dans la carte du réseau → « Activer avec ma propre app ». Ses comptes passent uniquement par son app ; personne ne voit les clés des autres.</p>
 <p class="tip">Pas de bouton « Connecter » mais « Pas encore activé » ? Le propriétaire de l'app doit d'abord activer ce réseau, une seule fois pour tout le monde (c'est expliqué en bas de chaque tuto).</p>
 <p class="warn">« Lien de connexion expiré » : tu as mis plus de 15 minutes, ou ouvert le lien dans un autre navigateur. Reclique simplement sur « Connecter ».</p>`,
     },

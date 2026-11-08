@@ -1,6 +1,7 @@
 import { alert, appLink } from "./alerts.ts";
 import { resolveMentions } from "./mentions.ts";
 import { notify } from "./push.ts";
+import { runAs } from "./userkeys.ts";
 import { db, getAccount, updateTokens, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
 import { publishers } from "./providers/index.ts";
@@ -89,7 +90,8 @@ export async function publishPost(postId: number): Promise<void> {
   const targets = db
     .prepare("SELECT id FROM post_targets WHERE post_id = ? AND status = 'pending'")
     .all(postId) as { id: number }[];
-  await Promise.all(targets.map((x) => publishTarget(x.id)));
+  const owner = (db.prepare("SELECT owner_id FROM posts WHERE id = ?").get(postId) as { owner_id: number } | undefined)?.owner_id;
+  await runAs(owner, () => Promise.all(targets.map((x) => publishTarget(x.id))));
   rollupStatus(postId);
   if (targets.length) void notifyResult(postId);
 }
