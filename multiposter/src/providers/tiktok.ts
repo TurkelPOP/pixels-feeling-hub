@@ -91,6 +91,7 @@ export const tiktok: Publisher = {
             disable_comment: options.allowComment === false || !!creator.data.comment_disabled,
             disable_duet: options.allowDuet === false || !!creator.data.duet_disabled,
             disable_stitch: options.allowStitch === false || !!creator.data.stitch_disabled,
+            ...(options.coverMs != null ? { video_cover_timestamp_ms: options.coverMs } : {}),
           },
           source_info: { source: "FILE_UPLOAD", video_size: v.size, chunk_size: chunkSize, total_chunk_count: count },
         },

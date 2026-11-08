@@ -1739,6 +1739,88 @@ function openPreview() {
   dlg.showModal();
 }
 
+// ---------- Recadrage ----------
+// Fait dans le navigateur (canvas) : l'image recadrée remplace l'originale dans le post.
+
+const RATIOS = [
+  ["4:5", 4 / 5, "Instagram (portrait)", 1080, 1350],
+  ["1:1", 1, "Carré", 1080, 1080],
+  ["9:16", 9 / 16, "Story, Reel, TikTok", 1080, 1920],
+  ["16:9", 16 / 9, "YouTube, X", 1920, 1080],
+  ["1.91:1", 1.91, "Paysage Instagram / Facebook", 1200, 628],
+];
+
+function openCrop(index) {
+  const m = state.media[index];
+  const dlg = $("#share-dialog"), body = $("#share-body");
+  $("#share-title").textContent = "Recadrer l'image";
+  const img = new Image();
+  img.src = m.url;
+  let ratio = RATIOS[0], z = 1, ox = 0, oy = 0, s = 1;
+  const stage = h("div", { class: "crop-stage" });
+  const view = h("img", { src: m.url, alt: "", class: "crop-img", draggable: "false" });
+  stage.append(view, h("div", { class: "crop-grid", "aria-hidden": "true" }));
+  const zoom = h("input", { type: "range", min: 1, max: 3, step: 0.01, value: 1, "aria-label": "Zoom" });
+  const dims = () => { const r = stage.getBoundingClientRect(); return [r.width, r.height]; };
+  const clamp = () => {
+    const [W, H] = dims();
+    ox = Math.min(0, Math.max(W - img.naturalWidth * s, ox));
+    oy = Math.min(0, Math.max(H - img.naturalHeight * s, oy));
+    view.style.transform = `translate(${ox}px, ${oy}px) scale(${s})`;
+  };
+  const fit = (keepCenter) => {
+    const [W, H] = dims();
+    const cx = keepCenter ? (W / 2 - ox) / s : img.naturalWidth / 2, cy = keepCenter ? (H / 2 - oy) / s : img.naturalHeight / 2;
+    s = Math.max(W / img.naturalWidth, H / img.naturalHeight) * z;
+    ox = W / 2 - cx * s; oy = H / 2 - cy * s;
+    clamp();
+  };
+  const setRatio = (r) => {
+    ratio = r;
+    stage.style.aspectRatio = String(r[1]);
+    const w = Math.floor(Math.min(380, (body.clientWidth || 380) - 4, innerHeight * 0.5 * r[1]));
+    stage.style.width = `${w}px`;
+    stage.style.height = `${Math.round(w / r[1])}px`;
+    paintRatios();
+    requestAnimationFrame(() => fit(false));
+  };
+  zoom.addEventListener("input", () => { z = Number(zoom.value); fit(true); });
+  // Déplacer l'image au doigt ou à la souris.
+  let drag = null;
+  stage.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, ox, oy }; stage.setPointerCapture(e.pointerId); });
+  stage.addEventListener("pointermove", (e) => { if (!drag) return; ox = drag.ox + e.clientX - drag.x; oy = drag.oy + e.clientY - drag.y; clamp(); });
+  stage.addEventListener("pointerup", () => { drag = null; });
+  const ratioBox = h("div", { class: "chips crop-ratios" });
+  const paintRatios = () => ratioBox.replaceChildren(...RATIOS.map((r) => h("button", { type: "button", class: `chip small-chip${r === ratio ? " active" : ""}`, title: r[2], onclick: () => setRatio(r) }, h("strong", {}, r[0]), h("small", {}, ` ${r[2]}`))));
+  const save = h("button", { class: "btn primary share-go", type: "button" }, "✂ Recadrer");
+  save.onclick = async () => {
+    save.disabled = true; save.textContent = "Envoi…";
+    try {
+      const [W, H] = dims();
+      const [, , , OW, OH] = ratio;
+      const canvas = h("canvas", { width: OW, height: OH });
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, -ox / s, -oy / s, W / s, H / s, 0, 0, OW, OH);
+      const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
+      const file = new File([blob], m.filename.replace(/\.[a-z0-9]+$/i, "") + ` ${ratio[0].replace(":", "x")}.jpg`, { type: "image/jpeg" });
+      const nm = await upload(file);
+      const old = state.media[index];
+      state.media[index] = nm;
+      for (const o of Object.values(state.targetOptions)) if (Array.isArray(o.media)) o.media = o.media.map((id) => (id === old.id ? nm.id : id));
+      cardsKey = "";
+      renderMedia(); renderComposeMeta(); forgetMedia([old]);
+      toast(`Image recadrée en ${ratio[0]}.`);
+      dlg.close();
+    } catch (e) { toast(e.message, "err"); save.disabled = false; save.textContent = "✂ Recadrer"; }
+  };
+  body.replaceChildren(ratioBox, stage, h("label", { class: "field-inline" }, h("span", {}, "Zoom"), zoom),
+    h("p", { class: "muted small" }, "Fais glisser l'image pour choisir la partie gardée. L'image recadrée (JPG) remplace l'originale dans ce post."), save);
+  paintRatios();
+  dlg.showModal();
+  img.decode().then(() => setRatio(RATIOS[0]), () => toast("Image illisible.", "err"));
+}
+
 // ---------- Programmation en lot ----------
 
 state.batch = new Set();
@@ -2156,6 +2238,24 @@ function targetCard(a) {
     body.push(h("p", { class: "muted small" }, "Tant que TikTok n'a pas audité ton app, la vidéo est publiée en « Moi uniquement »."));
   }
 
+  // Couverture : un moment de la vidéo (Reel Instagram seul, TikTok).
+  const vids = chosenMedia(o).filter((m) => m.kind === "video");
+  if (((a.provider === "instagram" && o.format !== "story" && chosenMedia(o).length === 1) || a.provider === "tiktok") && vids.length === 1) {
+    const v = h("video", { src: vids[0].url, muted: true, playsinline: true, preload: "metadata", class: "cover-video" });
+    const range = h("input", { type: "range", min: 0, max: 100, step: 0.1, value: 0, "aria-label": "Moment de la couverture" });
+    const lbl = h("small", { class: "muted" }, o.coverMs != null ? `Couverture à ${(o.coverMs / 1000).toFixed(1)} s` : "Couverture : choisie par le réseau (début de la vidéo)");
+    v.addEventListener("loadedmetadata", () => {
+      range.max = String(Math.max(0.1, v.duration));
+      if (o.coverMs != null) { range.value = String(o.coverMs / 1000); v.currentTime = o.coverMs / 1000; }
+    });
+    range.addEventListener("input", () => {
+      v.currentTime = Number(range.value);
+      o.coverMs = Math.round(Number(range.value) * 1000);
+      lbl.textContent = `Couverture à ${(o.coverMs / 1000).toFixed(1)} s`;
+    });
+    body.push(h("details", { class: "toverride", open: o.coverMs != null }, h("summary", {}, "🖼 Image de couverture"), v, range, lbl));
+  }
+
   // Premier commentaire (Instagram, Facebook) ou réponse (X, Threads), publié juste après le post.
   if (["instagram", "facebook", "x", "threads"].includes(a.provider) && !(a.provider === "instagram" && o.format === "story")) {
     const label = a.provider === "x" || a.provider === "threads" ? "Réponse automatique sous le post (facultatif)" : "Premier commentaire (facultatif)";
@@ -2240,6 +2340,7 @@ function renderMedia() {
           { class: "media-actions" },
           h("button", { class: "btn ghost small", title: "Avancer", disabled: i === 0, onclick: () => moveMedia(i, -1) }, "←"),
           h("button", { class: "btn ghost small", title: "Reculer", disabled: i === state.media.length - 1, onclick: () => moveMedia(i, 1) }, "→"),
+          m.kind === "image" && m.mime !== "image/gif" ? h("button", { class: "btn ghost small", title: "Recadrer", "aria-label": "Recadrer", onclick: () => openCrop(i) }, "✂") : null,
           h("button", { class: "btn ghost small danger", title: "Retirer", onclick: () => { const [m] = state.media.splice(i, 1); renderMedia(); forgetMedia([m]); } }, "✕"),
         ),
       ),

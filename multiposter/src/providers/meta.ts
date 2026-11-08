@@ -199,7 +199,12 @@ export const instagram: Publisher = {
     }
     let creationId: string;
     if (media.length === 1) {
-      creationId = await igContainer(igId, token, { ...igItemParams(media[0], false), caption: text });
+      creationId = await igContainer(igId, token, {
+        ...igItemParams(media[0], false),
+        caption: text,
+        // Reel : image de couverture choisie dans la vidéo.
+        ...(media[0].kind === "video" && options.coverMs != null ? { thumb_offset: String(options.coverMs) } : {}),
+      });
       await igWaitReady(creationId, token);
     } else {
       const children: string[] = [];
