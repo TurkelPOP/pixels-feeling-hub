@@ -51,8 +51,8 @@
             <p id="net-text-info" class="muted small"></p>
             <textarea id="net-text" rows="8"></textarea>
             <div class="row">
-              <button class="btn ghost small" id="net-text-custom" type="button">✏️ Modifier pour ce réseau</button>
-              <button class="btn ghost small" id="net-text-reset" type="button">↺ Revenir au texte commun</button>
+              <button class="btn ghost small" id="net-text-custom" type="button">✏️ Modifier</button>
+              <button class="btn ghost small" id="net-text-reset" type="button">↺ Texte commun</button>
             </div>
           </div>
           <div class="text-tools">
@@ -67,15 +67,15 @@
           <div class="card-title"><label>Médias</label><button class="help-q" type="button" data-help="photo" aria-label="Aide : médias et appareil photo">?</button></div>
           <div id="dropzone" class="dropzone" tabindex="0">
             <input id="file" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" hidden>
-            <span class="dz-desktop">Glisse tes images / vidéos ici ou <u>clique pour choisir</u></span>
-            <span class="dz-touch"><span class="tool-ico gallery-ico" data-ico="gallery"></span><strong>Choisir dans ma galerie</strong><br><small>photos et vidéos, plusieurs à la fois</small></span>
+            <span class="dz-desktop">Glisse tes fichiers ici ou <u>parcours</u></span>
+            <span class="dz-touch"><span class="tool-ico gallery-ico" data-ico="gallery"></span><strong>Galerie</strong></span>
           </div>
           <div class="media-tools">
-            <button class="btn ghost small tool" id="btn-photo" type="button"><span class="tool-ico" data-ico="camera"></span><span class="lg">Prendre une photo</span><span class="sm">Photo</span></button>
-            <button class="btn ghost small tool" id="btn-video" type="button"><span class="tool-ico" data-ico="video"></span><span class="lg">Filmer une vidéo</span><span class="sm">Vidéo</span></button>
-            <button class="btn ghost small tool" id="btn-canva" type="button"><span class="tool-ico" data-ico="canva"></span><span class="lg">Importer depuis Canva</span><span class="sm">Canva</span></button>
-            <button class="btn ghost small tool" id="btn-drive" type="button"><span class="tool-ico" data-ico="gdrive"></span><span class="lg">Importer depuis Google Drive</span><span class="sm">Drive</span></button>
-            <button class="btn ghost small tool" id="btn-music" type="button" hidden><span class="tool-ico" data-ico="music"></span><span class="lg">Musique sur les slides</span><span class="sm">Musique sur les slides</span></button>
+            <button class="btn ghost small tool" id="btn-photo" type="button"><span class="tool-ico" data-ico="camera"></span><span>Photo</span></button>
+            <button class="btn ghost small tool" id="btn-video" type="button"><span class="tool-ico" data-ico="video"></span><span>Vidéo</span></button>
+            <button class="btn ghost small tool" id="btn-canva" type="button"><span class="tool-ico" data-ico="canva"></span><span>Canva</span></button>
+            <button class="btn ghost small tool" id="btn-drive" type="button"><span class="tool-ico" data-ico="gdrive"></span><span>Drive</span></button>
+            <button class="btn ghost small tool" id="btn-music" type="button" hidden><span class="tool-ico" data-ico="music"></span><span>Musique</span></button>
             <input id="capture-photo" type="file" accept="image/jpeg,image/png" capture="environment" hidden>
             <input id="capture-video" type="file" accept="video/*" capture="environment" hidden>
           </div>
@@ -100,11 +100,11 @@
           <div id="slot-box" class="slot-box"></div>
           <div id="validation" class="validation"></div>
           <div class="actions">
-            <button class="btn ghost" id="btn-preview" type="button">👁 Aperçu par réseau</button>
+            <button class="btn ghost" id="btn-preview" type="button">👁 Aperçu</button>
             <button class="btn primary" id="btn-schedule">Programmer</button>
             <button class="btn accent" id="btn-now">Publier maintenant</button>
-            <button class="btn ghost" id="btn-draft">Enregistrer en brouillon</button>
-            <button class="btn ghost" id="btn-reset">Vider le formulaire</button>
+            <button class="btn ghost" id="btn-draft">Brouillon</button>
+            <button class="btn ghost" id="btn-reset">Vider</button>
           </div>
         </div>
       </div>

@@ -515,7 +515,7 @@ function updateDriveImport() {
   const n = state.drive.picked.size;
   const btn = $("#drive-import");
   btn.disabled = n === 0;
-  btn.textContent = n ? `Importer ${n} fichier${n > 1 ? "s" : ""}` : "Touche des fichiers pour les choisir";
+  btn.textContent = n ? `Importer ${n} fichier${n > 1 ? "s" : ""}` : "Choisis des fichiers";
 }
 
 async function importDrive() {
@@ -758,7 +758,7 @@ async function renderDevice() {
   const installRow = isStandalone()
     ? h("p", { class: "small" }, "✅ Tu utilises PTZ Posting comme une appli.")
     : installPrompt
-      ? h("button", { class: "btn primary small", type: "button", onclick: async () => { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; renderDevice(); } }, "📲 Installer l'appli sur cet appareil")
+      ? h("button", { class: "btn primary small", type: "button", onclick: async () => { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; renderDevice(); } }, "📲 Installer l'appli")
       : isIOS()
         ? h("p", { class: "small" }, "Sur iPhone / iPad (Safari) : touche ", h("strong", {}, "Partager ⬆️"), " puis ", h("strong", {}, "« Sur l'écran d'accueil »"), ". L'icône PTZ Posting apparaît comme une appli.")
         : h("p", { class: "small" }, "Sur Android (Chrome) : menu ⋮ → ", h("strong", {}, "« Installer l'application »"), " ou « Ajouter à l'écran d'accueil ». Sur ordinateur : l'icône d'installation dans la barre d'adresse.");
@@ -777,7 +777,7 @@ async function renderDevice() {
           e.currentTarget.disabled = true;
           try { await enablePush(); toast("Notifications activées."); } catch (err) { toast(err.message, "err"); }
           renderDevice();
-        } }, "🔔 Activer les notifications sur cet appareil"),
+        } }, "🔔 Activer"),
         h("small", { class: "muted" }, "Publication réussie ou en échec, récap du matin."));
   let recap = { enabled: true, hour: 8 };
   try { recap = await api("/recap"); } catch { /* garde le défaut */ }
@@ -791,7 +791,7 @@ async function renderDevice() {
     h("button", { class: "btn ghost small", type: "button", onclick: async () => {
       const r = await api("/recap/test", { method: "POST" });
       toast(r.body.replace(/\n/g, " · "));
-    } }, "Voir le récap d'aujourd'hui"));
+    } }, "Aperçu"));
   box.replaceChildren(h("div", { class: "card system" }, cardTitle("Appli et notifications", "appli"), installRow, notifRow, recapRow));
 }
 
@@ -820,14 +820,14 @@ async function renderMaintenance() {
   let m;
   try { m = await api("/maintenance"); } catch { return; }
   const updBox = h("div", { class: "maint-updates" });
-  const check = h("button", { class: "btn ghost small", type: "button" }, "Vérifier les mises à jour");
+  const check = h("button", { class: "btn ghost small", type: "button" }, "Mises à jour");
   check.onclick = async () => {
     check.disabled = true; check.textContent = "Vérification…";
     try {
       const { commits } = await api("/maintenance/update/check", { method: "POST" });
       if (!commits.length) updBox.replaceChildren(h("p", { class: "small" }, "✅ PTZ Posting est à jour."));
       else {
-        const go = h("button", { class: "btn primary small", type: "button" }, `Installer ${plural(commits.length, "nouveauté")} et redémarrer`);
+        const go = h("button", { class: "btn primary small", type: "button" }, `Installer (${commits.length})`);
         go.onclick = async () => {
           if (!confirm("Installer la mise à jour ? L'app sera indisponible quelques secondes (une sauvegarde est faite avant).")) return;
           go.disabled = true; go.textContent = "Installation…";
@@ -843,7 +843,7 @@ async function renderMaintenance() {
           go);
       }
     } catch (e) { updBox.replaceChildren(h("p", { class: "error small" }, e.message)); }
-    check.disabled = false; check.textContent = "Vérifier les mises à jour";
+    check.disabled = false; check.textContent = "Mises à jour";
   };
 
   const backupRow = (b) => h("li", {},
@@ -878,7 +878,7 @@ async function renderMaintenance() {
       h("div", { class: "row" }, h("button", { class: "btn ghost small", type: "button", onclick: async (e) => {
         e.currentTarget.disabled = true;
         try { await api("/maintenance/backups", { method: "POST" }); toast("Sauvegarde faite."); renderMaintenance(); } catch (err) { toast(err.message, "err"); }
-      } }, "Sauvegarder maintenant")),
+      } }, "Sauvegarder")),
       m.backups.length ? h("ul", { class: "maint-backups" }, ...m.backups.map(backupRow)) : h("p", { class: "muted small" }, "Pas encore de sauvegarde (la première est faite quelques minutes après le démarrage)."),
     ));
 }
@@ -1130,7 +1130,7 @@ function setupPanel(id, configured) {
     }
   };
   return h("details", { class: `appset${configured ? "" : " todo"}` },
-    h("summary", {}, configured ? "Clés de l'app (propriétaire)" : "Activer ce réseau"),
+    h("summary", {}, configured ? "Clés de l'app" : "Activer ce réseau"),
     configured ? null : h("p", { class: "muted small" }, "Une seule fois, pour tout le monde : déclare PTZ Posting chez le réseau en suivant le tuto, puis colle ici ses deux clés. Ensuite chacun connecte ses comptes d'un clic."),
     g.callback
       ? h("div", { class: "callback" }, h("span", { class: "small" }, "Ton adresse de retour (à coller chez le réseau) :"), h("div", { class: "row" }, h("code", {}, g.callback), copyBtn(g.callback)))
@@ -1138,7 +1138,7 @@ function setupPanel(id, configured) {
     NETS()[id]
       ? h("details", { class: "tuto-box", open: !configured }, h("summary", {}, "Tuto pas à pas"), tuto(NETS()[id].owner))
       : h("p", { class: "muted small" }, g.help),
-    g.console ? h("a", { href: g.console, target: "_blank", rel: "noopener", class: "small" }, "Ouvrir la console développeur ↗") : null,
+    g.console ? h("a", { href: g.console, target: "_blank", rel: "noopener", class: "small" }, "Console ↗") : null,
     ...inputs,
     fromServer
       ? h("p", { class: "muted small" }, "Ces clés sont définies sur le serveur (variables d'environnement) : pour les gérer ici, retire-les là-bas puis redémarre.")
@@ -1355,7 +1355,7 @@ async function finishInInstagram({ media, caption, onPublished }) {
           if (err?.name !== "AbortError") toast("Partage impossible : " + (err?.message ?? err), "err");
         }
       } }, `📲 Ouvrir Instagram (${plural(files.length, "fichier")})`),
-      h("button", { class: "btn ghost small", type: "button", onclick: async () => toast((await copyCaption()) ? "Légende copiée." : "Copie impossible.") }, "Copier seulement la légende"),
+      h("button", { class: "btn ghost small", type: "button", onclick: async () => toast((await copyCaption()) ? "Légende copiée." : "Copie impossible.") }, "Copier la légende"),
       doneRow,
     );
   } else {
@@ -1439,7 +1439,7 @@ function renderMusic() {
     return h("label", { class: "check" }, r, label);
   };
 
-  const go = h("button", { class: "btn primary share-go", type: "button", disabled: !track || !images.length }, "♫ Créer les vidéos avec la musique");
+  const go = h("button", { class: "btn primary share-go", type: "button", disabled: !track || !images.length }, "♫ Créer les vidéos");
   go.addEventListener("click", async () => {
     go.disabled = true;
     go.textContent = "Création des vidéos… (quelques secondes par slide)";
@@ -1458,7 +1458,7 @@ function renderMusic() {
     } catch (e) {
       toast(e.message, "err");
       go.disabled = false;
-      go.textContent = "♫ Créer les vidéos avec la musique";
+      go.textContent = "♫ Créer les vidéos";
     }
   });
 
@@ -1479,13 +1479,13 @@ function renderMusic() {
           } }, "✕"));
       }),
       fileInput,
-      h("button", { class: "btn ghost small", type: "button", onclick: () => fileInput.click() }, music.tracks.length ? "＋ Ajouter une musique (MP3, M4A…)" : "＋ Choisir une musique (MP3, M4A…)")),
+      h("button", { class: "btn ghost small", type: "button", onclick: () => fileInput.click() }, music.tracks.length ? "＋ Ajouter" : "＋ Ajouter une musique")),
     track
       ? h("div", { class: "music-settings" },
           player,
           h("div", { class: "row" },
             h("label", { class: "inline" }, "Début de la musique (secondes)"), startInput,
-            h("button", { class: "btn ghost small", type: "button", onclick: () => { music.start = Math.round((player.currentTime || 0) * 2) / 2; startInput.value = music.start; renderSummary(); } }, "Prendre la position du lecteur")),
+            h("button", { class: "btn ghost small", type: "button", onclick: () => { music.start = Math.round((player.currentTime || 0) * 2) / 2; startInput.value = music.start; renderSummary(); } }, "Position actuelle")),
           h("div", { class: "music-modes" },
             modeRadio("all", "Toutes les slides (la musique continue d'une slide à l'autre)"),
             modeRadio("first", "Seulement la 1re slide")),
@@ -1683,7 +1683,7 @@ function renderSlots() {
   const chips = fits.flatMap((s) => nextFree(s, 1).map((t) => ({ s, t }))).sort((a, b) => a.t - b.t);
   box.replaceChildren(
     chips.length
-      ? h("div", { class: "slot-chips" }, h("small", { class: "muted" }, "Prochain créneau libre :"),
+      ? h("div", { class: "slot-chips" }, h("small", { class: "muted" }, "Créneau :"),
           ...chips.map(({ s, t }) => h("button", { type: "button", class: "chip small-chip slot-chip", title: `${s.label} · ${s.time}`, onclick: () => {
             $("#when").value = toLocalInput(t);
             $("#when").dispatchEvent(new Event("change"));
@@ -1691,7 +1691,7 @@ function renderSlots() {
           } }, h("strong", {}, s.label), ` · ${slotLabel(t)}`)))
       : null,
     h("button", { type: "button", class: "link-btn small", onclick: () => { state.slotEditing = !state.slotEditing; renderSlots(); } },
-      state.slotEditing ? "Fermer" : state.slots.length ? "Gérer mes créneaux" : "＋ Enregistrer mes heures habituelles de publication"),
+      state.slotEditing ? "Fermer" : state.slots.length ? "Créneaux" : "＋ Créneaux"),
     state.slotEditing ? slotEditor() : null,
   );
 }
@@ -1882,7 +1882,7 @@ function batchToolbar(drafts) {
   all.addEventListener("change", () => { state.batch = all.checked ? new Set(drafts.map((p) => p.id)) : new Set(); renderQueue(); });
   return h("div", { class: "batch-bar" },
     h("label", { class: "check" }, all, h("span", {}, n ? `${plural(n, "brouillon")} choisi${n > 1 ? "s" : ""}` : "Tout sélectionner")),
-    h("button", { class: "btn primary small", type: "button", disabled: !n, onclick: () => openBatch(drafts.filter((p) => state.batch.has(p.id))) }, "📅 Programmer la sélection"));
+    h("button", { class: "btn primary small", type: "button", disabled: !n, onclick: () => openBatch(drafts.filter((p) => state.batch.has(p.id))) }, "📅 Programmer"));
 }
 
 function batchPick(p) {
@@ -1991,7 +1991,7 @@ function renderTemplateBox(editing = null) {
       name, text, profile,
       h("div", { class: "row" },
         h("button", { class: "btn primary small", type: "button", onclick: save }, editing ? "Enregistrer" : "Créer le modèle"),
-        editing ? null : h("button", { class: "btn ghost small", type: "button", onclick: () => { text.value = $("#text").value; } }, "Reprendre le texte actuel"),
+        editing ? null : h("button", { class: "btn ghost small", type: "button", onclick: () => { text.value = $("#text").value; } }, "Texte actuel"),
         editing ? h("button", { class: "btn ghost small", type: "button", onclick: () => renderTemplateBox() }, "Annuler") : null,
         editing ? h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
           if (!confirm(`Supprimer le modèle « ${editing.name} » ?`)) return;
@@ -2081,7 +2081,7 @@ function renderHashtags() {
           ...freq.map((t) => h("button", { type: "button", class: "chip small-chip tag-freq", title: `Utilisé dans ${t.n} post${t.n > 1 ? "s" : ""}`, onclick: () => insertHashtags([t.tag]) }, t.tag)))
       : null,
     h("button", { type: "button", class: "link-btn small", onclick: () => { H.editing = !H.editing; renderHashtags(); } },
-      H.editing ? "Fermer" : sets.length || H.sets.length ? "Gérer mes jeux de hashtags" : "＋ Créer un jeu de hashtags (à insérer d'un clic)"),
+      H.editing ? "Fermer" : sets.length || H.sets.length ? "Jeux de hashtags" : "＋ Jeux de hashtags"),
     H.editing ? hashtagEditor() : null,
   ].filter(Boolean));
 }
@@ -2240,7 +2240,7 @@ function targetCard(a) {
           renderComposeMeta();
           toast("Instagram retiré de ce post (déjà publié depuis l'appli).");
         },
-      }) }, "📲 Finir dans Instagram (pour ajouter une musique)"),
+      }) }, "📲 Finir dans Instagram"),
       h("small", { class: "muted" }, "Instagram ne laisse ajouter sa musique que dans son appli.")));
   }
   body.push(h("p", { class: "tformat" }, formatSummary(a, o)));
@@ -2266,7 +2266,7 @@ function targetCard(a) {
             return b;
           })),
         o._manual
-          ? h("button", { type: "button", class: "linklike", onclick: () => { o._manual = false; changed(true); } }, "Revenir à la sélection automatique")
+          ? h("button", { type: "button", class: "linklike", onclick: () => { o._manual = false; changed(true); } }, "Sélection auto")
           : null),
     );
   }
@@ -2325,7 +2325,7 @@ function targetCard(a) {
           fc.value = o.firstComment;
           renderComposeMeta();
           toast(`${plural(tags.length, "hashtag")} déplacé${tags.length > 1 ? "s" : ""} dans le premier commentaire (${PROVIDER[a.provider].label} seulement).`);
-        } }, "↧ Déplacer les hashtags du texte vers le premier commentaire")
+        } }, "↧ Hashtags en commentaire")
       : null;
     body.push(h("details", { class: "toverride", open: !!o.firstComment }, h("summary", {}, `💬 ${label}`), fc, moveTags,
       h("small", { class: "muted" }, "Nouvelle autorisation : si c'est la première fois, reconnecte ce compte dans l'onglet Comptes pour l'activer.")));
@@ -2336,7 +2336,7 @@ function targetCard(a) {
     state.textTab = a.id;
     renderTextTabs();
     $("#text-tabs").scrollIntoView({ behavior: "smooth", block: "center" });
-  } }, state.overrides[a.id] ? "✏️ Texte propre à ce réseau (modifier)" : "✏️ Modifier le texte pour ce réseau"));
+  } }, state.overrides[a.id] ? "✏️ Texte de ce réseau" : "✏️ Texte de ce réseau"));
 
   return h("article", { class: "tcard", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head, ...body);
 }
@@ -2871,10 +2871,10 @@ function postCard(p) {
             const comment = prompt(`Que faut-il modifier ? (${p.authorName} recevra ton message)`);
             if (comment == null) return;
             act(() => api(`/posts/${p.id}/request-changes`, { method: "POST", body: JSON.stringify({ comment }) }), "Renvoyé pour modification.");
-          } }, "↩ Demander des modifications")
+          } }, "↩ À revoir")
         : null,
       p.status === "draft"
-        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, p.ownerName ? "Modifier et reproposer" : "Relire et programmer")
+        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, p.ownerName ? "Modifier" : "Programmer")
         : p.status === "scheduled" && !p.ownerName || p.status === "review" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
       p.authorId || p.comments ? commentButton(p) : null,
       p.status === "failed" || p.status === "partial"
