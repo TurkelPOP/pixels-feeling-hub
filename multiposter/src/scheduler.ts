@@ -11,7 +11,7 @@ let running = false;
 
 export type PostStatus = "draft" | "scheduled" | "publishing" | "done" | "partial" | "failed";
 
-async function freshAccount(account: Account): Promise<Account> {
+export async function freshAccount(account: Account): Promise<Account> {
   const pub = publishers[account.provider];
   const margin = pub.refreshMarginMs ?? 5 * 60_000;
   if (!pub.refresh || !account.expiresAt || account.expiresAt - Date.now() > margin) return account;
@@ -69,8 +69,8 @@ async function publishTarget(targetId: number): Promise<void> {
       }
     }
     db.prepare(
-      "UPDATE post_targets SET status = 'done', external_url = ?, error = ?, published_at = ? WHERE id = ?",
-    ).run(result.url ?? null, note, Date.now(), targetId);
+      "UPDATE post_targets SET status = 'done', external_url = ?, external_id = ?, error = ?, published_at = ? WHERE id = ?",
+    ).run(result.url ?? null, result.id ?? null, note, Date.now(), targetId);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[publish] cible ${targetId} :`, msg);

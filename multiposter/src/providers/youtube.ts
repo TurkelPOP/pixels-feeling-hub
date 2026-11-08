@@ -104,6 +104,6 @@ export const youtube: Publisher = {
       result = await res.json();
     }
     if (!result?.id) throw new Error("YouTube : upload incomplet");
-    return { url: `https://www.youtube.com/watch?v=${result.id}` };
+    return { url: `https://www.youtube.com/watch?v=${result.id}`, id: result.id };
   },
 };

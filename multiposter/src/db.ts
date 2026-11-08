@@ -84,7 +84,14 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 `);
 
 // Migrations légères (colonnes ajoutées après la première version).
-for (const sql of ["ALTER TABLE posts ADD COLUMN source TEXT", "ALTER TABLE post_targets ADD COLUMN options TEXT"]) {
+for (const sql of [
+  "ALTER TABLE posts ADD COLUMN source TEXT",
+  "ALTER TABLE post_targets ADD COLUMN options TEXT",
+  // Statistiques : identifiant du post chez le réseau, derniers chiffres et leur date.
+  "ALTER TABLE post_targets ADD COLUMN external_id TEXT",
+  "ALTER TABLE post_targets ADD COLUMN stats TEXT",
+  "ALTER TABLE post_targets ADD COLUMN stats_at INTEGER",
+]) {
   try {
     db.exec(sql);
   } catch {

@@ -24,6 +24,7 @@ import { registerMentionApi, resolveMentions } from "./mentions.ts";
 import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
 import { registerPushApi } from "./push.ts";
 import { registerPresetApi } from "./presets.ts";
+import { registerStatsApi, startStats } from "./stats.ts";
 import { registerRecapApi, sendDueRecaps, startRecaps } from "./recap.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
@@ -317,6 +318,7 @@ registerMentionApi(api);
 registerMaintenanceApi(api, sendFile);
 registerPushApi(api);
 registerPresetApi(api);
+registerStatsApi(api);
 registerRecapApi(api);
 registerMusicApi(api);
 // Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).
@@ -346,7 +348,7 @@ api.put("/media", async (c) => {
 function serializePost(p: Record<string, any>) {
   const targets = db
     .prepare(
-      `SELECT t.id, t.account_id, t.text_override, t.options, t.status, t.external_url, t.error, t.attempts, t.published_at,
+      `SELECT t.id, t.account_id, t.text_override, t.options, t.status, t.external_url, t.error, t.attempts, t.published_at, t.stats, t.stats_at,
               a.provider, a.name, a.avatar_url
        FROM post_targets t LEFT JOIN accounts a ON a.id = t.account_id WHERE t.post_id = ? ORDER BY a.provider`,
     )
@@ -381,6 +383,8 @@ function serializePost(p: Record<string, any>) {
       error: t.error,
       attempts: t.attempts,
       publishedAt: t.published_at,
+      stats: t.stats ? JSON.parse(t.stats) : null,
+      statsAt: t.stats_at,
     })),
   };
 }
@@ -621,6 +625,7 @@ startCanvaWatcher();
 startCleanup();
 startBackups();
 startRecaps();
+startStats();
 // Par défaut, l'app n'écoute que sur ce PC (127.0.0.1) : elle n'est pas visible depuis les
 // autres appareils du Wi-Fi. HOST=0.0.0.0 seulement pour Docker ou un serveur.
 serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {

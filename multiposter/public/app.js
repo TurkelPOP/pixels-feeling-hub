@@ -2588,6 +2588,7 @@ function renderQueue() {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
   }
+  void renderTopStats();
   const pickable = state.filter === "draft";
   $("#queue").replaceChildren(
     pickable ? batchToolbar(posts.filter((p) => p.status === "draft")) : null,
@@ -2693,6 +2694,30 @@ function renderCalendar() {
   );
 }
 
+const fmtNum = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".0", "")} M` : n >= 1e4 ? `${Math.round(n / 1e3)} k` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(".0", "")} k` : String(n));
+function statsLine(s, at) {
+  const bits = [["views", "👁", "vues"], ["likes", "❤", "j'aime"], ["comments", "💬", "commentaires"], ["shares", "↻", "partages"]]
+    .filter(([k]) => s[k] != null).map(([k, icon, label]) => h("span", { title: `${s[k]} ${label}` }, `${icon} ${fmtNum(s[k])}`));
+  return bits.length ? h("span", { class: "stats-line", title: at ? `Mis à jour ${relTime(at)}` : "" }, ...bits) : null;
+}
+
+async function renderTopStats() {
+  const box = $("#stats-top");
+  if (!box) return;
+  if (state.filter !== "done" || state.mode !== "list") return box.replaceChildren();
+  let r;
+  try { r = await api("/stats/top?days=30"); } catch { return; }
+  if (!r.top.length) return box.replaceChildren(h("p", { class: "muted small" }, "📊 Les statistiques apparaissent quelques heures après publication (vues, j'aime, commentaires)."));
+  box.replaceChildren(h("div", { class: "card stats-card" },
+    h("div", { class: "card-title" }, h("strong", {}, "📊 30 derniers jours"), helpQ("planning")),
+    h("div", { class: "stats-total" },
+      ...[["views", "vues"], ["likes", "j'aime"], ["comments", "commentaires"], ["shares", "partages"]].map(([k, l]) => h("div", {}, h("strong", {}, fmtNum(r.total[k])), h("small", { class: "muted" }, l))),
+      h("div", {}, h("strong", {}, String(r.total.posts)), h("small", { class: "muted" }, "posts"))),
+    h("ol", { class: "stats-top" }, ...r.top.slice(0, 5).map((p) => h("li", {},
+      h("button", { type: "button", class: "linklike", onclick: () => document.getElementById(`post-${p.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }) }, p.label),
+      h("span", { class: "stats-line" }, ...[...new Set(p.providers)].map((pr) => netIcon(pr)), statsLine(p)))))));
+}
+
 function postCard(p) {
   const act = async (fn, okMsg) => {
     try {
@@ -2731,6 +2756,7 @@ function postCard(p) {
           h("span", {}, t.name),
           h("span", { class: `status ${t.status}` }, STATUS[t.status] ?? t.status),
           t.url ? h("a", { href: t.url, target: "_blank", rel: "noopener" }, "Voir ↗") : null,
+          t.stats ? statsLine(t.stats, t.statsAt) : null,
           t.provider === "instagram" && (t.status === "pending" || t.status === "failed")
             ? h("button", { class: "btn ghost small ig-finish-btn", type: "button", onclick: () => finishInInstagram({
                 media: (t.options?.media ? p.media.filter((m) => t.options.media.includes(m.id)) : p.media),
@@ -2757,6 +2783,9 @@ function postCard(p) {
         : p.status === "scheduled" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
       p.status === "failed" || p.status === "partial"
         ? h("button", { class: "btn primary small", onclick: () => act(() => api(`/posts/${p.id}/retry`, { method: "POST" }), "Nouvel essai lancé.") }, "Réessayer les échecs")
+        : null,
+      p.targets.some((t) => t.status === "done")
+        ? h("button", { class: "btn ghost small", title: "Actualiser les statistiques", onclick: () => act(() => api(`/posts/${p.id}/stats`, { method: "POST" }), "Statistiques actualisées.") }, "📊 Actualiser")
         : null,
       h("button", {
         class: "btn ghost small",

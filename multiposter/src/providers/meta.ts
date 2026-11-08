@@ -20,6 +20,9 @@ const SCOPES = [
   // Premier commentaire automatique (Instagram, Facebook).
   "instagram_manage_comments",
   "pages_manage_engagement",
+  // Statistiques (vues, portée).
+  "instagram_manage_insights",
+  "read_insights",
 ].join(",");
 
 export const metaFlow: OAuthFlow = {

@@ -20,7 +20,7 @@ export const tiktokFlow: OAuthFlow = {
     "https://www.tiktok.com/v2/auth/authorize/?" +
     new URLSearchParams({
       client_key: config.tiktok.clientKey!,
-      scope: "user.info.basic,video.publish",
+      scope: "user.info.basic,video.publish,video.list",
       response_type: "code",
       redirect_uri: callbackUrl("tiktok"),
       state,
@@ -129,6 +129,6 @@ export const tiktok: Publisher = {
       },
       { what: "traitement TikTok" },
     );
-    return { url: postId ? `https://www.tiktok.com/@/video/${postId}` : undefined };
+    return { url: postId ? `https://www.tiktok.com/@/video/${postId}` : undefined, id: postId ? String(postId) : undefined };
   },
 };

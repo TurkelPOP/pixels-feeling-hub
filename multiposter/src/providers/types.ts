@@ -57,6 +57,13 @@ export interface PublishInput {
   options: TargetOptions;
 }
 
+export interface PostStats {
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+}
+
 export interface PublishResult {
   url?: string;
   /** Identifiant du post chez le réseau (pour y ajouter le premier commentaire). */

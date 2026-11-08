@@ -15,7 +15,7 @@ export const threadsFlow: OAuthFlow = {
     new URLSearchParams({
       client_id: config.threads.appId!,
       redirect_uri: callbackUrl("threads"),
-      scope: "threads_basic,threads_content_publish,threads_manage_replies",
+      scope: "threads_basic,threads_content_publish,threads_manage_replies,threads_manage_insights",
       response_type: "code",
       state,
     }),
