@@ -20,6 +20,7 @@ import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
 import { canvaApi, canvaRoutes, checkCanvaRules, startCanvaWatcher } from "./canva.ts";
 import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
 import { registerHashtagApi } from "./hashtags.ts";
+import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
@@ -118,10 +119,10 @@ const MIME: Record<string, string> = {
   webm: "video/webm",
 };
 
-function sendFile(c: Context, path: string, cache = "no-cache") {
+function sendFile(c: Context, path: string, cache = "no-cache", forcedType?: string) {
   if (!existsSync(path)) return c.notFound();
   const { size } = statSync(path);
-  const type = MIME[path.split(".").pop()!] ?? "application/octet-stream";
+  const type = forcedType ?? MIME[path.split(".").pop()!] ?? "application/octet-stream";
   const range = c.req.header("range")?.match(/bytes=(\d*)-(\d*)/);
   if (range && (range[1] || range[2])) {
     const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
@@ -285,6 +286,12 @@ api.get("/accounts", (c) =>
 
 registerProfileApi(api);
 registerHashtagApi(api);
+registerMusicApi(api);
+// Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).
+api.get("/music/:id/file", (c) => {
+  const f = musicFile(c.req.param("id"), uid(c));
+  return f ? sendFile(c, f.path, "private, max-age=3600", f.mime) : c.notFound();
+});
 registerAppSettingsApi(api);
 
 api.delete("/accounts/:id", (c) => {

@@ -1145,6 +1145,130 @@ async function finishInInstagram({ media, caption, onPublished }) {
   }
 }
 
+// ---------- Musique sur les slides ----------
+// Les slides (images) deviennent de courtes vidéos avec ta musique : dans un carrousel Instagram,
+// le son est joué quand on fait défiler. La musique doit être à toi ou libre de droits.
+
+const fmtDuration = (s) => (s == null ? "" : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`);
+const music = { tracks: [], available: true, trackId: null, mode: "all", seconds: 5, start: 0 };
+
+async function openMusic() {
+  $("#music-dialog").showModal();
+  $("#music-body").replaceChildren(h("p", { class: "muted" }, "Chargement de tes musiques…"));
+  try {
+    const r = await api("/music");
+    music.tracks = r.tracks;
+    music.available = r.available;
+    if (!music.tracks.some((t) => t.id === music.trackId)) music.trackId = music.tracks[0]?.id ?? null;
+  } catch (e) {
+    return $("#music-body").replaceChildren(h("p", { class: "error" }, e.message));
+  }
+  renderMusic();
+}
+
+function renderMusic() {
+  const body = $("#music-body");
+  const images = state.media.filter((m) => m.kind === "image" && m.mime !== "image/gif");
+  if (!music.available)
+    return body.replaceChildren(h("p", { class: "error" }, "Le convertisseur vidéo (ffmpeg) n'est pas installé sur le serveur : cette fonction n'est pas disponible."));
+
+  const fileInput = h("input", { type: "file", accept: "audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,.mp3,.m4a,.aac,.wav", hidden: true });
+  fileInput.addEventListener("change", async () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    const type = f.type || ({ mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", wav: "audio/wav" })[f.name.split(".").pop().toLowerCase()] || "";
+    toast("Envoi de la musique…");
+    try {
+      const t = await fetch(`/api/music?filename=${encodeURIComponent(f.name)}`, { method: "PUT", headers: { "Content-Type": type, "X-Requested-With": "multiposter" }, body: f })
+        .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; });
+      music.tracks.unshift(t);
+      music.trackId = t.id;
+      toast(`« ${t.name} » ajoutée.`);
+      renderMusic();
+    } catch (e) {
+      toast(e.message, "err");
+    }
+  });
+
+  const track = music.tracks.find((t) => t.id === music.trackId);
+  const player = track ? h("audio", { controls: true, preload: "metadata", src: `/api/music/${track.id}/file`, class: "music-player" }) : null;
+  const startInput = h("input", { type: "number", min: 0, step: 0.5, value: music.start, inputmode: "decimal", class: "num" });
+  startInput.addEventListener("input", () => { music.start = Math.max(0, Number(startInput.value) || 0); renderSummary(); });
+  if (player) player.addEventListener("loadedmetadata", () => { player.currentTime = music.start; });
+  const secInput = h("input", { type: "number", min: 3, max: 60, step: 1, value: music.seconds, inputmode: "numeric", class: "num" });
+  secInput.addEventListener("input", () => { music.seconds = Math.min(60, Math.max(3, Number(secInput.value) || 5)); renderSummary(); });
+  const summary = h("p", { class: "muted small" });
+  const renderSummary = () => {
+    const n = music.mode === "all" ? Math.min(images.length, 10) : Math.min(images.length, 1);
+    summary.textContent = n
+      ? `${plural(n, "slide")} → ${plural(n, "vidéo")} de ${music.seconds} s, musique de ${fmtDuration(music.start)} à ${fmtDuration(music.start + n * (music.mode === "all" ? music.seconds : 0) + (music.mode === "all" ? 0 : music.seconds))}.`
+      : "Ajoute d'abord des images au post.";
+  };
+  renderSummary();
+  const modeRadio = (value, label) => {
+    const r = h("input", { type: "radio", name: "music-mode", value, checked: music.mode === value });
+    r.addEventListener("change", () => { music.mode = value; music.seconds = value === "all" ? 5 : 15; secInput.value = music.seconds; renderSummary(); });
+    return h("label", { class: "check" }, r, label);
+  };
+
+  const go = h("button", { class: "btn primary share-go", type: "button", disabled: !track || !images.length }, "♫ Créer les vidéos avec la musique");
+  go.addEventListener("click", async () => {
+    go.disabled = true;
+    go.textContent = "Création des vidéos… (quelques secondes par slide)";
+    try {
+      const ids = (music.mode === "all" ? images.slice(0, 10) : images.slice(0, 1)).map((m) => m.id);
+      const { media } = await api("/music/render", { method: "POST", body: JSON.stringify({ mediaIds: ids, trackId: music.trackId, mode: music.mode, seconds: music.seconds, start: music.start }) });
+      const swap = new Map(media.map((v) => [v.replaces, v]));
+      state.media = state.media.map((m) => swap.get(m.id) ?? m);
+      // Les choix de médias par réseau suivent le remplacement.
+      for (const o of Object.values(state.targetOptions)) if (Array.isArray(o.media)) o.media = o.media.map((id) => swap.get(id)?.id ?? id);
+      cardsKey = "";
+      renderMedia();
+      renderComposeMeta();
+      toast(`${plural(media.length, "slide")} avec musique : prêt${media.length > 1 ? "es" : "e"}.`);
+      $("#music-dialog").close();
+    } catch (e) {
+      toast(e.message, "err");
+      go.disabled = false;
+      go.textContent = "♫ Créer les vidéos avec la musique";
+    }
+  });
+
+  body.replaceChildren(
+    h("p", { class: "small" }, "Tes slides deviennent de courtes vidéos avec ta musique : dans un carrousel Instagram, le son est joué quand on fait défiler. Utilise une musique ", h("strong", {}, "à toi ou libre de droits"), " (Instagram peut couper le son d'une musique protégée)."),
+    h("div", { class: "music-list" },
+      ...music.tracks.map((t) => {
+        const r = h("input", { type: "radio", name: "music-track", checked: t.id === music.trackId });
+        r.addEventListener("change", () => { music.trackId = t.id; music.start = 0; renderMusic(); });
+        return h("div", { class: "music-item" },
+          h("label", { class: "check" }, r, h("span", {}, t.name), h("small", { class: "muted" }, fmtDuration(t.duration))),
+          h("button", { class: "btn ghost small danger", type: "button", title: "Supprimer cette musique", onclick: async () => {
+            if (!confirm(`Supprimer « ${t.name} » de ta bibliothèque ?`)) return;
+            await api(`/music/${t.id}`, { method: "DELETE" });
+            music.tracks = music.tracks.filter((x) => x.id !== t.id);
+            if (music.trackId === t.id) music.trackId = music.tracks[0]?.id ?? null;
+            renderMusic();
+          } }, "✕"));
+      }),
+      fileInput,
+      h("button", { class: "btn ghost small", type: "button", onclick: () => fileInput.click() }, music.tracks.length ? "＋ Ajouter une musique (MP3, M4A…)" : "＋ Choisir une musique (MP3, M4A…)")),
+    track
+      ? h("div", { class: "music-settings" },
+          player,
+          h("div", { class: "row" },
+            h("label", { class: "inline" }, "Début de la musique (secondes)"), startInput,
+            h("button", { class: "btn ghost small", type: "button", onclick: () => { music.start = Math.round((player.currentTime || 0) * 2) / 2; startInput.value = music.start; renderSummary(); } }, "Prendre la position du lecteur")),
+          h("div", { class: "music-modes" },
+            modeRadio("all", "Toutes les slides (la musique continue d'une slide à l'autre)"),
+            modeRadio("first", "Seulement la 1re slide")),
+          h("div", { class: "row" }, h("label", { class: "inline" }, "Durée de chaque vidéo (secondes)"), secInput),
+          summary)
+      : null,
+    go,
+    h("p", { class: "muted small" }, "Les vidéos remplacent les images dans ce post (Instagram, Threads, TikTok…). Facebook ne mélange pas photos et vidéo : dans ses options, garde une seule vidéo ou retire-le de ce post."),
+  );
+}
+
 // ---------- hashtags ----------
 
 /** Hashtags d'un texte (même règle que le serveur). */
@@ -1482,6 +1606,8 @@ function renderErrors(errors = {}) {
 }
 
 function renderMedia() {
+  const btnMusic = document.getElementById("btn-music");
+  if (btnMusic) btnMusic.hidden = !state.media.some((m) => m.kind === "image" && m.mime !== "image/gif");
   $("#media-list").replaceChildren(
     ...state.media.map((m, i) =>
       h(
@@ -2136,6 +2262,8 @@ async function init() {
   });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
   $("#share-close").onclick = () => $("#share-dialog").close();
+  $("#btn-music").onclick = openMusic;
+  $("#music-close").onclick = () => $("#music-dialog").close();
   $("#btn-drive").onclick = openDrive;
   $("#drive-close").onclick = () => $("#drive-dialog").close();
   $("#drive-more").onclick = () => loadDrive(true);

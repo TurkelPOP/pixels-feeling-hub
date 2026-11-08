@@ -448,3 +448,10 @@ Organisation du code :
 - `src/canva.ts` : connexion à Canva, liste des designs, export et brouillons automatiques.
 - `src/alerts.ts` : alertes par webhook. `src/cleanup.ts` : nettoyage des médias.
 - `public/` : l'interface (HTML, CSS, JS).
+
+## Musique sur les slides
+
+« ♫ Musique sur les slides » transforme des images en courtes vidéos MP4 (H.264/AAC, 30 i/s)
+avec une musique de la bibliothèque de chaque personne. Nécessite **ffmpeg** et **ffprobe** sur
+le serveur (`ffmpeg -version` pour vérifier ; sinon `FFMPEG_PATH` / `FFPROBE_PATH`). Les musiques
+sont rangées dans `data/music`, réservées à la personne qui les a envoyées.

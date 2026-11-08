@@ -300,6 +300,14 @@ ${networks[id].owner}`,
   <li>Sous les médias, chaque réseau a sa <strong>carte d'options</strong> : « Prêt » en vert, sinon ce qui bloque en rouge. Tu peux y choisir le format (carrousel, story…), les médias envoyés à ce réseau, ou un texte différent.</li>
   <li>Dans <strong>Quand ?</strong>, choisis la date et l'heure, puis <strong>Programmer</strong>. Ou <strong>Publier maintenant</strong>, ou <strong>Enregistrer en brouillon</strong>.</li>
 </ol>
+<h3>Mettre ta propre musique sur les slides (programmable)</h3>
+<ol class="steps">
+  <li>Ajoute tes images au post, puis touche <strong>« ♫ Musique sur les slides »</strong> sous les médias.</li>
+  <li>La première fois, ajoute une musique (MP3, M4A, AAC ou WAV) : elle reste dans ta bibliothèque pour les prochaines fois.</li>
+  <li>Écoute-la, choisis le <strong>début</strong> (ou « Prendre la position du lecteur »), puis : <strong>toutes les slides</strong> (5 s chacune par défaut, la musique continue d'une slide à l'autre) ou <strong>seulement la 1re</strong>.</li>
+  <li><strong>Créer les vidéos</strong> : les images sont remplacées par des vidéos avec la musique. Le post se programme normalement.</li>
+</ol>
+<p class="warn">Utilise une musique à toi ou libre de droits : Instagram peut couper le son d'une musique protégée. Facebook n'accepte pas un mélange photos + vidéos : retire-le de ce post ou garde-lui une seule vidéo.</p>
 <h3>Ajouter une musique Instagram (« Finir dans Instagram »)</h3>
 <p>Instagram ne laisse utiliser sa bibliothèque musicale que dans son appli. Pour un carrousel avec musique :</p>
 <ol class="steps">

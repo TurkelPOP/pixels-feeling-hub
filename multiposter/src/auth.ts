@@ -16,6 +16,7 @@ import { config } from "./config.ts";
 import { seal, unseal } from "./crypto.ts";
 import { db } from "./db.ts";
 import { purgeAllMedia } from "./media.ts";
+import { removeMusicData } from "./music.ts";
 import { removeUserData } from "./workspace.ts";
 
 const PUBLIC = resolve(import.meta.dirname, "../public");
@@ -632,6 +633,7 @@ export function registerUserApi(api: Hono) {
     db.prepare("DELETE FROM users WHERE id = ?").run(u.id); // ses sessions deviennent invalides
     removeUserData(u.id); // et tout son espace : réseaux, posts, Canva, règles
     void purgeAllMedia(u.id); // et ses images / vidéos, fichiers compris
+    void removeMusicData(u.id); // et sa bibliothèque de musiques
     logEvent(c, "user_removed", currentUser(c)!.name, `« ${u.name} » retiré`);
     void alert(`👤 L'accès de « ${u.name} » à PTZ Posting a été retiré, ainsi que son espace (réseaux, posts, Canva).`);
     return c.json({ ok: true });
