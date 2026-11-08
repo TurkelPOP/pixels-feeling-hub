@@ -516,6 +516,50 @@ api.delete("/posts/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+/** Contenu d'un post enregistré, au format de l'éditeur (pour le revalider avant de le programmer). */
+function bodyFromPost(p: Record<string, any>): PostBody {
+  const targets = db.prepare("SELECT account_id, text_override, options FROM post_targets WHERE post_id = ?").all(p.id) as Record<string, any>[];
+  return {
+    text: p.text, title: p.title, mediaIds: JSON.parse(p.media_ids),
+    accountIds: targets.map((t) => t.account_id),
+    overrides: Object.fromEntries(targets.filter((t) => t.text_override != null).map((t) => [t.account_id, t.text_override])),
+    options: Object.fromEntries(targets.filter((t) => t.options).map((t) => [t.account_id, JSON.parse(t.options)])),
+  } as PostBody;
+}
+
+/** Programme un brouillon (ou déplace un post programmé) à une date, après vérification. */
+function scheduleExisting(c: Context, id: number, at: number): { ok: true } | { error: string } {
+  const p = ownPost(c, id);
+  if (!p) return { error: "Post introuvable" };
+  if (p.status !== "draft" && p.status !== "scheduled") return { error: "Ce post a déjà été publié." };
+  if (!(at > Date.now() - 60_000)) return { error: "Date passée." };
+  const body = bodyFromPost(p);
+  if (!body.accountIds?.length) return { error: "Aucun réseau coché : ouvre le brouillon pour choisir ses comptes." };
+  const errors = validateBody(body, uid(c));
+  const first = Object.values(errors)[0];
+  if (first) return { error: first };
+  db.prepare("UPDATE posts SET status = 'scheduled', scheduled_at = ?, updated_at = ? WHERE id = ? AND owner_id = ?").run(at, Date.now(), id, uid(c));
+  return { ok: true };
+}
+
+/** Programmation en lot : [{ id, scheduledAt }]. Chaque post est vérifié séparément. */
+api.post("/posts/batch-schedule", async (c) => {
+  const b = await c.req.json<{ items?: { id: number; scheduledAt: number }[] }>().catch(() => ({}) as { items?: { id: number; scheduledAt: number }[] });
+  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 100);
+  if (!items.length) return c.json({ error: "Aucun post choisi." }, 400);
+  return c.json({ results: items.map((it) => ({ id: Number(it.id), ...scheduleExisting(c, Number(it.id), Number(it.scheduledAt)) })) });
+});
+
+/** Changer la date d'un post programmé (glisser-déposer dans le calendrier). */
+api.post("/posts/:id/reschedule", async (c) => {
+  const id = Number(c.req.param("id"));
+  const p = ownPost(c, id);
+  if (!p || p.status !== "scheduled") return c.json({ error: "Seul un post programmé peut être déplacé." }, 400);
+  const b = await c.req.json<{ scheduledAt?: number }>().catch(() => ({}) as { scheduledAt?: number });
+  const r = scheduleExisting(c, id, Number(b.scheduledAt));
+  return "error" in r ? c.json(r, 400) : c.json(r);
+});
+
 /** Réseau publié à la main (ex. « Finir dans Instagram » pour ajouter une musique) : marqué publié. */
 api.post("/posts/:id/targets/:tid/manual", (c) => {
   const id = Number(c.req.param("id"));

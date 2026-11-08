@@ -1251,6 +1251,7 @@ const IG_OK = new Set(["image/jpeg", "image/png", "video/mp4", "video/quicktime"
  */
 async function finishInInstagram({ media, caption, onPublished }) {
   const dlg = $("#share-dialog"), body = $("#share-body");
+  $("#share-title").textContent = "Finir dans Instagram";
   const fill = (...els) => body.replaceChildren(...els);
   const usable = media.filter((m) => IG_OK.has(m.mime)).slice(0, 10);
   const skipped = media.length - usable.length;
@@ -1601,17 +1602,17 @@ const slotFits = (s) => s.profileId == null || (() => {
 })();
 
 /** Prochaines dates libres d'un créneau (un post déjà programmé à ±10 min occupe la place). */
-function nextFree(slot, count = 1) {
+function nextFree(slot, count = 1, from = Date.now(), reserved = []) {
   const [hh, mm] = slot.time.split(":").map(Number);
   const pr = slot.profileId != null ? state.profiles.find((p) => p.id === slot.profileId) : null;
   const prAcc = pr ? new Set(profileAccounts(pr)) : null;
-  const taken = (t) => (state.posts ?? []).some((p) => p.status === "scheduled" && p.id !== state.editingId && Math.abs((p.scheduledAt ?? 0) - t) < 10 * 60e3
+  const taken = (t) => reserved.some((r) => Math.abs(r - t) < 10 * 60e3) || (state.posts ?? []).some((p) => p.status === "scheduled" && p.id !== state.editingId && Math.abs((p.scheduledAt ?? 0) - t) < 10 * 60e3
     && (!prAcc || p.targets.some((x) => prAcc.has(x.accountId))));
   const out = [];
-  const d = new Date();
-  for (let i = 0; i < 21 && out.length < count; i++) {
+  const d = new Date(Math.max(from, Date.now()));
+  for (let i = 0; i < 120 && out.length < count; i++) {
     const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i, hh, mm);
-    if (!slot.days.includes(day.getDay()) || day.getTime() < Date.now() + 2 * 60e3) continue;
+    if (!slot.days.includes(day.getDay()) || day.getTime() < Math.max(from, Date.now() + 2 * 60e3)) continue;
     if (!taken(day.getTime())) out.push(day.getTime());
   }
   return out;
@@ -1668,6 +1669,74 @@ function slotEditor() {
   return h("div", { class: "tagset-editor" },
     h("p", { class: "muted small" }, "Tes heures habituelles : l'app propose le prochain créneau libre (pas déjà pris par un post programmé). Lié à un profil, un créneau n'est proposé que quand ce profil est coché."),
     ...state.slots.map(row), row(null));
+}
+
+// ---------- Programmation en lot ----------
+
+state.batch = new Set();
+
+function batchToolbar(drafts) {
+  const n = [...state.batch].filter((id) => drafts.some((p) => p.id === id)).length;
+  const all = h("input", { type: "checkbox", checked: n > 0 && n === drafts.length, "aria-label": "Tout sélectionner" });
+  all.addEventListener("change", () => { state.batch = all.checked ? new Set(drafts.map((p) => p.id)) : new Set(); renderQueue(); });
+  return h("div", { class: "batch-bar" },
+    h("label", { class: "check" }, all, h("span", {}, n ? `${plural(n, "brouillon")} choisi${n > 1 ? "s" : ""}` : "Tout sélectionner")),
+    h("button", { class: "btn primary small", type: "button", disabled: !n, onclick: () => openBatch(drafts.filter((p) => state.batch.has(p.id))) }, "📅 Programmer la sélection"));
+}
+
+function batchPick(p) {
+  const cb = h("input", { type: "checkbox", checked: state.batch.has(p.id), "aria-label": "Choisir ce brouillon" });
+  cb.addEventListener("change", () => { cb.checked ? state.batch.add(p.id) : state.batch.delete(p.id); renderQueue(); });
+  return h("label", { class: "batch-pick" }, cb, h("span", {}, "Choisir"));
+}
+
+function openBatch(list) {
+  const dlg = $("#share-dialog"), body = $("#share-body");
+  $("#share-title").textContent = "Programmer la sélection";
+  list = [...list].sort((a, b) => a.createdAt - b.createdAt);
+  const sel = h("select", {},
+    ...state.slots.map((s) => h("option", { value: `slot:${s.id}` }, `${s.label} · ${s.time} (${DAYS.filter(([n]) => s.days.includes(n)).map(([n]) => DAY_NAMES[n]).join(" ")})`)),
+    h("option", { value: "daily" }, "Un par jour à l'heure choisie"));
+  const time = h("input", { type: "time", value: "08:30" });
+  const start = h("input", { type: "date", value: toLocalInput(Date.now()).slice(0, 10) });
+  const preview = h("ol", { class: "batch-preview" });
+  const plan = () => {
+    const slot = sel.value === "daily" ? { days: [0, 1, 2, 3, 4, 5, 6], time: time.value || "08:30", profileId: null } : state.slots.find((s) => `slot:${s.id}` === sel.value);
+    const from = new Date(`${start.value}T00:00`).getTime() || Date.now();
+    const times = nextFree(slot, list.length, from);
+    return list.map((p, i) => ({ p, t: times[i] }));
+  };
+  const paint = () => {
+    time.closest("label").hidden = sel.value !== "daily";
+    preview.replaceChildren(...plan().map(({ p, t }) => h("li", {}, h("strong", {}, t ? slotLabel(t) : "—"), " · ", (p.title || p.source || p.text.split("\n")[0] || "(sans texte)").slice(0, 60))));
+  };
+  for (const el of [sel, time, start]) el.addEventListener("change", paint);
+  const go = h("button", { class: "btn primary share-go", type: "button" }, `Programmer ${plural(list.length, "post")}`);
+  go.onclick = async () => {
+    const items = plan().filter((x) => x.t).map(({ p, t }) => ({ id: p.id, scheduledAt: t }));
+    go.disabled = true;
+    try {
+      const { results } = await api("/posts/batch-schedule", { method: "POST", body: JSON.stringify({ items }) });
+      const ok = results.filter((r) => r.ok).length;
+      const bad = results.filter((r) => r.error);
+      toast(`${plural(ok, "post")} programmé${ok > 1 ? "s" : ""}.${bad.length ? ` ${bad.length} à corriger.` : ""}`, bad.length ? "err" : "ok");
+      if (bad.length) {
+        body.replaceChildren(h("p", {}, "Ces brouillons n'ont pas pu être programmés :"),
+          h("ul", { class: "batch-errors" }, ...bad.map((r) => { const p = list.find((x) => x.id === r.id); return h("li", {}, h("strong", {}, (p?.text.split("\n")[0] || "(sans texte)").slice(0, 50)), ` : ${r.error}`); })),
+          h("button", { class: "btn ghost", type: "button", onclick: () => dlg.close() }, "Fermer"));
+      } else dlg.close();
+      state.batch = new Set();
+      loadPosts();
+    } catch (e) { toast(e.message, "err"); go.disabled = false; }
+  };
+  body.replaceChildren(
+    h("p", { class: "small" }, "Les brouillons sont répartis, du plus ancien au plus récent, sur les prochains créneaux libres."),
+    h("label", { class: "field-inline" }, h("span", {}, "Créneau"), sel),
+    h("label", { class: "field-inline" }, h("span", {}, "Heure"), time),
+    h("label", { class: "field-inline" }, h("span", {}, "À partir du"), start),
+    preview, go);
+  paint();
+  dlg.showModal();
 }
 
 // ---------- Modèles de légende ----------
@@ -2326,8 +2395,14 @@ function renderQueue() {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
   }
+  const pickable = state.filter === "draft";
   $("#queue").replaceChildren(
-    ...[...groups].map(([day, ps]) => h("div", { class: "day" }, h("h3", {}, day), ...ps.map(postCard))),
+    pickable ? batchToolbar(posts.filter((p) => p.status === "draft")) : null,
+    ...[...groups].map(([day, ps]) => h("div", { class: "day" }, h("h3", {}, day), ...ps.map((p) => {
+      const card = postCard(p);
+      if (pickable && p.status === "draft") card.prepend(batchPick(p));
+      return card;
+    }))),
   );
 }
 
@@ -2376,12 +2451,31 @@ function renderCalendar() {
     const at = (p) => p.scheduledAt ?? p.createdAt;
     const posts = (byDay.get(dayKey(d)) ?? []).sort((a, b) => at(a) - at(b));
     cells.push(
-      h("div", { class: `cal-day ${d.getMonth() !== month ? "out" : ""} ${dayKey(d) === today ? "today" : ""}` },
+      h("div", { class: `cal-day ${d.getMonth() !== month ? "out" : ""} ${dayKey(d) === today ? "today" : ""}`,
+        ondragover: (e) => { if (e.dataTransfer.types.includes("text/ptz-post")) { e.preventDefault(); e.currentTarget.classList.add("drop"); } },
+        ondragleave: (e) => e.currentTarget.classList.remove("drop"),
+        ondrop: async (e) => {
+          e.preventDefault();
+          e.currentTarget.classList.remove("drop");
+          const p = state.posts.find((x) => x.id === Number(e.dataTransfer.getData("text/ptz-post")));
+          if (!p) return;
+          const old = new Date(p.scheduledAt);
+          const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), old.getHours(), old.getMinutes()).getTime();
+          if (dayKey(old) === dayKey(d)) return;
+          try {
+            await api(`/posts/${p.id}/reschedule`, { method: "POST", body: JSON.stringify({ scheduledAt: t }) });
+            toast(`Déplacé au ${new Date(t).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} à ${fmtTime(t)}.`);
+            loadPosts();
+          } catch (err) { toast(err.message, "err"); }
+        } },
         h("div", { class: "cal-day-head" },
           h("span", { class: "cal-num" }, String(d.getDate())),
           h("button", { class: "cal-add", type: "button", title: "Nouveau post ce jour-là", "aria-label": `Nouveau post le ${d.toLocaleDateString("fr-FR")}`, onclick: () => composeOn(d) }, "+")),
         ...posts.map((p) =>
-          h("button", { class: `cal-post status-${p.status}`, type: "button", title: p.text.slice(0, 200), onclick: () => openFromCalendar(p) },
+          h("button", { class: `cal-post status-${p.status}`, type: "button", title: p.status === "scheduled" ? `${p.text.slice(0, 200)}\n\n(glisse-le sur un autre jour pour le déplacer)` : p.text.slice(0, 200), onclick: () => openFromCalendar(p),
+            draggable: p.status === "scheduled" ? "true" : null,
+            ondragstart: (e) => { e.dataTransfer.setData("text/ptz-post", String(p.id)); e.dataTransfer.effectAllowed = "move"; e.currentTarget.classList.add("dragging"); },
+            ondragend: (e) => e.currentTarget.classList.remove("dragging") },
             h("span", { class: "cal-time" }, p.scheduledAt ? fmtTime(p.scheduledAt) : "Brouillon"),
             h("span", { class: "cal-dots" }, ...[...new Set(p.targets.map((t) => t.provider))].map((pr) =>
               h("i", { style: `--c:${PROVIDER[pr]?.color ?? "#888"}`, title: PROVIDER[pr]?.label }))),
