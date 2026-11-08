@@ -112,6 +112,9 @@ export const x: Publisher = {
     if (mediaIds.length) body.media = { media_ids: mediaIds };
     const r = await json(`${API}/tweets`, postJson(body, { Authorization: auth }));
     const user = (account.meta.username as string) ?? "i";
-    return { url: `https://x.com/${user}/status/${r.data.id}` };
+    return { url: `https://x.com/${user}/status/${r.data.id}`, id: r.data.id };
+  },
+  async comment({ account, postId, text }) {
+    await json(`${API}/tweets`, postJson({ text, reply: { in_reply_to_tweet_id: postId } }, { Authorization: `Bearer ${account.accessToken}` }));
   },
 };

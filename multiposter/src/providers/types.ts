@@ -17,6 +17,8 @@ export interface TargetOptions {
   allowComment?: boolean;
   allowDuet?: boolean;
   allowStitch?: boolean;
+  /** Premier commentaire publié juste après le post (Instagram, Facebook ; réponse sur X et Threads). */
+  firstComment?: string;
 }
 
 const PRIVACY = new Set(["public", "unlisted", "private", "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"]);
@@ -32,6 +34,7 @@ export function sanitizeOptions(raw: unknown): TargetOptions {
   if (typeof r.title === "string" && r.title.trim()) o.title = r.title.trim().slice(0, 100);
   if (typeof r.privacy === "string" && PRIVACY.has(r.privacy)) o.privacy = r.privacy;
   for (const k of ["allowComment", "allowDuet", "allowStitch"] as const) if (typeof r[k] === "boolean") o[k] = r[k] as boolean;
+  if (typeof r.firstComment === "string" && r.firstComment.trim()) o.firstComment = r.firstComment.trim().slice(0, 2200);
   return o;
 }
 
@@ -53,6 +56,8 @@ export interface PublishInput {
 
 export interface PublishResult {
   url?: string;
+  /** Identifiant du post chez le réseau (pour y ajouter le premier commentaire). */
+  id?: string;
 }
 
 /** Un réseau sur lequel on publie. */
@@ -63,6 +68,8 @@ export interface Publisher {
   /** Renvoie un message d'erreur si le contenu ne convient pas à ce réseau. */
   validate(input: { text: string; media: MediaFile[]; options: TargetOptions }): string | null;
   publish(input: PublishInput): Promise<PublishResult>;
+  /** Publie le premier commentaire (ou une réponse) sous le post qui vient d'être publié. */
+  comment?(input: { account: Account; postId: string; text: string }): Promise<void>;
   /** Renouvelle les tokens si nécessaire. */
   refresh?(account: Account): Promise<{ accessToken: string; refreshToken?: string | null; expiresAt: number | null }>;
   /** Marge avant expiration à partir de laquelle on renouvelle (ms). */

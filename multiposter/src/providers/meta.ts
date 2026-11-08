@@ -17,6 +17,9 @@ const SCOPES = [
   "business_management",
   "instagram_basic",
   "instagram_content_publish",
+  // Premier commentaire automatique (Instagram, Facebook).
+  "instagram_manage_comments",
+  "pages_manage_engagement",
 ].join(",");
 
 export const metaFlow: OAuthFlow = {
@@ -108,7 +111,7 @@ export const facebook: Publisher = {
       fd.append("access_token", token);
       fd.append("source", await openAsBlob(vids[0].path, { type: vids[0].mime }), vids[0].filename);
       const r = await json(`https://graph-video.facebook.com/${V}/${page}/videos`, { method: "POST", body: fd }, 30 * 60_000);
-      return { url: `https://www.facebook.com/${page}/videos/${r.id}` };
+      return { url: `https://www.facebook.com/${page}/videos/${r.id}`, id: r.id };
     }
     const attached: string[] = [];
     for (const img of images(media)) {
@@ -122,7 +125,10 @@ export const facebook: Publisher = {
     const body: Record<string, string> = { message: text, access_token: token };
     attached.forEach((id, i) => (body[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id })));
     const r = await json(`${G}/${page}/feed`, form(body));
-    return { url: `https://www.facebook.com/${r.id}` };
+    return { url: `https://www.facebook.com/${r.id}`, id: r.id };
+  },
+  async comment({ account, postId, text }) {
+    await json(`${G}/${postId}/comments`, form({ message: text, access_token: account.accessToken! }));
   },
 };
 
@@ -214,6 +220,9 @@ export const instagram: Publisher = {
         void alert(`⚠️ Post Instagram publié, mais la story de la cover a échoué : ${e instanceof Error ? e.message : e}`);
       });
     }
-    return { url: info.permalink };
+    return { url: info.permalink, id: pub.id };
+  },
+  async comment({ account, postId, text }) {
+    await json(`${G}/${postId}/comments`, form({ message: text, access_token: account.accessToken! }));
   },
 };

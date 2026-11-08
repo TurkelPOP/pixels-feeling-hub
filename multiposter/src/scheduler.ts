@@ -57,10 +57,20 @@ async function publishTarget(targetId: number): Promise<void> {
     const media = effectiveMedia(getMediaList(JSON.parse(t.media_ids)), options);
     const invalid = pub.validate({ text, media, options });
     if (invalid) throw new Error(invalid);
-    const result = await pub.publish({ account: await freshAccount(account), text, title: t.title, media, options });
+    const acc = await freshAccount(account);
+    const result = await pub.publish({ account: acc, text, title: t.title, media, options });
+    // Premier commentaire : le post est déjà en ligne, un échec ici ne doit jamais le republier.
+    let note: string | null = null;
+    if (options.firstComment && pub.comment && result.id) {
+      try {
+        await pub.comment({ account: acc, postId: result.id, text: resolveMentions(options.firstComment, account.provider, t.owner_id) });
+      } catch (e) {
+        note = `Publié, mais le premier commentaire a échoué : ${e instanceof Error ? e.message : e}. Reconnecte le compte (nouvelles autorisations) puis commente à la main.`;
+      }
+    }
     db.prepare(
-      "UPDATE post_targets SET status = 'done', external_url = ?, error = NULL, published_at = ? WHERE id = ?",
-    ).run(result.url ?? null, Date.now(), targetId);
+      "UPDATE post_targets SET status = 'done', external_url = ?, error = ?, published_at = ? WHERE id = ?",
+    ).run(result.url ?? null, note, Date.now(), targetId);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[publish] cible ${targetId} :`, msg);

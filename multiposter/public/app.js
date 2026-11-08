@@ -1711,7 +1711,8 @@ function previewCard(a) {
   if (a.provider === "instagram")
     return h("div", { class: "pv pv-instagram" }, head, mediaEl ?? h("p", { class: "error small" }, "Instagram exige une image ou une vidéo."),
       h("div", { class: "pv-actions" }, "♡  💬  ➤", media.length > 1 ? h("span", { class: "pv-dots" }, ...media.map((_, i) => h("i", { class: i === 0 ? "on" : "" }))) : null),
-      h("div", { class: "pv-caption" }, h("strong", {}, a.name.replace(/^@/, "")), " ", caption));
+      h("div", { class: "pv-caption" }, h("strong", {}, a.name.replace(/^@/, "")), " ", caption),
+      o.firstComment ? h("div", { class: "pv-caption pv-comment" }, h("strong", {}, a.name.replace(/^@/, "")), " ", h("span", {}, ...richText(resolveMentions(o.firstComment, a.provider)))) : null);
   if (a.provider === "youtube" || a.provider === "tiktok")
     return h("div", { class: `pv pv-${a.provider}` }, mediaEl ?? h("p", { class: "error small" }, "Une vidéo est nécessaire."), head,
       a.provider === "youtube" ? h("strong", { class: "pv-title" }, o.title || text.split("\n")[0] || "(sans titre)") : null, caption);
@@ -2153,6 +2154,30 @@ function targetCard(a) {
       checkbox("Duo", o.allowDuet, (v) => { o.allowDuet = v; }),
       checkbox("Collage", o.allowStitch, (v) => { o.allowStitch = v; })));
     body.push(h("p", { class: "muted small" }, "Tant que TikTok n'a pas audité ton app, la vidéo est publiée en « Moi uniquement »."));
+  }
+
+  // Premier commentaire (Instagram, Facebook) ou réponse (X, Threads), publié juste après le post.
+  if (["instagram", "facebook", "x", "threads"].includes(a.provider) && !(a.provider === "instagram" && o.format === "story")) {
+    const label = a.provider === "x" || a.provider === "threads" ? "Réponse automatique sous le post (facultatif)" : "Premier commentaire (facultatif)";
+    const fc = h("textarea", { rows: 2, placeholder: a.provider === "instagram" ? "#gaming #jeuxvideo #news…" : "Lien, source, hashtags…", maxlength: 2200 });
+    fc.value = o.firstComment ?? "";
+    fc.addEventListener("input", () => { o.firstComment = fc.value; scheduleValidation(); });
+    const moveTags = a.provider === "instagram" || a.provider === "facebook"
+      ? h("button", { type: "button", class: "linklike", onclick: () => {
+          const text = state.overrides[a.id] ?? $("#text").value;
+          const tags = extractHashtags(text);
+          if (!tags.length) return toast("Pas de hashtag dans le texte.");
+          // Retire les hashtags du texte de CE réseau seulement (texte propre), et les met en commentaire.
+          const cleaned = text.split("\n").map((l) => l.replace(/(^|\s)#[\p{L}\p{N}_]+/gu, "").replace(/\s+$/, "")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+          state.overrides[a.id] = cleaned;
+          o.firstComment = [o.firstComment?.trim(), tags.join(" ")].filter(Boolean).join("\n");
+          fc.value = o.firstComment;
+          renderComposeMeta();
+          toast(`${plural(tags.length, "hashtag")} déplacé${tags.length > 1 ? "s" : ""} dans le premier commentaire (${PROVIDER[a.provider].label} seulement).`);
+        } }, "↧ Déplacer les hashtags du texte vers le premier commentaire")
+      : null;
+    body.push(h("details", { class: "toverride", open: !!o.firstComment }, h("summary", {}, `💬 ${label}`), fc, moveTags,
+      h("small", { class: "muted" }, "Nouvelle autorisation : si c'est la première fois, reconnecte ce compte dans l'onglet Comptes pour l'activer.")));
   }
 
   // Texte propre à ce réseau : il se modifie dans l'onglet du réseau, au-dessus du texte.

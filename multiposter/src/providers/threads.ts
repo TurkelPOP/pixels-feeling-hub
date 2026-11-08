@@ -15,7 +15,7 @@ export const threadsFlow: OAuthFlow = {
     new URLSearchParams({
       client_id: config.threads.appId!,
       redirect_uri: callbackUrl("threads"),
-      scope: "threads_basic,threads_content_publish",
+      scope: "threads_basic,threads_content_publish,threads_manage_replies",
       response_type: "code",
       state,
     }),
@@ -110,6 +110,12 @@ export const threads: Publisher = {
     await waitReady(id, token);
     const pub = await json(`${G}/${uid}/threads_publish`, form({ creation_id: id, access_token: token }));
     const info = await json(`${G}/${pub.id}?fields=permalink&access_token=${encodeURIComponent(token)}`).catch(() => ({}));
-    return { url: info.permalink };
+    return { url: info.permalink, id: pub.id };
+  },
+  async comment({ account, postId, text }) {
+    const token = account.accessToken!;
+    const id = await container(account.externalId, token, { media_type: "TEXT", text, reply_to_id: postId });
+    await waitReady(id, token);
+    await json(`${G}/${account.externalId}/threads_publish`, form({ creation_id: id, access_token: token }));
   },
 };

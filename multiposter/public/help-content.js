@@ -328,6 +328,8 @@ ${networks[id].owner}`,
   <li>Un clic sur le contact insère <code>@[Nintendo France]</code> dans le texte. À la publication, l'app écrit <strong>le bon compte sur chaque réseau</strong> (@nintendofrance sur Instagram, @NintendoFrance sur X…). Sur un réseau laissé vide, le nom est écrit en texte simple.</li>
   <li>Sous le texte, une ligne montre comment chaque mention sera écrite sur les réseaux cochés. Le crayon ✎ à côté d'un contact permet de le modifier.</li>
 </ul>
+<h3>Premier commentaire</h3>
+<p>Dans les options d'Instagram ou Facebook (« 💬 Premier commentaire »), ou de X et Threads (réponse sous le post) : ce texte est publié juste après le post. « ↧ Déplacer les hashtags » les retire du texte de ce réseau seulement et les met en commentaire. La première fois, reconnecte le compte dans Comptes (nouvelle autorisation). Si le commentaire échoue, le post reste publié et une note l'indique.</p>
 <h3>Hashtags</h3>
 <ul>
   <li>Sous le texte, l'app liste les hashtags trouvés et prévient selon les réseaux cochés : <strong>Instagram</strong> 30 maximum (au-delà le post est refusé), <strong>Threads</strong> un seul tag par post (le premier devient le sujet), <strong>YouTube</strong> les ignore tous au-delà de 15, <strong>X</strong> les compte dans les 280 caractères.</li>
