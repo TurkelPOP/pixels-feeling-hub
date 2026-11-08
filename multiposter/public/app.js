@@ -1146,9 +1146,11 @@ function setupPanel(id, configured) {
       if (f.secret && !el.value.trim()) continue;
       body[el.dataset.key] = el.value.trim();
     }
+    const code = askCode(`Enregistrer ${g.label} ?`);
+    if (!code) return;
     btn.disabled = true;
     try {
-      await api("/app-settings", { method: "PUT", body: JSON.stringify(body) });
+      await api("/app-settings", { method: "PUT", body: JSON.stringify({ ...body, code }) });
       toast(`${g.label} : enregistré.`);
       state.meta = await api("/meta");
       await Promise.all([loadCanvaStatus(), loadAppSettings()]);

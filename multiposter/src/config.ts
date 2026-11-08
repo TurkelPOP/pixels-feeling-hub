@@ -1,10 +1,15 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 // Charge le fichier .env du dossier de l'app (sans écraser les variables déjà définies,
 // par exemple celles passées par Docker).
 const envFile = resolve(import.meta.dirname, "../.env");
-if (existsSync(envFile)) process.loadEnvFile(envFile);
+if (existsSync(envFile)) {
+  try { chmodSync(envFile, 0o600); } catch {}
+  process.loadEnvFile(envFile);
+}
+// Tout fichier créé par l'app (base, médias, sauvegardes) n'est lisible que par elle.
+process.umask(0o077);
 
 function required(name: string): string {
   const v = process.env[name]?.trim();

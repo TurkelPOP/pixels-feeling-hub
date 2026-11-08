@@ -4,7 +4,7 @@
 import type { Context, Hono } from "hono";
 
 import { alert } from "./alerts.ts";
-import { currentUser } from "./auth.ts";
+import { confirmIdentity, currentUser } from "./auth.ts";
 import { callbackUrl, config } from "./config.ts";
 import { seal, unseal } from "./crypto.ts";
 import { db } from "./db.ts";
@@ -129,7 +129,10 @@ export function registerAppSettingsApi(api: Hono) {
   api.put("/app-settings", async (c) => {
     const denied = ownerOnly(c);
     if (denied) return denied;
-    const body = await c.req.json<Record<string, string>>();
+    const { code, ...body } = await c.req.json<Record<string, string>>().catch(() => ({}) as Record<string, string>);
+    // Changer une clé d'app ou le webhook détourne les connexions ou les alertes : code exigé.
+    const err = confirmIdentity(c, code);
+    if (err) return c.json({ error: err }, 403);
     const changed: string[] = [];
     for (const [key, raw] of Object.entries(body)) {
       const f = FIELDS.get(key);

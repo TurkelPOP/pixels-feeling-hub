@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { resolve } from "node:path";
 
@@ -23,6 +23,12 @@ export const DB_PATH = resolve(config.dataDir, "multiposter.db");
 }
 
 export const db = new DatabaseSync(DB_PATH);
+
+// Données privées : lisibles par l'app seule (tokens chiffrés, empreintes, médias). Les fichiers
+// créés ensuite le sont déjà grâce à l'umask posé dans config.ts.
+for (const p of [config.dataDir, DB_PATH, DB_PATH + "-wal", DB_PATH + "-shm"]) {
+  try { if (existsSync(p)) chmodSync(p, p === config.dataDir ? 0o700 : 0o600); } catch {}
+}
 
 db.exec(`
 PRAGMA journal_mode = WAL;
