@@ -1499,7 +1499,7 @@ function renderMusic() {
 
 // ---------- Texte par réseau et mentions ----------
 
-const MENTION_NETS = [["instagram", "Instagram"], ["threads", "Threads"], ["x", "X"], ["tiktok", "TikTok"], ["youtube", "YouTube"], ["facebook", "Facebook (nom de la Page)"]];
+const MENTION_NETS = [["instagram", "Instagram"], ["threads", "Threads"], ["tiktok", "TikTok"], ["youtube", "YouTube"], ["facebook", "Facebook (nom de la Page)"]];
 const AT_NETS = new Set(["instagram", "threads", "x", "tiktok", "youtube"]);
 
 /** Même règle que le serveur : @[Nom] → le compte de cette personne sur ce réseau, ou son nom. */

@@ -174,27 +174,6 @@
 <p class="tip">Sécurité : l'accès est en lecture seule, chaque personne ne voit que son propre Drive, et les jetons d'accès sont chiffrés. « Déconnecter » retire aussi l'autorisation chez Google.</p>`,
     },
 
-    x: {
-      title: "X (Twitter)",
-      user: `
-<ol class="steps">
-  <li>Onglet <strong>Comptes</strong>, carte <strong>X</strong> : clique sur <strong>« Connecter X »</strong>.</li>
-  <li>X s'ouvre : connecte-toi au compte sur lequel tu veux publier.</li>
-  <li>Clique sur <strong>Autoriser l'application</strong>.</li>
-  <li>Tu reviens dans PTZ Posting : ton compte X apparaît dans « Comptes connectés ».</li>
-</ol>
-<p class="tip">L'accès se renouvelle tout seul. Textes limités à 280 caractères, 4 images maximum.</p>`,
-      owner: `
-<p class="warn">L'API de X est <strong>payante</strong> (crédits à l'usage, quelques centimes par post). Si tu ne publies pas sur X, ne l'active pas.</p>
-<ol class="steps">
-  <li>Va sur <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">developer.x.com</a> avec ton compte X, inscris-toi au portail développeur et ajoute des crédits si X le demande.</li>
-  <li>Crée un <strong>Project</strong>, puis une <strong>App</strong> dedans (nom : <em>PTZ Posting</em>).</li>
-  <li>Dans l'app : <strong>User authentication settings</strong> → <strong>Set up</strong>. <em>App permissions</em> : <strong>Read and write</strong>. <em>Type of App</em> : <strong>Web App, Automated App or Bot</strong>.</li>
-  <li><em>Callback URI / Redirect URL</em> : colle ${cb("x")}. <em>Website URL</em> : <code>{{origin}}</code>. Enregistre.</li>
-  <li>X affiche le <strong>Client ID</strong> et le <strong>Client Secret</strong> (OAuth 2.0) : copie-les. Tu les retrouves ensuite dans <strong>Keys and tokens</strong> (le secret peut être régénéré, pas réaffiché).</li>
-  <li>Dans PTZ Posting, carte X → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
-</ol>`,
-    },
   };
 
   const networkTopic = (id) => ({
@@ -212,7 +191,7 @@ ${networks[id].owner}`,
       id: "principe",
       title: "Comment marche PTZ Posting",
       html: `
-<p>Tu écris un post <strong>une seule fois</strong>, tu choisis sur quels réseaux il part (Instagram, Facebook, Threads, YouTube, TikTok, X), et l'app le publie <strong>tout de suite</strong> ou <strong>à l'heure que tu choisis</strong>, même si ton ordinateur est éteint.</p>
+<p>Tu écris un post <strong>une seule fois</strong>, tu choisis sur quels réseaux il part (Instagram, Facebook, Threads, YouTube, TikTok), et l'app le publie <strong>tout de suite</strong> ou <strong>à l'heure que tu choisis</strong>, même si ton ordinateur est éteint.</p>
 <p><strong>Chacun son espace</strong> : chaque personne a ses propres réseaux, ses posts, son Canva et son planning. Personne ne voit ni ne touche le contenu d'un autre.</p>
 <p>Pour bien démarrer : <a data-help="reseaux" href="#">connecte tes réseaux</a>, crée un <a data-help="profils" href="#">profil</a>, puis <a data-help="publier" href="#">programme ton premier post</a>.</p>`,
     },
@@ -293,7 +272,7 @@ ${networks[id].owner}`,
       html: `
 <ol class="steps">
   <li><strong>Publier sur</strong> : clique sur un profil ou coche des comptes.</li>
-  <li>Écris ton texte : les compteurs montrent la limite de chaque réseau (500 caractères pour Threads, 280 pour X…).</li>
+  <li>Écris ton texte : les compteurs montrent la limite de chaque réseau (500 caractères pour Threads, 2 200 pour Instagram…).</li>
   <li>Ajoute tes images ou vidéos : galerie ou glisser-déposer, <a data-help="canva" href="#">Canva</a>, <a data-help="net-gdrive" href="#">Google Drive</a>, ou <a data-help="photo" href="#">appareil photo</a>.</li>
   <li>Sous les médias, chaque réseau a sa <strong>carte d'options</strong> : « Prêt » en vert, sinon ce qui bloque en rouge. Tu peux y choisir le format (carrousel, story…), les médias envoyés à ce réseau, ou un texte différent.</li>
   <li>Dans <strong>Quand ?</strong>, choisis la date et l'heure, puis <strong>Programmer</strong>. Ou <strong>Publier maintenant</strong>, ou <strong>Enregistrer en brouillon</strong>.</li>
@@ -323,17 +302,17 @@ ${networks[id].owner}`,
 <h3>Mentions (@)</h3>
 <ul>
   <li><strong>« @ Mentionner »</strong> sous le texte : crée un contact une fois (ex. « Nintendo France ») avec son compte sur chaque réseau (nom du compte ou lien du profil ; pour Facebook, le nom exact de la Page).</li>
-  <li>Un clic sur le contact insère <code>@[Nintendo France]</code> dans le texte. À la publication, l'app écrit <strong>le bon compte sur chaque réseau</strong> (@nintendofrance sur Instagram, @NintendoFrance sur X…). Sur un réseau laissé vide, le nom est écrit en texte simple.</li>
+  <li>Un clic sur le contact insère <code>@[Nintendo France]</code> dans le texte. À la publication, l'app écrit <strong>le bon compte sur chaque réseau</strong> (@nintendofrance sur Instagram, @nintendo.fr sur Threads…). Sur un réseau laissé vide, le nom est écrit en texte simple.</li>
   <li>Sous le texte, une ligne montre comment chaque mention sera écrite sur les réseaux cochés. Le crayon ✎ à côté d'un contact permet de le modifier.</li>
 </ul>
 <h3>Premier commentaire</h3>
-<p>Dans les options d'Instagram ou Facebook (« 💬 Premier commentaire »), ou de X et Threads (réponse sous le post) : ce texte est publié juste après le post. « ↧ Déplacer les hashtags » les retire du texte de ce réseau seulement et les met en commentaire. La première fois, reconnecte le compte dans Comptes (nouvelle autorisation). Si le commentaire échoue, le post reste publié et une note l'indique.</p>
+<p>Dans les options d'Instagram ou Facebook (« 💬 Premier commentaire »), ou de Threads (réponse sous le post) : ce texte est publié juste après le post. « ↧ Déplacer les hashtags » les retire du texte de ce réseau seulement et les met en commentaire. La première fois, reconnecte le compte dans Comptes (nouvelle autorisation). Si le commentaire échoue, le post reste publié et une note l'indique.</p>
 <h3>Hashtags</h3>
 <ul>
-  <li>Sous le texte, l'app liste les hashtags trouvés et prévient selon les réseaux cochés : <strong>Instagram</strong> 30 maximum (au-delà le post est refusé), <strong>Threads</strong> un seul tag par post (le premier devient le sujet), <strong>YouTube</strong> les ignore tous au-delà de 15, <strong>X</strong> les compte dans les 280 caractères.</li>
+  <li>Sous le texte, l'app liste les hashtags trouvés et prévient selon les réseaux cochés : <strong>Instagram</strong> 30 maximum (au-delà le post est refusé), <strong>Threads</strong> un seul tag par post (le premier devient le sujet), <strong>YouTube</strong> les ignore tous au-delà de 15.</li>
   <li><strong>Insérer</strong> : un clic ajoute un de tes jeux de hashtags, ou un de tes hashtags les plus utilisés, à la fin du texte (sans doublon).</li>
   <li><strong>Jeux de hashtags</strong> : « Gérer mes jeux de hashtags » pour en créer (nom + hashtags). Lié à un profil, un jeu n'est proposé que quand ce profil est coché.</li>
-  <li>Astuce : pour un texte différent sur un réseau (moins de hashtags sur X ou Threads), utilise « Texte différent pour ce réseau » dans ses options.</li>
+  <li>Astuce : pour un texte différent sur un réseau (moins de hashtags sur Threads), utilise « Texte différent pour ce réseau » dans ses options.</li>
 </ul>
 <h3>Formats acceptés</h3>
 <ul>
@@ -341,7 +320,6 @@ ${networks[id].owner}`,
   <li><strong>Facebook</strong> : texte seul, images, ou une vidéo.</li>
   <li><strong>Threads</strong> : texte (500 caractères), images, vidéo MP4.</li>
   <li><strong>YouTube</strong> et <strong>TikTok</strong> : une vidéo.</li>
-  <li><strong>X</strong> : texte (280 caractères), jusqu'à 4 images ou une vidéo MP4.</li>
 </ul>
 <p class="tip">Après publication, chaque réseau affiche « Publié » avec un lien « Voir ». En cas d'échec, le message explique pourquoi, et « Réessayer les échecs » relance seulement les réseaux qui ont raté.</p>`,
     },
@@ -366,10 +344,10 @@ ${networks[id].owner}`,
   <li>Sur téléphone, l'ordre des médias se change avec les flèches ← → sous chaque vignette, et ✕ en retire un.</li>
   <li><strong>Webcam</strong> : le navigateur demande l'autorisation la première fois : réponds <strong>Autoriser</strong>. Si tu as refusé par erreur, clique sur l'icône à gauche de l'adresse du site pour changer.</li>
   <li><strong>Sur ordinateur</strong>, les mêmes boutons ouvrent la webcam dans l'app.</li>
-  <li>Avec certains navigateurs d'ordinateur (Firefox, par exemple), la vidéo est enregistrée en WebM : acceptée par YouTube, TikTok et Facebook, pas par Instagram, Threads ni X. Avec Chrome, Edge ou Safari, c'est du MP4, accepté partout.</li>
+  <li>Avec certains navigateurs d'ordinateur (Firefox, par exemple), la vidéo est enregistrée en WebM : acceptée par YouTube, TikTok et Facebook, pas par Instagram ni Threads. Avec Chrome, Edge ou Safari, c'est du MP4, accepté partout.</li>
 </ul>
 <h3>Réglage conseillé sur iPhone</h3>
-<p>Réglages → <strong>Appareil photo</strong> → <strong>Formats</strong> → <strong>« Le plus compatible »</strong>. Tes vidéos sont alors lisibles par tous les réseaux, X compris, qui refuse le format HEVC « Haute efficacité ». Les photos, elles, sont converties en JPG automatiquement.</p>
+<p>Réglages → <strong>Appareil photo</strong> → <strong>Formats</strong> → <strong>« Le plus compatible »</strong>. Tes vidéos sont alors lisibles par tous les réseaux, quel que soit le format choisi par l'iPhone. Les photos, elles, sont converties en JPG automatiquement.</p>
 <p>Dans Réglages → Appareil photo → <strong>Enregistrement vidéo</strong>, choisis <strong>1080p à 30 i/s</strong> : la qualité reste très bonne sur les réseaux, et une minute pèse environ 60 Mo au lieu de 400 Mo en 4K, donc l'envoi est bien plus rapide.</p>
 <p class="tip">Garde l'écran allumé et l'app ouverte pendant l'envoi d'une longue vidéo : une barre de progression s'affiche sur la vignette.</p>`,
     },

@@ -248,7 +248,6 @@ L'URL de retour à déclarer est toujours de la forme `https://<PUBLIC_URL>/oaut
 | --- | --- | --- |
 | Facebook + Instagram | `meta` | `META_APP_ID`, `META_APP_SECRET` |
 | Threads | `threads` | `THREADS_APP_ID`, `THREADS_APP_SECRET` |
-| X | `x` | `X_CLIENT_ID`, `X_CLIENT_SECRET` |
 | YouTube | `google` | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | TikTok | `tiktok` | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` |
 
@@ -276,12 +275,8 @@ Le token dure 60 jours et l'app le renouvelle toute seule.
 
 ### X
 
-1. Sur <https://developer.x.com>, crée un projet et une app, puis active **OAuth 2.0**
-   (type *Web App, Automated App or Bot*). Coche *Read and write*.
-2. Déclare l'URL de retour `…/oauth/x/callback`.
-3. L'API X est payante à l'usage : il faut acheter des crédits sur le portail développeur
-   avant de pouvoir publier (environ 1,5 centime par post, plus cher avec un lien).
-4. Si tu as X Premium, mets `X_MAX_CHARS=25000`.
+X n'est plus proposé dans PTZ Posting (API payante à l'usage) : on ne peut plus y connecter
+de compte. Le code de publication est conservé (`src/providers/x.ts`) au cas où.
 
 ### YouTube
 

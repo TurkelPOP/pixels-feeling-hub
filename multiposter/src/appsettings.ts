@@ -68,14 +68,6 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "x", label: "X (Twitter)", callback: () => callbackUrl("x"), console: "https://developer.x.com/en/portal/dashboard",
-    help: "App avec OAuth 2.0 (type Web App), droits « Read and write ». L'API X est payante à l'usage.",
-    fields: [
-      { key: "X_CLIENT_ID", label: "Client ID", secret: false, apply: (v) => (config.x.clientId = v) },
-      { key: "X_CLIENT_SECRET", label: "Client secret", secret: true, apply: (v) => (config.x.clientSecret = v) },
-    ],
-  },
-  {
     id: "alerts", label: "Alertes (Discord, Slack, ntfy)",
     help: "Discord : Paramètres du salon → Intégrations → Webhooks → Nouveau webhook → Copier l'URL.",
     fields: [{ key: "ALERT_WEBHOOK_URL", label: "Adresse du webhook", secret: true, apply: (v) => (config.alertWebhookUrl = v) }],
