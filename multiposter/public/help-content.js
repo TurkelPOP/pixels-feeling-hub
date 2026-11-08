@@ -150,34 +150,24 @@
     gdrive: {
       title: "Google Drive",
       user: `
-<h3>Le plus simple : coller un lien (rien à connecter)</h3>
+<h3>Se connecter (une seule fois)</h3>
 <ol class="steps">
-  <li>Dans Google Drive (appli ou site), sur le fichier : <strong>⋮</strong> → <strong>Partager</strong> → accès général « <strong>Tous les utilisateurs disposant du lien</strong> », puis <strong>Copier le lien</strong>.</li>
-  <li>Dans PTZ Posting, <strong>Nouveau post</strong> → <strong>« Importer depuis Google Drive »</strong> → colle le lien → <strong>Importer</strong>.</li>
+  <li>Comptes → carte <strong>Google Drive</strong> → <strong>« Se connecter avec Google »</strong>.</li>
+  <li>Google affiche la liste de tes comptes : <strong>choisis celui qui contient tes photos et vidéos</strong> (ou « Utiliser un autre compte »).</li>
+  <li>Si Google affiche « Google n'a pas validé cette application » : <strong>Paramètres avancés</strong> → <strong>Accéder à PTZ Posting</strong>. C'est normal pour une app interne.</li>
+  <li>Autorise l'accès à tes fichiers Drive (<strong>lecture seule</strong> : l'app ne peut rien modifier ni supprimer), puis <strong>Continuer</strong>.</li>
+  <li>C'est fait : la carte affiche « Connecté » avec ton adresse. « Changer de compte » permet d'en choisir un autre.</li>
 </ol>
-<p class="tip">Sur téléphone, « Choisir dans ma galerie » donne aussi accès à Google Drive : sur Android dans le menu du sélecteur, sur iPhone via « Choisir un fichier » → Google Drive (appli Drive installée).</p>
-<h3>Pour parcourir tes dossiers : connecter ton Drive</h3>
-<ol class="steps">
-  <li>Onglet <strong>Comptes</strong>, carte <strong>Google Drive</strong> : clique sur <strong>« Connecter Google Drive »</strong>.</li>
-  <li>Choisis le <strong>compte Google</strong> qui contient tes photos et vidéos.</li>
-  <li>Écran « <strong>Google n'a pas validé cette application</strong> » : normal. <strong>Paramètres avancés</strong> → <strong>Accéder à PTZ Posting</strong>.</li>
-  <li><strong>Coche la case</strong> « Afficher et télécharger tous les fichiers de Google Drive » puis <strong>Continuer</strong>. C'est une lecture seule : l'app ne peut rien modifier ni supprimer dans ton Drive.</li>
-  <li>Tu reviens dans PTZ Posting : la carte affiche « Connecté » avec ton adresse.</li>
-</ol>
-<h3>Importer depuis le Drive</h3>
-<ol class="steps">
-  <li>Dans <strong>Nouveau post</strong>, sous les médias : <strong>« Importer depuis Google Drive »</strong>.</li>
-  <li><strong>Récents</strong> montre tes dernières photos et vidéos ; <strong>Dossiers</strong> permet de parcourir ton Drive ; la recherche trouve un fichier par son nom.</li>
-  <li>Touche les fichiers voulus (une coche verte apparaît, jusqu'à 20), puis <strong>« Importer »</strong>.</li>
-</ol>
-<p class="tip">Depuis ton téléphone, c'est le plus pratique pour les grosses vidéos : le fichier passe <strong>directement de Google au serveur</strong>, sans être téléchargé sur ton téléphone ni consommer ton forfait.</p>
-<p class="tip">Formats pris en charge : JPG, PNG, WebP, GIF, MP4, MOV, WebM. Les photos HEIC (iPhone en « Haute efficacité ») sont grisées : exporte-les en JPG, ou règle ton iPhone sur « Le plus compatible ».</p>
-<p class="warn">« Accès bloqué » ou « app non validée » sans bouton pour continuer ? Demande au propriétaire de t'ajouter comme <strong>utilisateur test</strong> dans Google Cloud.</p>`,
+<h3>Importer</h3>
+<p>Nouveau post → <strong>« Importer depuis Google Drive »</strong> → Récents ou Dossiers → touche tes fichiers → <strong>Importer</strong>. Le fichier va directement de Google au serveur, sans passer par ton téléphone.</p>
+<p class="tip">Sans te connecter, tu peux aussi coller le lien de partage d'un fichier (« Tous les utilisateurs disposant du lien ») dans la même fenêtre, onglet 🔗 Lien.</p>
+<p class="warn">« Accès bloqué » sans bouton pour continuer : l'app Google est encore en mode test et ton compte n'est pas dans ses utilisateurs test. Le propriétaire doit soit t'y ajouter, soit passer l'app « En production » (voir la partie propriétaire).</p>`,
       owner: `
 <p>Drive utilise <strong>le même projet, les mêmes clés et la même adresse de retour que YouTube</strong> : fais d'abord le tuto YouTube. Ensuite, une seule chose :</p>
 <ol class="steps">
   <li>Ouvre <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">Google Drive API</a> (connecté avec le compte Google du projet) et clique sur <strong>Activer</strong>. C'est tout.</li>
 </ol>
+<p class="tip"><strong>Une seule app Google pour tout le monde</strong> (comme « Se connecter avec Google » sur n'importe quel site) : les autres personnes n'ont rien à créer, elles cliquent et choisissent leur compte. Pour qu'elles puissent se connecter : ajoute leur adresse Google dans <em>Audience → Utilisateurs test</em>, ou passe l'app <strong>« En production »</strong> (écran « app non validée » à passer, 100 personnes max).</p>
 <p class="tip">Si tu l'oublies, l'app te le dira à la première ouverture du Drive, avec un bouton qui mène directement au bon projet.</p>
 <p class="tip">Facultatif : dans <em>Google Auth Platform → Accès aux données</em>, tu peux déclarer <code>…/auth/drive.readonly</code> pour que l'écran de Google l'affiche proprement. Si Google bloque la connexion avec un message sur un « niveau d'accès » (scope), c'est cette étape qu'il faut faire.</p>
 <p class="tip">Pas de nouvelle clé à coller dans PTZ Posting : le bouton « Connecter Google Drive » apparaît dès que YouTube est activé. Les personnes qui se connectent doivent être dans les <strong>utilisateurs test</strong> (Audience), comme pour YouTube.</p>

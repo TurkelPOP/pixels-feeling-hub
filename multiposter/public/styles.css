@@ -1004,3 +1004,8 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .comment p { margin: 0.15rem 0 0; white-space: pre-wrap; }
 .post .share-badge { justify-self: start; width: fit-content; }
 .own-apps { display: flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0 0.6rem; font-size: 0.9rem; }
+
+/* Bouton « Se connecter avec Google » */
+.google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.7rem; align-self: start; padding: 0.6rem 1.2rem; border-radius: 999px; background: #fff; color: #1f1f1f; font-weight: 600; font-size: 0.95rem; text-decoration: none; border: 1px solid #dadce0; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: box-shadow .15s, background .15s; }
+.google-btn:hover { background: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.google-btn svg { flex: none; }

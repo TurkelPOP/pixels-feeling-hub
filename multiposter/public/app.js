@@ -324,45 +324,55 @@ async function loadDriveStatus() {
   }
 }
 
+const GOOGLE_G = '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.8l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
+
+/** Bouton « Se connecter avec Google » (même principe que sur n'importe quel site). */
+function googleButton(label = "Se connecter avec Google") {
+  const a = h("a", { class: "google-btn", href: "/oauth/gdrive/start" });
+  a.innerHTML = GOOGLE_G;
+  a.append(h("span", {}, label));
+  return a;
+}
+
 function driveCard() {
   const s = state.drive.status;
-  const owner = state.me?.role === "owner";
-  const cb = `${location.origin}/oauth/gdrive/callback`;
-  return h("div", { class: "card flow canva" },
-    h("div", {},
-      h("div", { class: "card-title" }, h("strong", { class: "net-label" }, netIcon("gdrive", "1.25em"), "Google Drive"), helpQ("net-gdrive")),
-      h("p", { class: "muted small" }, "Importe tes photos et vidéos du Drive dans un post, même depuis ton téléphone : le fichier va directement de Google au serveur, sans passer par ton téléphone. Accès en lecture seule.")),
-    !s?.configured
-      ? (owner
-          ? h("p", { class: "muted small" }, "Drive utilise les mêmes clés Google que YouTube : active d'abord la carte YouTube (Google), puis suis le tuto ci-dessous.")
-          : h("div", {}, h("p", { class: "muted small" }, "Tu peux déjà importer un fichier en collant son lien de partage : Nouveau post → « Importer depuis Google Drive ». Pour parcourir tes dossiers, active Drive avec ta propre app Google (la même que pour YouTube) :"), myKeysPanel("gdrive", false)))
-      : s.connected
-        ? h("div", { class: "row connected-row" },
-            h("div", { class: "connected-chip" },
-              h("span", { class: "avatar-initial", "aria-hidden": "true" }, (s.name ?? "G").trim().charAt(0).toUpperCase()),
-              h("span", { class: "connected-text" },
-                h("span", { class: "connected-label" }, h("span", { class: "dot-ok", "aria-hidden": "true" }), "Connecté"),
-                h("strong", {}, s.name ?? "Google Drive"))),
-            h("button", {
-              class: "btn ghost small danger",
-              onclick: async () => {
-                if (!confirm("Déconnecter Google Drive ? L'accès est aussi retiré chez Google.")) return;
-                await api("/gdrive", { method: "DELETE" });
-                await loadDriveStatus();
-                renderAccounts();
-              },
-            }, "Déconnecter"))
-        : h("a", { class: "btn primary small", href: "/oauth/gdrive/start" }, "Connecter Google Drive"),
-    !s?.connected ? userTuto("gdrive") : null,
-    owner && s?.configured
-      ? h("div", { class: "drive-owner" },
-          h("p", { class: "small" }, h("strong", {}, "Propriétaire, une seule chose à faire : "), "autoriser Drive dans ton projet Google (le même que YouTube). Un clic sur « Activer » chez Google, c'est tout : mêmes clés, même adresse de retour."),
-          h("a", { class: "btn ghost small", href: "https://console.cloud.google.com/apis/library/drive.googleapis.com", target: "_blank", rel: "noopener" }, "Activer l'API Google Drive ↗"))
-      : null,
-    owner && !s?.configured && NETS().gdrive
-      ? h("details", { class: "tuto-box" }, h("summary", {}, "Activer Drive (propriétaire)"), tuto(NETS().gdrive.owner))
-      : null,
-  );
+  const owner = isAppOwner();
+  const head = h("div", {},
+    h("div", { class: "card-title" }, h("strong", { class: "net-label" }, netIcon("gdrive", "1.25em"), "Google Drive"), helpQ("net-gdrive")),
+    h("p", { class: "muted small" }, "Importe tes photos et vidéos de Google Drive dans tes posts."));
+
+  // Pas encore disponible dans l'app (le propriétaire n'a pas activé Google).
+  if (!s?.configured)
+    return h("div", { class: "card flow canva" }, head,
+      h("p", { class: "muted small" }, owner
+        ? "À activer une fois : Drive utilise ton projet Google (celui de YouTube). Suis le tuto ci-dessous."
+        : "Pas encore disponible : le propriétaire de l'app doit d'abord l'activer."),
+      owner && NETS().gdrive ? h("details", { class: "tuto-box" }, h("summary", {}, "Activer Google Drive (propriétaire)"), tuto(NETS().gdrive.owner)) : null);
+
+  // Connecté : le compte, changer de compte, se déconnecter.
+  if (s.connected)
+    return h("div", { class: "card flow canva" }, head,
+      h("div", { class: "row connected-row" },
+        h("div", { class: "connected-chip" },
+          h("span", { class: "avatar-initial", "aria-hidden": "true" }, (s.name ?? "G").trim().charAt(0).toUpperCase()),
+          h("span", { class: "connected-text" },
+            h("span", { class: "connected-label" }, h("span", { class: "dot-ok", "aria-hidden": "true" }), "Connecté"),
+            h("strong", {}, s.name ?? "Google Drive"))),
+        h("a", { class: "btn ghost small", href: "/oauth/gdrive/start" }, "Changer de compte"),
+        h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
+          if (!confirm("Déconnecter Google Drive ? L'autorisation est aussi retirée chez Google.")) return;
+          await api("/gdrive", { method: "DELETE" });
+          await loadDriveStatus();
+          renderAccounts();
+        } }, "Déconnecter")),
+      h("p", { class: "muted small" }, "Dans Nouveau post : « Importer depuis Google Drive »."),
+      owner ? h("a", { class: "small", href: "https://console.cloud.google.com/apis/library/drive.googleapis.com", target: "_blank", rel: "noopener" }, "Propriétaire : vérifier que l'API Google Drive est activée ↗") : null);
+
+  // Pas connecté : un seul bouton.
+  return h("div", { class: "card flow canva" }, head,
+    googleButton(),
+    h("p", { class: "muted small" }, "Google te demande de choisir ton compte, puis d'autoriser PTZ Posting à ", h("strong", {}, "lire"), " tes fichiers. L'app ne peut rien modifier ni supprimer dans ton Drive."),
+    userTuto("gdrive"));
 }
 
 // ---------- import depuis Google Drive ----------
