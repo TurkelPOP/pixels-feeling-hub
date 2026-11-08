@@ -435,6 +435,26 @@ ${networks[id].owner}`,
 <p class="tip">Pour qu'une nouvelle personne puisse connecter ses réseaux, le propriétaire doit aussi l'ajouter comme testeur dans les apps développeur (voir le tuto de chaque réseau).</p>`,
     },
     {
+      id: "equipe",
+      title: "Travailler à deux (profil partagé, validation)",
+      html: `
+<h3>Partager un profil</h3>
+<ol class="steps">
+  <li>Comptes → <strong>Profils</strong> → sous ton profil (ex. Pixels Perspective), <strong>« Partager avec : »</strong> → touche le nom de la personne.</li>
+  <li>Elle voit alors ces comptes dans son éditeur (marqués « ↗ ton nom ») et peut préparer des posts pour eux.</li>
+</ol>
+<p class="tip">Elle ne voit <strong>jamais</strong> les accès des comptes, ni tes autres posts, et <strong>rien n'est publié sans ta validation</strong>. Un nouveau toucher sur son nom retire le partage.</p>
+<h3>Proposer un post (personne invitée)</h3>
+<p>Coche les comptes du profil partagé : le bouton devient <strong>« 📤 Proposer à … »</strong>. Le post part « À valider » ; tu peux le modifier tant qu'il n'est pas validé.</p>
+<h3>Valider (propriétaire du profil)</h3>
+<ul>
+  <li>Planning → filtre <strong>« À valider »</strong> (avec une notification à chaque proposition).</li>
+  <li><strong>✅ Valider</strong> : programmé à la date proposée (ou publié tout de suite si elle est passée).</li>
+  <li><strong>↩ Demander des modifications</strong> : le post revient en brouillon chez l'auteur, avec ton message.</li>
+  <li><strong>💬 Commentaires</strong> sur chaque post : visibles seulement par vous deux, avec notification.</li>
+</ul>`,
+    },
+    {
       id: "alertes",
       title: "Alertes de sécurité",
       html: `

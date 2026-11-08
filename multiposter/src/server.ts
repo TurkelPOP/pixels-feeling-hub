@@ -10,10 +10,10 @@ import { Hono, type Context, type Next } from "hono";
 
 import { accountsPage, config, mediaDir } from "./config.ts";
 import { pkcePair, randomId } from "./crypto.ts";
-import { db, deleteAccount, getOwnedAccount, listAccounts, upsertAccount } from "./db.ts";
+import { db, deleteAccount, getAccount, getOwnedAccount, listAccounts, upsertAccount } from "./db.ts";
 import { checkMediaSignature, getMediaList, mediaOwner, purgeUnused, saveUpload } from "./media.ts";
 import { migrateWorkspaces } from "./workspace.ts";
-import { registerProfileApi } from "./profiles.ts";
+import { registerProfileApi, sharedAccountsFor } from "./profiles.ts";
 import { applyAppSettings, registerAppSettingsApi } from "./appsettings.ts";
 import { flows, publishers } from "./providers/index.ts";
 import { effectiveMedia, sanitizeOptions } from "./providers/types.ts";
@@ -22,7 +22,7 @@ import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
 import { registerHashtagApi } from "./hashtags.ts";
 import { registerMentionApi, resolveMentions } from "./mentions.ts";
 import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
-import { registerPushApi } from "./push.ts";
+import { notify, registerPushApi } from "./push.ts";
 import { registerPresetApi } from "./presets.ts";
 import { registerStatsApi, startStats } from "./stats.ts";
 import { registerRecapApi, sendDueRecaps, startRecaps } from "./recap.ts";
@@ -299,18 +299,23 @@ api.put("/system/autostart", async (c) => {
 
 const uid = (c: Context) => currentUser(c)!.id;
 
-api.get("/accounts", (c) =>
-  c.json(
-    listAccounts(uid(c)).map((a) => ({
-      id: a.id,
-      provider: a.provider,
-      name: a.name,
-      avatarUrl: a.avatarUrl,
-      expiresAt: a.expiresAt,
-      canRefresh: !!a.refreshToken || a.provider === "threads",
-    })),
-  ),
-);
+api.get("/accounts", (c) => {
+  const mine = listAccounts(uid(c)).map((a) => ({
+    id: a.id,
+    provider: a.provider,
+    name: a.name,
+    avatarUrl: a.avatarUrl,
+    expiresAt: a.expiresAt,
+    canRefresh: !!a.refreshToken || a.provider === "threads",
+  }));
+  // Comptes d'un profil partagé avec moi : nom et réseau seulement, jamais les accès.
+  const shared = [...sharedAccountsFor(uid(c))].map(([id, owner]) => {
+    const a = getAccount(id);
+    const o = db.prepare("SELECT name FROM users WHERE id = ?").get(owner) as { name: string } | undefined;
+    return a ? { id: a.id, provider: a.provider, name: a.name, avatarUrl: a.avatarUrl, shared: { ownerId: owner, ownerName: o?.name ?? "?" } } : null;
+  }).filter(Boolean);
+  return c.json([...mine, ...shared]);
+});
 
 registerProfileApi(api);
 registerHashtagApi(api);
@@ -345,7 +350,7 @@ api.put("/media", async (c) => {
   }
 });
 
-function serializePost(p: Record<string, any>) {
+function serializePost(p: Record<string, any>, viewer?: number) {
   const targets = db
     .prepare(
       `SELECT t.id, t.account_id, t.text_override, t.options, t.status, t.external_url, t.error, t.attempts, t.published_at, t.stats, t.stats_at,
@@ -359,6 +364,11 @@ function serializePost(p: Record<string, any>) {
     title: p.title,
     status: p.status,
     source: p.source ?? null,
+    ownerId: p.owner_id,
+    authorId: p.author_id ?? null,
+    authorName: p.author_id ? ((db.prepare("SELECT name FROM users WHERE id = ?").get(p.author_id) as { name: string } | undefined)?.name ?? null) : null,
+    ownerName: viewer != null && p.owner_id !== viewer ? ((db.prepare("SELECT name FROM users WHERE id = ?").get(p.owner_id) as { name: string } | undefined)?.name ?? null) : null,
+    comments: (db.prepare("SELECT COUNT(*) AS n FROM post_comments WHERE post_id = ?").get(p.id) as { n: number }).n,
     scheduledAt: p.scheduled_at,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
@@ -368,7 +378,8 @@ function serializePost(p: Record<string, any>) {
       kind: m.kind,
       mime: m.mime,
       size: m.size,
-      url: m.localUrl,
+      // Média d'une autre personne (proposition) : lien signé, sinon le navigateur ne l'afficherait pas.
+      url: viewer == null || m.ownerId === viewer ? m.localUrl : m.publicUrl,
     })),
     targets: targets.map((t) => ({
       id: t.id,
@@ -391,9 +402,9 @@ function serializePost(p: Record<string, any>) {
 
 api.get("/posts", (c) => {
   const rows = db
-    .prepare("SELECT * FROM posts WHERE owner_id = ? ORDER BY COALESCE(scheduled_at, created_at) DESC LIMIT 1000")
-    .all(uid(c)) as Record<string, any>[];
-  return c.json(rows.map(serializePost));
+    .prepare("SELECT * FROM posts WHERE owner_id = ? OR author_id = ? ORDER BY COALESCE(scheduled_at, created_at) DESC LIMIT 1000")
+    .all(uid(c), uid(c)) as Record<string, any>[];
+  return c.json(rows.map((p) => serializePost(p, uid(c))));
 });
 
 interface PostBody {
@@ -409,16 +420,17 @@ interface PostBody {
 }
 
 /** Valide le contenu pour chaque compte ciblé. Renvoie les erreurs par compte. */
-function validateBody(b: PostBody, owner: number): Record<number, string> {
+function validateBody(b: PostBody, owner: number, mentionOwner = owner): Record<number, string> {
   const errors: Record<number, string> = {};
-  const media = getMediaList(b.mediaIds ?? [], owner);
+  // Les médias ont déjà été vérifiés (appartenance) par l'appelant.
+  const media = getMediaList(b.mediaIds ?? []);
   for (const id of b.accountIds ?? []) {
     const acc = getOwnedAccount(id, owner);
     if (!acc) {
       errors[id] = "Compte introuvable";
       continue;
     }
-    const text = resolveMentions(b.overrides?.[id] ?? b.text ?? "", acc.provider, owner);
+    const text = resolveMentions(b.overrides?.[id] ?? b.text ?? "", acc.provider, mentionOwner);
     const options = sanitizeOptions(b.options?.[id]);
     const err = publishers[acc.provider].validate({ text, media: effectiveMedia(media, options), options });
     if (err) errors[id] = err;
@@ -426,18 +438,52 @@ function validateBody(b: PostBody, owner: number): Record<number, string> {
   return errors;
 }
 
-function savePost(b: PostBody, owner: number, existingId?: number): { id?: number; error?: string; errors?: Record<number, string> } {
+/**
+ * Espace d'un post selon ses comptes : le mien, ou celui d'une personne qui m'a partagé un profil
+ * (le post lui appartient, j'en suis l'auteur, et il part en validation chez elle).
+ */
+function resolveSpace(me: number, accountIds: number[]): { owner: number; author: number | null } | { error: string } {
+  const others = accountIds.filter((id) => !getOwnedAccount(id, me));
+  if (!others.length) return { owner: me, author: null };
+  const shared = sharedAccountsFor(me);
+  if (others.some((id) => !shared.has(id))) return { error: "Compte introuvable" };
+  const owners = new Set(others.map((id) => shared.get(id)!));
+  if (owners.size > 1 || others.length !== accountIds.length)
+    return { error: "Un même post ne peut pas mélanger tes comptes et ceux d'un profil partagé : fais deux posts." };
+  return { owner: [...owners][0], author: me };
+}
+
+function savePost(b: PostBody, me: number, existingId?: number): { id?: number; error?: string; errors?: Record<number, string>; review?: boolean } {
   const action = b.action ?? "draft";
   const accountIds = [...new Set((b.accountIds ?? []).map(Number))];
   const mediaIds = (b.mediaIds ?? []).filter((id) => typeof id === "string").slice(0, 20);
-  if (getMediaList(mediaIds, owner).length !== mediaIds.length) return { error: "Média introuvable" };
+  let space: { owner: number; author: number | null };
+  if (existingId) {
+    const p = db.prepare("SELECT owner_id, author_id FROM posts WHERE id = ?").get(existingId) as { owner_id: number; author_id: number | null };
+    space = { owner: p.owner_id, author: p.author_id };
+    // L'auteur d'une proposition ne peut cibler que les comptes partagés de ce propriétaire.
+    if (me !== p.owner_id) {
+      const sh = sharedAccountsFor(me);
+      if (accountIds.some((id) => sh.get(id) !== p.owner_id)) return { error: "Compte introuvable" };
+    } else if (accountIds.some((id) => !getOwnedAccount(id, me))) return { error: "Compte introuvable" };
+  } else {
+    const s = resolveSpace(me, accountIds);
+    if ("error" in s) return s;
+    space = s;
+  }
+  const owner = space.owner;
+  // Médias : envoyés par moi, ou déjà dans l'espace du post (proposition de l'autre personne).
+  const okMedia = getMediaList(mediaIds).filter((m) => m.ownerId === me || m.ownerId === owner || m.ownerId === space.author);
+  if (okMedia.length !== mediaIds.length) return { error: "Média introuvable" };
   if (action !== "draft") {
     if (!accountIds.length) return { error: "Choisis au moins un compte." };
-    const errors = validateBody({ ...b, accountIds, mediaIds }, owner);
+    const errors = validateBody({ ...b, accountIds, mediaIds }, owner, space.author ?? owner);
     if (Object.keys(errors).length) return { error: "Contenu incompatible avec certains réseaux.", errors };
     if (action === "schedule" && !(Number(b.scheduledAt) > Date.now() - 60_000)) return { error: "Date de programmation invalide ou passée." };
   }
-  const status = action === "draft" ? "draft" : "scheduled";
+  // Proposition (profil partagé) : elle attend la validation du propriétaire.
+  const review = action !== "draft" && me !== owner;
+  const status = action === "draft" ? "draft" : review ? "review" : "scheduled";
   const scheduledAt = action === "now" ? Date.now() : b.scheduledAt ? Number(b.scheduledAt) : null;
   const now = Date.now();
   let id = existingId;
@@ -459,9 +505,9 @@ function savePost(b: PostBody, owner: number, existingId?: number): { id?: numbe
       id = Number(
         db
           .prepare(
-            "INSERT INTO posts (text, title, media_ids, scheduled_at, status, created_at, updated_at, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO posts (text, title, media_ids, scheduled_at, status, created_at, updated_at, owner_id, author_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
-          .run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, now, owner).lastInsertRowid,
+          .run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, now, owner, space.author).lastInsertRowid,
       );
     }
     const ins = db.prepare("INSERT INTO post_targets (post_id, account_id, text_override, options) VALUES (?, ?, ?, ?)");
@@ -480,15 +526,26 @@ function savePost(b: PostBody, owner: number, existingId?: number): { id?: numbe
     db.exec("ROLLBACK");
     throw e;
   }
-  if (action === "now") void publishPost(id!);
-  return { id };
+  if (action === "now" && !review) void publishPost(id!);
+  if (review) {
+    const who = db.prepare("SELECT name FROM users WHERE id = ?").get(me) as { name: string };
+    void notify(owner, { title: `📝 ${who.name} propose un post`, body: (b.text ?? "").split("\n")[0].slice(0, 80) || "Post à valider", url: "/#queue", tag: `review-${id}` });
+  }
+  return { id, review };
 }
 
-api.post("/validate", async (c) => c.json({ errors: validateBody(await c.req.json<PostBody>(), uid(c)) }));
+api.post("/validate", async (c) => {
+  const b = await c.req.json<PostBody>();
+  const s = resolveSpace(uid(c), [...new Set((b.accountIds ?? []).map(Number))]);
+  return c.json({ errors: "error" in s ? {} : validateBody(b, s.owner, s.author ?? s.owner) });
+});
 
 /** Post de la personne connectée uniquement : celui d'une autre personne est « introuvable ». */
 const ownPost = (c: Context, id: number) =>
   db.prepare("SELECT * FROM posts WHERE id = ? AND owner_id = ?").get(id, uid(c)) as Record<string, any> | undefined;
+/** Post visible par la personne : le sien, ou une proposition qu'elle a écrite pour un profil partagé. */
+const accessPost = (c: Context, id: number) =>
+  db.prepare("SELECT * FROM posts WHERE id = ? AND (owner_id = ? OR author_id = ?)").get(id, uid(c), uid(c)) as Record<string, any> | undefined;
 
 api.post("/posts", async (c) => {
   const r = savePost(await c.req.json<PostBody>(), uid(c));
@@ -497,9 +554,11 @@ api.post("/posts", async (c) => {
 
 api.put("/posts/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  const p = ownPost(c, id);
+  const p = accessPost(c, id);
   if (!p) return c.json({ error: "Post introuvable" }, 404);
-  if (p.status !== "draft" && p.status !== "scheduled") return c.json({ error: "Ce post a déjà été publié." }, 409);
+  const mine = p.owner_id === uid(c);
+  if (!(mine ? ["draft", "scheduled", "review"] : ["draft", "review"]).includes(p.status))
+    return c.json({ error: mine ? "Ce post a déjà été publié." : "Ce post a été validé : seul le propriétaire du profil peut encore le modifier." }, 409);
   const r = savePost(await c.req.json<PostBody>(), uid(c), id);
   if (r.error) return c.json(r, 400);
   // Médias retirés de ce post : supprimés tout de suite s'ils ne servent plus nulle part.
@@ -512,10 +571,11 @@ api.delete("/media/:id{[A-Za-z0-9_-]{6,64}}", async (c) => c.json({ removed: awa
 
 api.delete("/posts/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  const p = ownPost(c, id);
+  const p = accessPost(c, id);
   if (!p) return c.json({ error: "Post introuvable" }, 404);
   if (p.status === "publishing") return c.json({ error: "Publication en cours, patiente." }, 409);
-  db.prepare("DELETE FROM posts WHERE id = ? AND owner_id = ?").run(id, uid(c));
+  if (p.owner_id !== uid(c) && !["draft", "review"].includes(p.status)) return c.json({ error: "Ce post a été validé : demande au propriétaire du profil." }, 409);
+  db.prepare("DELETE FROM posts WHERE id = ?").run(id);
   await purgeUnused(JSON.parse(p.media_ids), uid(c));
   return c.json({ ok: true });
 });
@@ -539,7 +599,7 @@ function scheduleExisting(c: Context, id: number, at: number): { ok: true } | { 
   if (!(at > Date.now() - 60_000)) return { error: "Date passée." };
   const body = bodyFromPost(p);
   if (!body.accountIds?.length) return { error: "Aucun réseau coché : ouvre le brouillon pour choisir ses comptes." };
-  const errors = validateBody(body, uid(c));
+  const errors = validateBody(body, uid(c), p.author_id ?? uid(c));
   const first = Object.values(errors)[0];
   if (first) return { error: first };
   db.prepare("UPDATE posts SET status = 'scheduled', scheduled_at = ?, updated_at = ? WHERE id = ? AND owner_id = ?").run(at, Date.now(), id, uid(c));
@@ -562,6 +622,68 @@ api.post("/posts/:id/reschedule", async (c) => {
   const b = await c.req.json<{ scheduledAt?: number }>().catch(() => ({}) as { scheduledAt?: number });
   const r = scheduleExisting(c, id, Number(b.scheduledAt));
   return "error" in r ? c.json(r, 400) : c.json(r);
+});
+
+// ---------- Travail à deux : validation et commentaires ----------
+
+db.exec(`CREATE TABLE IF NOT EXISTS post_comments (
+  id INTEGER PRIMARY KEY, post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL
+)`);
+
+const userName = (id: number) => (db.prepare("SELECT name FROM users WHERE id = ?").get(id) as { name: string } | undefined)?.name ?? "?";
+
+function addComment(postId: number, userId: number, text: string) {
+  db.prepare("INSERT INTO post_comments (post_id, user_id, text, created_at) VALUES (?, ?, ?, ?)").run(postId, userId, text.slice(0, 2000), Date.now());
+}
+
+/** Valider une proposition : programmée à sa date (ou publiée tout de suite si la date est passée). */
+api.post("/posts/:id/approve", async (c) => {
+  const id = Number(c.req.param("id"));
+  const p = ownPost(c, id);
+  if (!p || p.status !== "review") return c.json({ error: "Rien à valider." }, 400);
+  const errors = validateBody(bodyFromPost(p), uid(c), p.author_id ?? uid(c));
+  const first = Object.values(errors)[0];
+  if (first) return c.json({ error: first }, 400);
+  const at = p.scheduled_at && p.scheduled_at > Date.now() + 60_000 ? p.scheduled_at : Date.now();
+  db.prepare("UPDATE posts SET status = 'scheduled', scheduled_at = ?, updated_at = ? WHERE id = ?").run(at, Date.now(), id);
+  if (at <= Date.now()) void publishPost(id);
+  if (p.author_id) void notify(p.author_id, { title: "✅ Post validé", body: `${userName(uid(c))} a validé : ${String(p.text).split("\n")[0].slice(0, 70)}`, url: "/#queue", tag: `review-${id}` });
+  return c.json({ ok: true, publishedNow: at <= Date.now() });
+});
+
+/** Demander des modifications : la proposition revient en brouillon chez son auteur, avec le commentaire. */
+api.post("/posts/:id/request-changes", async (c) => {
+  const id = Number(c.req.param("id"));
+  const p = ownPost(c, id);
+  if (!p || p.status !== "review") return c.json({ error: "Rien à faire sur ce post." }, 400);
+  const { comment } = await c.req.json<{ comment?: string }>().catch(() => ({ comment: "" }));
+  db.prepare("UPDATE posts SET status = 'draft', updated_at = ? WHERE id = ?").run(Date.now(), id);
+  if (String(comment ?? "").trim()) addComment(id, uid(c), String(comment).trim());
+  if (p.author_id) void notify(p.author_id, { title: "↩ Modifications demandées", body: String(comment ?? "").trim().slice(0, 100) || "Ouvre le post pour voir", url: "/#queue", tag: `review-${id}` });
+  return c.json({ ok: true });
+});
+
+api.get("/posts/:id/comments", (c) => {
+  const id = Number(c.req.param("id"));
+  if (!accessPost(c, id)) return c.json({ error: "Post introuvable" }, 404);
+  return c.json((db.prepare("SELECT * FROM post_comments WHERE post_id = ? ORDER BY id").all(id) as Record<string, any>[]).map((r) => ({
+    id: r.id, text: r.text, at: r.created_at, author: userName(r.user_id), mine: r.user_id === uid(c),
+  })));
+});
+
+api.post("/posts/:id/comments", async (c) => {
+  const id = Number(c.req.param("id"));
+  const p = accessPost(c, id);
+  if (!p) return c.json({ error: "Post introuvable" }, 404);
+  const { text } = await c.req.json<{ text?: string }>().catch(() => ({ text: "" }));
+  const t = String(text ?? "").trim();
+  if (!t) return c.json({ error: "Commentaire vide." }, 400);
+  addComment(id, uid(c), t);
+  // Prévient l'autre personne du post (propriétaire ↔ auteur).
+  const other = uid(c) === p.owner_id ? p.author_id : p.owner_id;
+  if (other && other !== uid(c)) void notify(other, { title: `💬 ${userName(uid(c))}`, body: t.slice(0, 120), url: "/#queue", tag: `comment-${id}` });
+  return c.json({ ok: true });
 });
 
 /** Réseau publié à la main (ex. « Finir dans Instagram » pour ajouter une musique) : marqué publié. */

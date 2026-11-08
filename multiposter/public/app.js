@@ -35,6 +35,7 @@ const STATUS = {
   partial: "Partiel",
   failed: "Échec",
   pending: "En attente",
+  review: "À valider",
 };
 
 const state = {
@@ -182,6 +183,7 @@ window.addEventListener("hashchange", route);
 // ---------- comptes ----------
 
 async function loadAccounts() {
+  if (!state.people) state.people = await api("/people").catch(() => []);
   [state.accounts, state.profiles] = await Promise.all([api("/accounts"), api("/profiles")]);
   renderAccounts();
   renderProfiles();
@@ -206,6 +208,12 @@ function renderProfiles() {
     }
   };
   const cards = state.profiles.map((pr) => {
+    if (pr.shared)
+      return h("li", { class: "profile shared" },
+        h("div", { class: "row profile-head" }, h("strong", {}, pr.name), h("span", { class: "share-badge" }, `↗ partagé par ${pr.ownerName}`)),
+        h("p", { class: "muted small" }, `Tu peux préparer des posts pour ces comptes : ils partent en validation chez ${pr.ownerName}.`),
+        h("div", { class: "chips" }, ...pr.accountIds.map((id) => state.accounts.find((a) => a.id === id)).filter(Boolean).map((a) =>
+          h("span", { class: "chip account-chip small-chip active", style: `--c:${PROVIDER[a.provider]?.color}` }, h("span", { class: "net-label" }, netIcon(a.provider), PROVIDER[a.provider]?.label), h("small", {}, a.name)))));
     const ids = new Set(pr.accountIds);
     const save = async (patch) => {
       try {
@@ -227,8 +235,8 @@ function renderProfiles() {
             loadAccounts();
           },
         }, "Supprimer")),
-      state.accounts.length
-        ? h("div", { class: "chips" }, ...state.accounts.map((a) =>
+      state.accounts.some((a) => !a.shared)
+        ? h("div", { class: "chips" }, ...state.accounts.filter((a) => !a.shared).map((a) =>
             h("button", {
               type: "button", class: `chip account-chip small-chip ${ids.has(a.id) ? "active" : ""}`, style: `--c:${PROVIDER[a.provider]?.color}`,
               onclick: () => {
@@ -236,7 +244,21 @@ function renderProfiles() {
                 save({ accountIds: [...ids] });
               },
             }, h("span", {}, PROVIDER[a.provider]?.label), h("small", {}, a.name))))
-        : h("p", { class: "muted small" }, "Connecte d'abord des comptes ci-dessus."));
+        : h("p", { class: "muted small" }, "Connecte d'abord des comptes ci-dessus."),
+      state.people?.length
+        ? h("div", { class: "chips share-row" }, h("small", { class: "muted" }, "Partager avec :"),
+            ...state.people.map((u) => {
+              const on = (pr.sharedWith ?? []).includes(u.id);
+              return h("button", { type: "button", class: `chip small-chip${on ? " active" : ""}`, title: on ? "Ne plus partager" : `${u.name} pourra proposer des posts pour ce profil (tu les valides)`,
+                onclick: async () => {
+                  const next = on ? pr.sharedWith.filter((x) => x !== u.id) : [...(pr.sharedWith ?? []), u.id];
+                  if (!on && !confirm(`Partager « ${pr.name} » avec ${u.name} ?\n\n${u.name} pourra préparer des posts pour ces comptes. Rien ne sera publié sans ta validation, et ${u.name} ne verra ni tes autres posts ni les accès des comptes.`)) return;
+                  await api(`/profiles/${pr.id}/shares`, { method: "PUT", body: JSON.stringify({ userIds: next }) });
+                  toast(on ? `Plus partagé avec ${u.name}.` : `Partagé avec ${u.name}.`);
+                  loadAccounts();
+                } }, on ? "✓ " : "", u.name);
+            }))
+        : null);
   });
   box.replaceChildren(
     h("div", { class: "card system" },
@@ -1148,7 +1170,7 @@ function renderAccounts() {
       ),
     ),
   );
-  const list = state.accounts.map((a) => {
+  const list = state.accounts.filter((a) => !a.shared).map((a) => {
     const expiring = a.expiresAt && !a.canRefresh && a.expiresAt < Date.now() + 7 * 86400e3;
     return h(
       "div",
@@ -1208,6 +1230,7 @@ function renderPicker() {
         h("span", { class: "avatar-wrap" }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider))),
         h("span", {}, a.name),
         h("small", { class: "net-label", title: PROVIDER[a.provider]?.label }, netIcon(a.provider), a.provider === "x" ? null : PROVIDER[a.provider]?.label),
+        a.shared ? h("small", { class: "share-badge", title: `Compte de ${a.shared.ownerName} : le post partira en validation` }, `↗ ${a.shared.ownerName}`) : null,
       ),
     ),
   );
@@ -1234,6 +1257,9 @@ function renderComposeMeta() {
   renderTextTabs();
   renderMentionPreview();
   renderSlots();
+  const sharedSel = selectedAccounts().find((a) => a.shared);
+  $("#btn-schedule").textContent = sharedSel ? `📤 Proposer à ${sharedSel.shared.ownerName}` : "Programmer";
+  $("#btn-now").hidden = !!sharedSel;
   renderHashtags();
   renderTargetCards();
   scheduleValidation();
@@ -2414,11 +2440,11 @@ async function submit(action) {
   if (action === "now" && !confirm("Publier tout de suite sur les comptes sélectionnés ?")) return;
   try {
     const body = JSON.stringify(payload(action));
-    if (state.editingId) await api(`/posts/${state.editingId}`, { method: "PUT", body });
-    else await api("/posts", { method: "POST", body });
-    toast(action === "draft" ? "Brouillon enregistré." : action === "now" ? "Publication lancée !" : "Post programmé !");
+    const r = state.editingId ? await api(`/posts/${state.editingId}`, { method: "PUT", body }) : await api("/posts", { method: "POST", body });
+    const owner = selectedAccounts().find((a) => a.shared)?.shared.ownerName;
+    toast(action === "draft" ? "Brouillon enregistré." : r.review ? `Proposé à ${owner ?? "la personne qui t'a partagé le profil"} : il ou elle va le valider.` : action === "now" ? "Publication lancée !" : "Post programmé !");
     resetCompose();
-    state.filter = action === "draft" ? "draft" : "upcoming";
+    state.filter = action === "draft" ? "draft" : r?.review ? "review" : "upcoming";
     location.hash = "#queue";
   } catch (e) {
     if (e.data?.errors) renderErrors(e.data.errors);
@@ -2451,7 +2477,7 @@ function resetCompose() {
 
 function editPost(p) {
   resetCompose();
-  state.editingId = p.status === "draft" || p.status === "scheduled" ? p.id : null;
+  state.editingId = ["draft", "scheduled", "review"].includes(p.status) ? p.id : null;
   $("#compose-title").textContent = state.editingId ? "Modifier le post" : "Nouveau post (copie)";
   $("#text").value = p.text;
   $("#title").value = p.title;
@@ -2572,6 +2598,9 @@ function renderQueue() {
   $("#filters").hidden = state.mode === "calendar";
   if (state.mode === "calendar") return renderCalendar();
   document.querySelectorAll("#filters .chip").forEach((c) => c.classList.toggle("active", c.dataset.filter === state.filter));
+  const nReview = state.posts.filter((x) => x.status === "review").length;
+  $('[data-filter="review"]').hidden = !nReview && state.filter !== "review";
+  $("#review-count").textContent = nReview ? String(nReview) : "";
   updateDraftIndicators();
   const posts = filtered();
   if (!posts.length) {
@@ -2718,6 +2747,35 @@ async function renderTopStats() {
       h("span", { class: "stats-line" }, ...[...new Set(p.providers)].map((pr) => netIcon(pr)), statsLine(p)))))));
 }
 
+/** Fil de commentaires internes d'un post (entre le propriétaire du profil et l'auteur). */
+function commentButton(p) {
+  const btn = h("button", { class: "btn ghost small", type: "button" }, `💬 ${p.comments || ""}`.trim());
+  btn.onclick = async () => {
+    const card = btn.closest(".post");
+    let box = card.querySelector(".comments");
+    if (box) return box.remove();
+    box = h("div", { class: "comments" }, h("p", { class: "muted small" }, "Chargement…"));
+    card.append(box);
+    const paint = async () => {
+      const list = await api(`/posts/${p.id}/comments`).catch(() => []);
+      const input = h("textarea", { rows: 2, placeholder: "Écrire un commentaire (seules vous deux le voyez)…", maxlength: 2000 });
+      const send = h("button", { class: "btn primary small", type: "button" }, "Envoyer");
+      send.onclick = async () => {
+        if (!input.value.trim()) return;
+        send.disabled = true;
+        try { await api(`/posts/${p.id}/comments`, { method: "POST", body: JSON.stringify({ text: input.value }) }); await paint(); }
+        catch (e) { toast(e.message, "err"); send.disabled = false; }
+      };
+      box.replaceChildren(
+        ...list.map((c) => h("div", { class: `comment${c.mine ? " mine" : ""}` }, h("strong", {}, c.author), h("small", { class: "muted" }, ` · ${relTime(c.at)}`), h("p", {}, c.text))),
+        list.length ? null : h("p", { class: "muted small" }, "Pas encore de commentaire."),
+        input, h("div", { class: "row" }, send));
+    };
+    paint();
+  };
+  return btn;
+}
+
 function postCard(p) {
   const act = async (fn, okMsg) => {
     try {
@@ -2739,6 +2797,8 @@ function postCard(p) {
         : h("span", { class: "time" }, p.scheduledAt ? fmtTime(p.scheduledAt) : "—"),
       h("span", { class: `status ${p.status}` }, STATUS[p.status] ?? p.status),
     ),
+    p.authorName && p.ownerId === state.me?.id ? h("span", { class: "share-badge" }, `📝 Proposé par ${p.authorName}`) : null,
+    p.ownerName ? h("span", { class: "share-badge" }, `↗ Pour le profil de ${p.ownerName}${p.status === "review" ? " · en attente de validation" : ""}`) : null,
     p.source ? h("span", { class: "source" }, p.source) : null,
     p.title ? h("strong", {}, p.title) : null,
     h("p", { class: "post-text" }, p.text || h("em", { class: "muted" }, "(sans texte)")),
@@ -2778,9 +2838,20 @@ function postCard(p) {
       p.status === "draft" && p.updatedAt && state.meta?.retention
         ? expiryLabel(p.updatedAt + state.meta.retention.draftDays * 86400e3)
         : null,
+      p.status === "review" && p.ownerId === state.me?.id
+        ? h("button", { class: "btn primary small", onclick: () => act(() => api(`/posts/${p.id}/approve`, { method: "POST" }), p.scheduledAt && p.scheduledAt > Date.now() + 60e3 ? "Validé : programmé." : "Validé : publication lancée.") }, "✅ Valider")
+        : null,
+      p.status === "review" && p.ownerId === state.me?.id
+        ? h("button", { class: "btn ghost small", onclick: () => {
+            const comment = prompt(`Que faut-il modifier ? (${p.authorName} recevra ton message)`);
+            if (comment == null) return;
+            act(() => api(`/posts/${p.id}/request-changes`, { method: "POST", body: JSON.stringify({ comment }) }), "Renvoyé pour modification.");
+          } }, "↩ Demander des modifications")
+        : null,
       p.status === "draft"
-        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, "Relire et programmer")
-        : p.status === "scheduled" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
+        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, p.ownerName ? "Modifier et reproposer" : "Relire et programmer")
+        : p.status === "scheduled" && !p.ownerName || p.status === "review" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
+      p.authorId || p.comments ? commentButton(p) : null,
       p.status === "failed" || p.status === "partial"
         ? h("button", { class: "btn primary small", onclick: () => act(() => api(`/posts/${p.id}/retry`, { method: "POST" }), "Nouvel essai lancé.") }, "Réessayer les échecs")
         : null,

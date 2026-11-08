@@ -991,3 +991,15 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .stats-total strong { font-size: 1.25rem; }
 .stats-top { margin: 0; padding-left: 1.3rem; display: grid; gap: 0.35rem; }
 .stats-top li { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: center; }
+
+/* Travail à deux */
+.share-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 600; color: #fde68a; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.35); border-radius: 999px; padding: 0.05rem 0.5rem; }
+.profile.shared { border-style: dashed; }
+.share-row { margin-top: 0.4rem; }
+.status.review { color: #fde68a; background: rgba(251, 191, 36, 0.14); }
+.post.status-review { border-color: rgba(251, 191, 36, 0.45); }
+.comments { display: grid; gap: 0.45rem; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.comment { padding: 0.45rem 0.65rem; border-radius: 10px; background: rgba(1, 9, 36, 0.35); border: 1px solid var(--border); max-width: 85%; }
+.comment.mine { justify-self: end; background: rgba(2, 49, 151, 0.4); }
+.comment p { margin: 0.15rem 0 0; white-space: pre-wrap; }
+.post .share-badge { justify-self: start; width: fit-content; }

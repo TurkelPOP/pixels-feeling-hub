@@ -596,7 +596,7 @@ export function registerUserApi(api: Hono) {
 
   api.get("/me", (c) => {
     const u = currentUser(c)!;
-    return c.json({ name: u.name, role: u.role });
+    return c.json({ id: u.id, name: u.name, role: u.role });
   });
 
   api.get("/users", (c) =>
