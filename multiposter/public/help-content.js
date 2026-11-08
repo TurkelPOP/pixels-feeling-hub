@@ -300,6 +300,14 @@ ${networks[id].owner}`,
   <li>Sous les médias, chaque réseau a sa <strong>carte d'options</strong> : « Prêt » en vert, sinon ce qui bloque en rouge. Tu peux y choisir le format (carrousel, story…), les médias envoyés à ce réseau, ou un texte différent.</li>
   <li>Dans <strong>Quand ?</strong>, choisis la date et l'heure, puis <strong>Programmer</strong>. Ou <strong>Publier maintenant</strong>, ou <strong>Enregistrer en brouillon</strong>.</li>
 </ol>
+<h3>Ajouter une musique Instagram (« Finir dans Instagram »)</h3>
+<p>Instagram ne laisse utiliser sa bibliothèque musicale que dans son appli. Pour un carrousel avec musique :</p>
+<ol class="steps">
+  <li><strong>Sur ton téléphone</strong>, dans le Planning (ou dans les options Instagram de l'éditeur), touche <strong>« 📲 Finir dans Instagram »</strong>.</li>
+  <li><strong>Ouvrir Instagram</strong> : tes images partent dans l'appli Instagram, dans l'ordre, et la légende est copiée.</li>
+  <li>Dans Instagram : Publication → <strong>♫ Ajouter de la musique</strong> → colle la légende → Publier.</li>
+  <li>Reviens dans PTZ Posting : <strong>« C'est publié sur Instagram »</strong>. Instagram est marqué publié et ne sera pas publié une deuxième fois ; les autres réseaux du post partent comme prévu.</li>
+</ol>
 <h3>Hashtags</h3>
 <ul>
   <li>Sous le texte, l'app liste les hashtags trouvés et prévient selon les réseaux cochés : <strong>Instagram</strong> 30 maximum (au-delà le post est refusé), <strong>Threads</strong> un seul tag par post (le premier devient le sujet), <strong>YouTube</strong> les ignore tous au-delà de 15, <strong>X</strong> les compte dans les 280 caractères.</li>

@@ -398,6 +398,7 @@ function savePost(b: PostBody, owner: number, existingId?: number): { id?: numbe
   const scheduledAt = action === "now" ? Date.now() : b.scheduledAt ? Number(b.scheduledAt) : null;
   const now = Date.now();
   let id = existingId;
+  let doneBefore: { account_id: number; external_url: string | null; published_at: number | null }[] = [];
 
   db.exec("BEGIN");
   try {
@@ -405,6 +406,11 @@ function savePost(b: PostBody, owner: number, existingId?: number): { id?: numbe
       db.prepare(
         "UPDATE posts SET text = ?, title = ?, media_ids = ?, scheduled_at = ?, status = ?, updated_at = ? WHERE id = ? AND owner_id = ?",
       ).run(b.text ?? "", b.title ?? "", JSON.stringify(mediaIds), scheduledAt, status, now, id, owner);
+      // Réseaux déjà publiés (par exemple terminés à la main dans l'appli Instagram) : on garde
+      // leur état, pour ne jamais les republier quand on modifie le post.
+      doneBefore = db.prepare("SELECT account_id, external_url, published_at FROM post_targets WHERE post_id = ? AND status = 'done'").all(id) as {
+        account_id: number; external_url: string | null; published_at: number | null;
+      }[];
       db.prepare("DELETE FROM post_targets WHERE post_id = ?").run(id);
     } else {
       id = Number(
@@ -422,6 +428,10 @@ function savePost(b: PostBody, owner: number, existingId?: number): { id?: numbe
       const opts = sanitizeOptions(b.options?.[acc]);
       ins.run(id, acc, typeof o === "string" && o !== b.text ? o : null, Object.keys(opts).length ? JSON.stringify(opts) : null);
     }
+    for (const d of doneBefore)
+      db.prepare("UPDATE post_targets SET status = 'done', external_url = ?, published_at = ? WHERE post_id = ? AND account_id = ?").run(
+        d.external_url, d.published_at, id, d.account_id,
+      );
     db.exec("COMMIT");
   } catch (e) {
     db.exec("ROLLBACK");
@@ -464,6 +474,18 @@ api.delete("/posts/:id", async (c) => {
   if (p.status === "publishing") return c.json({ error: "Publication en cours, patiente." }, 409);
   db.prepare("DELETE FROM posts WHERE id = ? AND owner_id = ?").run(id, uid(c));
   await purgeUnused(JSON.parse(p.media_ids), uid(c));
+  return c.json({ ok: true });
+});
+
+/** Réseau publié à la main (ex. « Finir dans Instagram » pour ajouter une musique) : marqué publié. */
+api.post("/posts/:id/targets/:tid/manual", (c) => {
+  const id = Number(c.req.param("id"));
+  if (!ownPost(c, id)) return c.json({ error: "Post introuvable" }, 404);
+  const r = db
+    .prepare("UPDATE post_targets SET status = 'done', error = NULL, published_at = ? WHERE id = ? AND post_id = ? AND status IN ('pending', 'failed')")
+    .run(Date.now(), Number(c.req.param("tid")), id);
+  if (!r.changes) return c.json({ error: "Ce réseau est déjà publié ou en cours de publication." }, 409);
+  rollupStatus(id);
   return c.json({ ok: true });
 });
 

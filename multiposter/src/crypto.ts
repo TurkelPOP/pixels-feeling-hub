@@ -15,10 +15,17 @@ export function seal(plain: string | null | undefined): string | null {
 
 export function unseal(sealed: string | null | undefined): string | null {
   if (!sealed) return null;
-  const buf = Buffer.from(sealed, "base64");
-  const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
-  decipher.setAuthTag(buf.subarray(12, 28));
-  return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
+  try {
+    const buf = Buffer.from(sealed, "base64");
+    const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
+    decipher.setAuthTag(buf.subarray(12, 28));
+    return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
+  } catch {
+    // Valeur illisible (APP_SECRET changé, donnée abîmée) : traitée comme absente, le compte
+    // concerné devra simplement être reconnecté, au lieu de bloquer toute l'app.
+    console.warn("[chiffrement] une valeur stockée ne peut pas être déchiffrée (APP_SECRET changé ?)");
+    return null;
+  }
 }
 
 export const randomId = (bytes = 12) => randomBytes(bytes).toString("base64url");

@@ -80,6 +80,14 @@ function h(tag, attrs = {}, ...children) {
 
 const $ = (sel) => document.querySelector(sel);
 
+// Comme h() : un enfant null ou false est ignoré (sinon le navigateur affiche le texte « null »).
+{
+  const native = Element.prototype.replaceChildren;
+  Element.prototype.replaceChildren = function (...nodes) {
+    return native.apply(this, nodes.filter((n) => n != null && n !== false));
+  };
+}
+
 /** Bouton « ? » : ouvre le volet d'aide sur le sujet, à hauteur de la section (voir help.js). */
 const helpQ = (topic, label = "Aide") =>
   h("button", { class: "help-q", type: "button", "data-help": topic, "aria-label": label, title: label }, "?");
@@ -1055,6 +1063,88 @@ function renderComposeMeta() {
   scheduleValidation();
 }
 
+// ---------- Finir dans Instagram (pour ajouter une musique) ----------
+// Instagram ne donne pas accès à sa bibliothèque musicale aux autres apps : on prépare le post
+// (images + légende copiée) et on l'ouvre dans l'appli Instagram, où l'on ajoute la musique.
+
+const IG_OK = new Set(["image/jpeg", "image/png", "video/mp4", "video/quicktime"]);
+
+/**
+ * Ouvre la fenêtre « Finir dans Instagram ».
+ * media : [{url, filename, mime, kind}] ; caption : texte ; onPublished : appelé quand on confirme.
+ */
+async function finishInInstagram({ media, caption, onPublished }) {
+  const dlg = $("#share-dialog"), body = $("#share-body");
+  const fill = (...els) => body.replaceChildren(...els);
+  const usable = media.filter((m) => IG_OK.has(m.mime)).slice(0, 10);
+  const skipped = media.length - usable.length;
+  const copyCaption = async () => {
+    try { await navigator.clipboard.writeText(caption); return true; } catch { return false; }
+  };
+  dlg.showModal();
+  if (!usable.length) {
+    fill(h("p", { class: "error" }, "Aucune image JPG/PNG ni vidéo MP4/MOV à envoyer à Instagram."));
+    return;
+  }
+  fill(h("p", { class: "muted" }, `Préparation de ${plural(usable.length, "fichier")}…`), h("progress"));
+
+  let files;
+  try {
+    files = await Promise.all(usable.map(async (m, i) => {
+      const blob = await (await fetch(m.url)).blob();
+      const ext = m.mime === "image/png" ? "png" : m.mime.startsWith("video/") ? (m.mime === "video/mp4" ? "mp4" : "mov") : "jpg";
+      return new File([blob], `${String(i + 1).padStart(2, "0")}-ptz.${ext}`, { type: m.mime });
+    }));
+  } catch {
+    fill(h("p", { class: "error" }, "Impossible de préparer les fichiers. Vérifie ta connexion et réessaie."));
+    return;
+  }
+
+  const canShare = !!navigator.canShare?.({ files });
+  const doneRow = onPublished
+    ? h("div", { class: "share-done" },
+        h("p", { class: "small" }, "Une fois publié dans Instagram :"),
+        h("button", { class: "btn primary", type: "button", onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          try { await onPublished(); dlg.close(); } catch (err) { toast(err.message, "err"); e.currentTarget.disabled = false; }
+        } }, "✓ C'est publié sur Instagram"))
+    : null;
+
+  if (canShare) {
+    fill(
+      h("ol", { class: "steps share-steps" },
+        h("li", {}, "Touche ", h("strong", {}, "Ouvrir Instagram"), " (la légende est copiée en même temps), puis choisis ", h("strong", {}, "Instagram"), " dans la liste."),
+        h("li", {}, "Choisis ", h("strong", {}, "Publication"), " (ou Story), garde l'ordre des images."),
+        h("li", {}, "Touche ", h("strong", {}, "♫ Ajouter de la musique"), " et choisis ton son."),
+        h("li", {}, h("strong", {}, "Colle la légende"), " (appui long → Coller), puis publie.")),
+      skipped ? h("p", { class: "muted small" }, `${plural(skipped, "fichier")} ignoré${skipped > 1 ? "s" : ""} (format non accepté par Instagram ou plus de 10).`) : null,
+      h("button", { class: "btn primary share-go", type: "button", onclick: async () => {
+        const copied = copyCaption();
+        try {
+          await navigator.share({ files });
+          toast((await copied) ? "Légende copiée : colle-la dans Instagram." : "Pense à copier ta légende.");
+        } catch (err) {
+          if (err?.name !== "AbortError") toast("Partage impossible : " + (err?.message ?? err), "err");
+        }
+      } }, `📲 Ouvrir Instagram (${plural(files.length, "fichier")})`),
+      h("button", { class: "btn ghost small", type: "button", onclick: async () => toast((await copyCaption()) ? "Légende copiée." : "Copie impossible.") }, "Copier seulement la légende"),
+      doneRow,
+    );
+  } else {
+    // Ordinateur (ou navigateur sans partage de fichiers) : Instagram ne s'ouvre pas avec des fichiers.
+    fill(
+      h("p", {}, "Cette fonction s'utilise ", h("strong", {}, "sur ton téléphone"), " : ouvre PTZ Posting sur ton téléphone, retrouve ce post dans le Planning et touche « Finir dans Instagram »."),
+      h("p", { class: "muted small" }, "Sur ordinateur, tu peux quand même récupérer les fichiers et la légende :"),
+      h("div", { class: "row" },
+        h("button", { class: "btn ghost small", type: "button", onclick: () => {
+          for (const f of files) { const a = h("a", { href: URL.createObjectURL(f), download: f.name }); document.body.append(a); a.click(); a.remove(); }
+        } }, `Télécharger ${plural(files.length, "fichier")}`),
+        h("button", { class: "btn ghost small", type: "button", onclick: async () => toast((await copyCaption()) ? "Légende copiée." : "Copie impossible.") }, "Copier la légende")),
+      doneRow,
+    );
+  }
+}
+
 // ---------- hashtags ----------
 
 /** Hashtags d'un texte (même règle que le serveur). */
@@ -1283,6 +1373,19 @@ function targetCard(a) {
   if (a.provider === "instagram" && state.media.length) {
     body.push(field("Format", select([["feed", "Publication (post, carrousel ou Reel)"], ["story", "Story"]], o.format, (v) => { o.format = v; changed(true); })));
     if (o.format === "feed") body.push(checkbox("Publier aussi la 1re slide en story", !!o.alsoStory, (v) => { o.alsoStory = v; changed(); }));
+    body.push(h("div", { class: "ig-finish" },
+      h("button", { class: "btn ghost small", type: "button", onclick: () => finishInInstagram({
+        media: chosenMedia(o),
+        caption: state.overrides[a.id] ?? $("#text").value,
+        onPublished: async () => {
+          // Publié à la main : on retire Instagram de ce post pour ne pas le publier une 2e fois.
+          state.selected.delete(a.id);
+          renderPicker();
+          renderComposeMeta();
+          toast("Instagram retiré de ce post (déjà publié depuis l'appli).");
+        },
+      }) }, "📲 Finir dans Instagram (pour ajouter une musique)"),
+      h("small", { class: "muted" }, "Instagram ne laisse ajouter sa musique que dans son appli.")));
   }
   body.push(h("p", { class: "tformat" }, formatSummary(a, o)));
 
@@ -1757,6 +1860,17 @@ function postCard(p) {
           h("span", {}, t.name),
           h("span", { class: `status ${t.status}` }, STATUS[t.status] ?? t.status),
           t.url ? h("a", { href: t.url, target: "_blank", rel: "noopener" }, "Voir ↗") : null,
+          t.provider === "instagram" && (t.status === "pending" || t.status === "failed")
+            ? h("button", { class: "btn ghost small ig-finish-btn", type: "button", onclick: () => finishInInstagram({
+                media: (t.options?.media ? p.media.filter((m) => t.options.media.includes(m.id)) : p.media),
+                caption: t.textOverride ?? p.text,
+                onPublished: async () => {
+                  await api(`/posts/${p.id}/targets/${t.id}/manual`, { method: "POST" });
+                  toast("Instagram marqué comme publié : il ne sera pas republié.");
+                  loadPosts?.();
+                },
+              }) }, "📲 Finir dans Instagram")
+            : null,
           t.error ? h("p", { class: "error small" }, t.error) : null,
         ),
       ),
@@ -2021,6 +2135,7 @@ async function init() {
     renderQueue();
   });
   $("#canva-close").onclick = () => $("#canva-dialog").close();
+  $("#share-close").onclick = () => $("#share-dialog").close();
   $("#btn-drive").onclick = openDrive;
   $("#drive-close").onclick = () => $("#drive-dialog").close();
   $("#drive-more").onclick = () => loadDrive(true);

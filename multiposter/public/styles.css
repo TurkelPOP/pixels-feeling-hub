@@ -834,3 +834,14 @@ h1 .help-q { width: 1.45rem; height: 1.45rem; font-size: 0.8rem; margin-left: 0.
 .tagset-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) auto; gap: 0.45rem; align-items: center; }
 .tagset-row .row { flex-wrap: nowrap; }
 @media (max-width: 760px) { .tagset-row { grid-template-columns: 1fr; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); } }
+
+/* Finir dans Instagram */
+.ig-finish { display: grid; gap: 0.25rem; justify-items: start; }
+.share-sheet { width: min(520px, calc(100vw - 2rem)); }
+.share-body { display: grid; gap: 0.8rem; padding: 1rem 1.1rem 1.2rem; }
+.share-body p { margin: 0; }
+.share-steps { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.45rem; }
+.share-go { justify-content: center; min-height: 52px; font-size: 1.02rem; }
+.share-done { display: grid; gap: 0.4rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+.share-done .btn { justify-content: center; }
+.ig-finish-btn { margin-left: auto; }
