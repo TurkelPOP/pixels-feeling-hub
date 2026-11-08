@@ -61,7 +61,15 @@
   <li><strong>Les autres personnes</strong> : <em>Rôles de l'app → Rôles → Ajouter des personnes → Testeur</em>, avec leur nom ou e-mail Facebook. Elles doivent accepter sur <a href="https://developers.facebook.com/requests" target="_blank" rel="noopener">developers.facebook.com/requests</a>. Toi, en tant qu'administrateur de l'app, tu peux te connecter tout de suite.</li>
 </ol>
 <p class="tip">Tant que l'app est « en développement », tout fonctionne pour toi et tes testeurs : c'est suffisant pour vous deux. La validation par Meta (« App Review ») n'est utile que pour ouvrir l'app à d'autres personnes.</p>
-<p class="warn">Message « Invalid Scopes » à la connexion : dans l'app Meta, menu <em>Cas d'utilisation</em> (ou <em>Autorisations et fonctionnalités</em>), ajoute les autorisations <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code>, <code>business_management</code>, <code>instagram_basic</code> et <code>instagram_content_publish</code>.</p>`,
+<h3>Les autorisations demandées par PTZ Posting</h3>
+<p>Elles doivent toutes être disponibles dans ton app Meta (menu <em>Cas d'utilisation → Personnaliser → Autorisations</em>, ou <em>Examen de l'app → Autorisations et fonctionnalités</em>). En mode développement, l'« accès standard » suffit, sans validation de Meta :</p>
+<ul>
+  <li><strong>Publier</strong> : <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code>, <code>business_management</code>, <code>instagram_basic</code>, <code>instagram_content_publish</code>.</li>
+  <li><strong>Premier commentaire</strong> : <code>instagram_manage_comments</code>, <code>pages_manage_engagement</code>.</li>
+  <li><strong>Statistiques</strong> : <code>instagram_manage_insights</code>, <code>read_insights</code>.</li>
+</ul>
+<p class="warn">Message « Invalid Scopes » (ou « autorisation non valide ») à la connexion : une de ces autorisations manque dans l'app Meta. Ajoute-la, puis reclique sur « Connecter ».</p>
+<p class="tip">Après un ajout d'autorisations (nouvelle version de PTZ Posting), chacun doit <strong>recliquer une fois sur « Connecter Facebook + Instagram »</strong> et accepter les nouvelles cases. Sans ça, la publication continue de marcher, seuls le premier commentaire et les statistiques ne fonctionnent pas.</p>`,
     },
 
     threads: {
@@ -74,13 +82,13 @@
   <li>Clique sur <strong>Autoriser</strong> pour laisser PTZ Posting publier pour toi.</li>
   <li>Tu reviens dans PTZ Posting : ton profil Threads apparaît dans « Comptes connectés ».</li>
 </ol>
-<p class="tip">L'accès dure 60 jours et se renouvelle tout seul tant que l'app tourne.</p>
+<p class="tip">L'accès dure 60 jours et se renouvelle tout seul tant que l'app tourne. Si le propriétaire a ajouté des autorisations (réponse automatique, statistiques), reclique une fois sur « Connecter Threads ».</p>
 <p class="warn">« Utilisateur non autorisé » ? Tant que l'app n'est pas validée par Meta, il faut être <strong>testeur Threads</strong> : demande au propriétaire de t'ajouter, puis accepte dans l'appli Threads → Paramètres → <em>Compte</em> → <em>Autorisations du site web</em> → <em>Invitations</em>.</p>`,
       owner: `
 <p>Threads se règle <strong>dans la même app Meta</strong> que Facebook/Instagram, mais a <strong>ses propres clés</strong>.</p>
 <ol class="steps">
   <li>Sur <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a>, ouvre ton app (ou crée-en une avec le cas d'utilisation <strong>« Accéder à l'API Threads »</strong>).</li>
-  <li><strong>Cas d'utilisation</strong> → <strong>Accéder à l'API Threads</strong> → <strong>Personnaliser</strong>. Dans <em>Autorisations</em>, ajoute <code>threads_basic</code> et <code>threads_content_publish</code>.</li>
+  <li><strong>Cas d'utilisation</strong> → <strong>Accéder à l'API Threads</strong> → <strong>Personnaliser</strong>. Dans <em>Autorisations</em>, ajoute <code>threads_basic</code>, <code>threads_content_publish</code>, <code>threads_manage_replies</code> (réponse automatique sous le post) et <code>threads_manage_insights</code> (statistiques).</li>
   <li>Dans <em>Paramètres</em> de ce cas d'utilisation : <strong>URL de rappel de redirection</strong> = ${cb("threads")}. Remplis aussi <em>Désinstaller</em> et <em>Supprimer</em> avec la même adresse. Enregistre.</li>
   <li>Toujours dans ces paramètres, copie l'<strong>ID de l'app Threads</strong> et la <strong>clé secrète de l'app Threads</strong> (différents de ceux de Facebook !).</li>
   <li>Dans PTZ Posting, carte Threads → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
@@ -131,7 +139,7 @@
   <li>Fiche de l'app : ajoute une <strong>icône</strong> (le logo PTZ Corp, 1024 × 1024), une catégorie, une courte description, et ces liens : <em>Terms of Service URL</em> = <code>{{origin}}/conditions</code>, <em>Privacy Policy URL</em> = <code>{{origin}}/confidentialite</code>. Plateforme : <strong>Web</strong>, adresse <code>{{origin}}</code>.</li>
   <li><strong>Add products</strong> : ajoute <strong>Login Kit</strong> et <strong>Content Posting API</strong>. Dans Content Posting API, active <strong>Direct Post</strong>.</li>
   <li><strong>Login Kit</strong> → <em>Redirect URI</em> (Web) : colle ${cb("tiktok")}.</li>
-  <li><strong>Scopes</strong> : vérifie que <code>user.info.basic</code> et <code>video.publish</code> sont présents.</li>
+  <li><strong>Scopes</strong> : vérifie que <code>user.info.basic</code>, <code>video.publish</code> et <code>video.list</code> (statistiques) sont présents. Après l'ajout de <code>video.list</code>, reconnecte TikTok une fois.</li>
   <li>En haut de la page, bascule sur <strong>Sandbox</strong> → <em>Create Sandbox</em>, refais les étapes 4 à 6 dans la sandbox, puis <strong>Target users</strong> → ajoute ton compte TikTok et ceux des autres personnes. La sandbox fonctionne tout de suite, sans validation.</li>
   <li>En haut de la page (sandbox ou production), copie le <strong>Client key</strong> et le <strong>Client secret</strong>.</li>
   <li>Dans PTZ Posting, carte TikTok → <strong>« Activer ce réseau »</strong> : colle les deux, <strong>Enregistrer</strong>.</li>
