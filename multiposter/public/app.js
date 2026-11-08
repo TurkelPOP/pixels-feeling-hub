@@ -171,6 +171,7 @@ function route() {
     renderUsers();
     loadAppSettings().then(() => { renderAccounts(); renderAppSettings(); });
     renderMaintenance();
+    renderDevice();
   }
 }
 window.addEventListener("hashchange", route);
@@ -669,6 +670,66 @@ function publicCard(sys) {
       ts.mode === "auto" && !ts.funnelOk ? h("button", { class: "btn primary small", type: "button", onclick: (e) => retry(e.currentTarget) }, "Réessayer") : null,
       h("button", { class: "btn ghost small", type: "button", onclick: (e) => run(e.currentTarget) }, "Vérifier")),
     out);
+}
+
+// ---------- Appli sur l'écran d'accueil et notifications ----------
+
+let installPrompt = null;
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; renderDevice(); });
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+async function swRegistration() {
+  if (!("serviceWorker" in navigator)) return null;
+  try { return await navigator.serviceWorker.register("/sw.js"); } catch { return null; }
+}
+
+async function currentPushSub() {
+  const reg = await navigator.serviceWorker?.getRegistration?.();
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+
+async function enablePush() {
+  const reg = await swRegistration();
+  if (!reg || !("PushManager" in window)) throw new Error(isIOS() && !isStandalone() ? "Sur iPhone, ajoute d'abord PTZ Posting à l'écran d'accueil, puis ouvre-la depuis l'icône." : "Ce navigateur ne gère pas les notifications.");
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Notifications refusées. Pour changer : réglages du navigateur (ou de l'appli) → Notifications → PTZ Posting.");
+  const { publicKey } = await api("/push/key");
+  const key = Uint8Array.from(atob(publicKey.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
+  await api("/push/subscribe", { method: "POST", body: JSON.stringify(sub.toJSON()) });
+}
+
+async function renderDevice() {
+  const box = $("#device");
+  if (!box) return;
+  const sub = await currentPushSub().catch(() => null);
+  const pushOk = "PushManager" in window && "Notification" in window;
+  const installRow = isStandalone()
+    ? h("p", { class: "small" }, "✅ Tu utilises PTZ Posting comme une appli.")
+    : installPrompt
+      ? h("button", { class: "btn primary small", type: "button", onclick: async () => { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; renderDevice(); } }, "📲 Installer l'appli sur cet appareil")
+      : isIOS()
+        ? h("p", { class: "small" }, "Sur iPhone / iPad (Safari) : touche ", h("strong", {}, "Partager ⬆️"), " puis ", h("strong", {}, "« Sur l'écran d'accueil »"), ". L'icône PTZ Posting apparaît comme une appli.")
+        : h("p", { class: "small" }, "Sur Android (Chrome) : menu ⋮ → ", h("strong", {}, "« Installer l'application »"), " ou « Ajouter à l'écran d'accueil ». Sur ordinateur : l'icône d'installation dans la barre d'adresse.");
+  const notifRow = sub
+    ? h("div", { class: "row" },
+        h("span", { class: "small" }, "🔔 Notifications activées sur cet appareil."),
+        h("button", { class: "btn ghost small", type: "button", onclick: async () => { await api("/push/test", { method: "POST" }); toast("Notification de test envoyée."); } }, "Tester"),
+        h("button", { class: "btn ghost small danger", type: "button", onclick: async () => {
+          await api("/push/unsubscribe", { method: "POST", body: JSON.stringify({ endpoint: sub.endpoint }) });
+          await sub.unsubscribe();
+          toast("Notifications désactivées sur cet appareil.");
+          renderDevice();
+        } }, "Désactiver"))
+    : h("div", { class: "row" },
+        h("button", { class: "btn ghost small", type: "button", disabled: !pushOk && !isIOS(), onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          try { await enablePush(); toast("Notifications activées."); } catch (err) { toast(err.message, "err"); }
+          renderDevice();
+        } }, "🔔 Activer les notifications sur cet appareil"),
+        h("small", { class: "muted" }, "Publication réussie ou en échec, récap du matin."));
+  box.replaceChildren(h("div", { class: "card system" }, cardTitle("Appli et notifications", "appli"), installRow, notifRow));
 }
 
 // ---------- Maintenance (propriétaire) ----------
@@ -2470,6 +2531,7 @@ function welcomeSound() {
 
 async function init() {
   welcomeSound();
+  void swRegistration();
   state.meta = await api("/meta");
   state.me = await api("/me").catch(() => null);
   await loadAppSettings();

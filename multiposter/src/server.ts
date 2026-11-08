@@ -22,6 +22,7 @@ import { driveApi, driveRoutes, finishDriveOAuth } from "./gdrive.ts";
 import { registerHashtagApi } from "./hashtags.ts";
 import { registerMentionApi, resolveMentions } from "./mentions.ts";
 import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
+import { registerPushApi } from "./push.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
@@ -154,6 +155,27 @@ app.get("/media/:file{[A-Za-z0-9_-]+\\.[a-z0-9]+}", async (c) => {
   if (!signed && !((await isLogged(c)) && mediaOwner(file) === currentUser(c)?.id)) return c.notFound();
   return sendFile(c, resolve(mediaDir, file), "private, max-age=3600");
 });
+
+// Appli installable (écran d'accueil du téléphone) : manifeste et service worker, à la racine.
+app.get("/manifest.webmanifest", (c) => {
+  c.header("Content-Type", "application/manifest+json; charset=utf-8");
+  return c.body(JSON.stringify({
+    name: "PTZ Posting", short_name: "PTZ Posting", lang: "fr", dir: "ltr",
+    description: "Publication multi-réseaux de PTZ Corp",
+    start_url: "/", scope: "/", display: "standalone", orientation: "portrait",
+    background_color: "#020b2c", theme_color: "#023197",
+    icons: [
+      { src: "/assets/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/assets/icon-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/assets/icon-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+    shortcuts: [
+      { name: "Nouveau post", url: "/#compose" },
+      { name: "Planning", url: "/#queue" },
+    ],
+  }));
+});
+app.get("/sw.js", (c) => sendFile(c, resolve(PUBLIC, "sw.js"), "no-cache"));
 
 // Outil privé : rien à indexer ni à explorer pour les moteurs de recherche.
 app.get("/robots.txt", (c) => c.text("User-agent: *\nDisallow: /\n"));
@@ -290,6 +312,7 @@ registerProfileApi(api);
 registerHashtagApi(api);
 registerMentionApi(api);
 registerMaintenanceApi(api, sendFile);
+registerPushApi(api);
 registerMusicApi(api);
 // Écoute d'une musique de sa bibliothèque (lecture partielle possible pour le lecteur audio).
 api.get("/music/:id/file", (c) => {

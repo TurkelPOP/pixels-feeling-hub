@@ -1,5 +1,6 @@
 import { alert, appLink } from "./alerts.ts";
 import { resolveMentions } from "./mentions.ts";
+import { notify } from "./push.ts";
 import { db, getAccount, updateTokens, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
 import { publishers } from "./providers/index.ts";
@@ -80,6 +81,21 @@ export async function publishPost(postId: number): Promise<void> {
     .all(postId) as { id: number }[];
   await Promise.all(targets.map((x) => publishTarget(x.id)));
   rollupStatus(postId);
+  if (targets.length) void notifyResult(postId);
+}
+
+/** Notification sur les appareils de la personne : publié, ou ce qui a échoué. */
+async function notifyResult(postId: number) {
+  const p = db.prepare("SELECT owner_id, text, status FROM posts WHERE id = ?").get(postId) as { owner_id: number; text: string; status: string } | undefined;
+  if (!p || !["done", "partial", "failed"].includes(p.status)) return;
+  const rows = db.prepare(
+    `SELECT a.provider, t.status FROM post_targets t JOIN accounts a ON a.id = t.account_id WHERE t.post_id = ?`,
+  ).all(postId) as { provider: string; status: string }[];
+  const label = (s: string) => [...new Set(rows.filter((r) => r.status === s).map((r) => (publishers as Record<string, { label: string }>)[r.provider]?.label ?? r.provider))].join(", ");
+  const excerpt = (p.text.split("\n")[0] || "Post sans texte").slice(0, 60);
+  await notify(p.owner_id, p.status === "done"
+    ? { title: `✅ Publié sur ${label("done")}`, body: excerpt, url: "/#queue", tag: `post-${postId}` }
+    : { title: `⚠️ Échec sur ${label("failed")}`, body: `${excerpt}${label("done") ? ` · publié sur ${label("done")}` : ""}`, url: "/#queue", tag: `post-${postId}` });
 }
 
 export async function tick() {

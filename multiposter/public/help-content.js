@@ -388,6 +388,25 @@ ${networks[id].owner}`,
 </ul>`,
     },
     {
+      id: "appli",
+      title: "Appli sur le téléphone et notifications",
+      html: `
+<h3>Installer PTZ Posting comme une appli</h3>
+<ul>
+  <li><strong>iPhone / iPad</strong> : ouvre le site dans <strong>Safari</strong> → bouton <strong>Partager ⬆️</strong> → <strong>« Sur l'écran d'accueil »</strong> → Ajouter.</li>
+  <li><strong>Android</strong> : dans Chrome, menu <strong>⋮</strong> → <strong>« Installer l'application »</strong> (ou le bouton « Installer l'appli » dans Comptes → Appli et notifications).</li>
+  <li><strong>Ordinateur</strong> : icône d'installation à droite de la barre d'adresse (Chrome, Edge).</li>
+</ul>
+<p>L'icône PTZ Posting ouvre l'app en plein écran, sans barre d'adresse. Tu restes connecté 7 jours, comme dans le navigateur.</p>
+<h3>Notifications</h3>
+<ol class="steps">
+  <li>Comptes → <strong>Appli et notifications</strong> → <strong>« Activer les notifications sur cet appareil »</strong>, puis <strong>Autoriser</strong>.</li>
+  <li><strong>Tester</strong> pour vérifier.</li>
+</ol>
+<p>Tu es prévenu quand un post est publié, quand un réseau échoue, et chaque matin avec le récap de la journée. À activer sur chaque appareil voulu.</p>
+<p class="warn">Sur iPhone, les notifications ne marchent que depuis l'appli installée sur l'écran d'accueil (iOS 16.4 ou plus récent) : installe-la d'abord, ouvre-la depuis l'icône, puis active les notifications.</p>`,
+    },
+    {
       id: "securite",
       title: "Sécurité : qui voit quoi",
       html: `
