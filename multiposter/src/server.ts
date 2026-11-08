@@ -84,6 +84,20 @@ app.use("*", async (c, next) => {
 
 // ---------- Authentification (voir auth.ts) ----------
 
+// Toute requête qui modifie quelque chose doit venir de PTZ Posting lui-même : si le navigateur
+// indique une autre origine (un autre site), on refuse.
+app.use("*", async (c, next) => {
+  if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+    const origin = c.req.header("origin");
+    if (origin && origin !== "null") {
+      let host = "";
+      try { host = new URL(origin).hostname.toLowerCase(); } catch { /* origine illisible */ }
+      if (!allowedHosts.has(host)) return c.text("Requête refusée (autre site).", 403);
+    }
+  }
+  return next();
+});
+
 registerAuth(app);
 
 // Le lanceur Windows ouvre /open, qui mène à l'interface.
@@ -768,9 +782,10 @@ serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.
       `ADMIN_PASSWORD_HASH ${config.adminPasswordHash ? "présent" : "absent"}`,
       `CRON_SECRET ${config.cronSecret && config.cronSecret.length >= 32 ? "présent" : "absent"}`,
       `alertes ${config.alertWebhookUrl ? "configurées" : "non configurées"}`,
+      config.serverMode && process.env.TRUST_PROXY !== "1" ? "⚠️ TRUST_PROXY absent : le blocage après 5 échecs vise tout le monde à la fois" : "",
       `réseaux activés : ${[...Object.values(flows).filter((f) => f.configured()).map((f) => f.label), ...(config.canva.clientId && config.canva.clientSecret ? ["Canva"] : [])].join(", ") || "aucun"}`,
       `TRUST_PROXY=${process.env.TRUST_PROXY ?? "non"}`,
-    ].join(" · "),
+    ].filter(Boolean).join(" · "),
   );
   // Lanceur Windows / macOS : ouvre l'app dans le navigateur une fois prête.
   if (process.env.OPEN_BROWSER === "1") {

@@ -53,6 +53,8 @@ for (const sql of [
   "ALTER TABLE invites ADD COLUMN role TEXT NOT NULL DEFAULT 'member'",
   // Lien de réinitialisation du mot de passe d'une personne existante (au lieu d'une invitation).
   "ALTER TABLE invites ADD COLUMN reset_user INTEGER",
+  // « Déconnecter tous mes appareils » : compteur propre à chaque personne.
+  "ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 0",
 ]) {
   try {
     db.exec(sql);
@@ -197,7 +199,10 @@ function matchTotp(code: string, secret: string, last: number): number | null {
   return null;
 }
 
-const hashCode = (code: string) => createHash("sha256").update(`recovery:${code.toLowerCase().replace(/[^a-z0-9]/g, "")}`).digest("hex");
+const normCode = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, "");
+const hashCode = (code: string) => createHmac("sha256", config.appSecret).update(`recovery:${normCode(code)}`).digest("hex");
+/** Ancien format (sans clé), encore accepté pour les codes déjà distribués. */
+const legacyHashCode = (code: string) => createHash("sha256").update(`recovery:${normCode(code)}`).digest("hex");
 
 function newRecoveryCodes(userId: number): string[] {
   const codes = Array.from({ length: 10 }, () => {
@@ -210,7 +215,8 @@ function newRecoveryCodes(userId: number): string[] {
 
 function useRecoveryCode(user: User, code: string): boolean {
   const list: string[] = JSON.parse(user.recovery_codes || "[]");
-  const i = list.indexOf(hashCode(code));
+  let i = list.indexOf(hashCode(code));
+  if (i < 0) i = list.indexOf(legacyHashCode(code));
   if (i < 0) return false;
   list.splice(i, 1);
   db.prepare("UPDATE users SET recovery_codes = ? WHERE id = ?").run(JSON.stringify(list), user.id);
@@ -287,7 +293,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // activer ou réinitialiser sa 2FA, ou « Déconnecter tous les appareils » ferme ses sessions.
 function fingerprint(u: User): string {
   const cred = u.role === "owner" ? (config.adminPasswordHash ?? config.adminPassword) : u.password_hash;
-  return createHash("sha256").update(`session:${u.id}:${cred}:${u.totp_secret ?? ""}:${config.appSecret}`).digest("hex").slice(0, 24);
+  const epoch = (u as User & { session_epoch?: number }).session_epoch ?? 0;
+  return createHash("sha256").update(`session:${u.id}:${cred}:${u.totp_secret ?? ""}:${epoch}:${config.appSecret}`).digest("hex").slice(0, 24);
 }
 const sessionEpoch = () => getSetting("session_epoch") ?? "0";
 const bumpEpoch = () => setSetting("session_epoch", String(Number(sessionEpoch()) + 1));
@@ -615,7 +622,8 @@ export function registerAuth(app: Hono) {
 
   // Déconnecte toutes les sessions de tout le monde (téléphones, autres navigateurs…), y compris celle-ci.
   app.post("/logout-all", requireAuth, (c) => {
-    bumpEpoch();
+    // Ferme toutes les sessions de CETTE personne (pas celles des autres).
+    db.prepare("UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?").run(currentUser(c)!.id);
     logEvent(c, "logout_all", currentUser(c)?.name ?? null);
     deleteCookie(c, SESSION, { path: "/", secure: config.serverMode });
     return c.redirect("/login");
@@ -627,6 +635,17 @@ export function registerAuth(app: Hono) {
 export function registerUserApi(api: Hono) {
   const isAdmin = (u?: User) => u?.role === "owner" || u?.role === "admin";
   const ownerOnly = (c: Context) => (isAdmin(currentUser(c)) ? null : c.json({ error: "Réservé aux administrateurs." }, 403));
+  /** Le propriétaire gère tout le monde (sauf lui) ; un administrateur ne gère que les membres. */
+  const canManage = (actor: User, target: User) =>
+    target.role !== "owner" && target.id !== actor.id && (actor.role === "owner" || target.role === "member");
+  /** Action sur le compte de quelqu'un d'autre : droits + code de l'appli d'authentification. */
+  const guard = async (c: Context, u: User | undefined) => {
+    const me = currentUser(c)!;
+    if (!u || !canManage(me, u)) return c.json({ error: u?.role === "admin" ? "Seul le propriétaire peut gérer un administrateur." : "Action impossible sur ce compte." }, 403);
+    const { code } = await c.req.json<{ code?: string }>().catch(() => ({ code: "" }));
+    const err = confirmIdentity(c, code);
+    return err ? c.json({ error: err }, 403) : null;
+  };
 
   api.get("/me", (c) => {
     const u = currentUser(c)!;
@@ -655,6 +674,7 @@ export function registerUserApi(api: Hono) {
     const denied = ownerOnly(c);
     if (denied) return denied;
     const role = c.req.query("role") === "admin" ? "admin" : "member";
+    if (role === "admin" && currentUser(c)!.role !== "owner") return c.json({ error: "Seul le propriétaire peut inviter un administrateur." }, 403);
     const token = randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + 48 * 3_600_000;
     db.prepare("DELETE FROM invites WHERE expires_at < ?").run(Date.now());
@@ -663,11 +683,13 @@ export function registerUserApi(api: Hono) {
     return c.json({ link: `${config.appUrl}/invite/${token}`, expiresAt });
   });
 
-  api.delete("/users/:id", (c) => {
+  api.delete("/users/:id", async (c) => {
     const denied = ownerOnly(c);
     if (denied) return denied;
     const u = userById(Number(c.req.param("id")));
-    if (!u || u.role === "owner" || u.id === currentUser(c)!.id) return c.json({ error: "Impossible de retirer ce compte." }, 400);
+    const refused = await guard(c, u);
+    if (refused) return refused;
+    if (!u) return c.json({ error: "Compte introuvable." }, 404);
     db.prepare("DELETE FROM users WHERE id = ?").run(u.id); // ses sessions deviennent invalides
     removeUserData(u.id); // et tout son espace : réseaux, posts, Canva, règles
     void purgeAllMedia(u.id); // et ses images / vidéos, fichiers compris
@@ -677,11 +699,14 @@ export function registerUserApi(api: Hono) {
     return c.json({ ok: true });
   });
 
-  api.post("/users/:id/reset-password", (c) => {
+  api.post("/users/:id/reset-password", async (c) => {
     const denied = ownerOnly(c);
     if (denied) return denied;
     const u = userById(Number(c.req.param("id")));
-    if (!u || u.role === "owner") return c.json({ error: "Le mot de passe du propriétaire se change sur le serveur (ADMIN_PASSWORD_HASH)." }, 400);
+    if (u?.role === "owner") return c.json({ error: "Le mot de passe du propriétaire se change sur le serveur (ADMIN_PASSWORD_HASH)." }, 400);
+    const refused = await guard(c, u);
+    if (refused) return refused;
+    if (!u) return c.json({ error: "Compte introuvable." }, 404);
     const token = randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + 48 * 3_600_000;
     db.prepare("DELETE FROM invites WHERE reset_user = ?").run(u.id); // un seul lien valable à la fois
@@ -692,12 +717,15 @@ export function registerUserApi(api: Hono) {
     return c.json({ link: `${config.appUrl}/invite/${token}`, expiresAt });
   });
 
-  api.post("/users/:id/reset-2fa", (c) => {
+  api.post("/users/:id/reset-2fa", async (c) => {
     const denied = ownerOnly(c);
     if (denied) return denied;
     const u = userById(Number(c.req.param("id")));
-    if (!u || u.role === "owner") return c.json({ error: "Pour le propriétaire, utilise TWOFA_RESET=1 sur le serveur." }, 400);
-    if (u.id === currentUser(c)!.id) return c.json({ error: "Demande à un autre administrateur de réinitialiser ta double authentification." }, 400);
+    if (u?.role === "owner") return c.json({ error: "Pour le propriétaire, utilise TWOFA_RESET=1 sur le serveur." }, 400);
+    if (u && u.id === currentUser(c)!.id) return c.json({ error: "Demande à un autre administrateur de réinitialiser ta double authentification." }, 400);
+    const refused = await guard(c, u);
+    if (refused) return refused;
+    if (!u) return c.json({ error: "Compte introuvable." }, 404);
     db.prepare("UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last = -1, recovery_codes = '[]' WHERE id = ?").run(u.id);
     logEvent(c, "2fa_reset", currentUser(c)!.name, `pour « ${u.name} »`);
     void alert(`🔐 Double authentification de « ${u.name} » réinitialisée : à réactiver à sa prochaine connexion.`);

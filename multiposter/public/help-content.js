@@ -401,7 +401,7 @@ ${networks[id].owner}`,
       id: "utilisateurs",
       title: "Personnes ayant accès",
       html: `
-<p>Réservé aux administrateurs. Chaque personne a son propre espace.</p>
+<p>Réservé aux administrateurs. Chaque personne a son propre espace. <strong>Le propriétaire</strong> gère tout le monde et seul lui peut inviter un administrateur ; <strong>un administrateur</strong> ne gère que les membres. Retirer quelqu'un ou réinitialiser son accès demande ton code d'authentification.</p>
 <ul>
   <li><strong>Inviter</strong> : « Inviter une personne » (coche « administrateur » si besoin), puis envoie le lien affiché. Il ne marche qu'une fois, pendant 48 h. L'adresse e-mail doit être en @ptzcorp.fr.</li>
   <li><strong>Nouveau mot de passe</strong> : crée un lien pour que la personne choisisse un nouveau mot de passe ; ses données sont conservées.</li>

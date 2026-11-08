@@ -971,13 +971,16 @@ async function renderUsers() {
         h("p", { class: "muted small" },
           u.twoFactor ? `Double authentification active · ${u.recoveryCodesLeft} code(s) de secours` : "Double authentification à activer",
           " · ", u.lastLogin ? `dernière connexion ${new Date(u.lastLogin).toLocaleString("fr-FR")}` : "jamais connecté")),
-      isOwner && u.role !== "owner" && u.name !== me.name
+      // Le propriétaire gère tout le monde ; un administrateur ne gère que les membres.
+      isOwner && u.role !== "owner" && u.name !== me.name && (me.role === "owner" || u.role === "member")
         ? h("div", { class: "row" },
             h("button", {
               class: "btn ghost small", type: "button",
               onclick: async () => {
+                const code = askCode(`Créer un lien de nouveau mot de passe pour « ${u.name} » ?`);
+                if (!code) return;
                 try {
-                  const { link, expiresAt } = await api(`/users/${u.id}/reset-password`, { method: "POST" });
+                  const { link, expiresAt } = await api(`/users/${u.id}/reset-password`, { method: "POST", body: JSON.stringify({ code }) });
                   const input = h("input", { readonly: true, value: link, id: "invite-link" });
                   const copy = h("button", { class: "btn ghost small", type: "button", onclick: async () => { try { await navigator.clipboard.writeText(link); toast("Lien copié."); } catch { input.select(); } } }, "Copier");
                   linkBox.hidden = false;
@@ -991,14 +994,18 @@ async function renderUsers() {
               class: "btn ghost small", type: "button",
               onclick: async () => {
                 if (!confirm(`Réinitialiser la double authentification de « ${u.name} » ? Il devra la réactiver à sa prochaine connexion.`)) return;
-                try { await api(`/users/${u.id}/reset-2fa`, { method: "POST" }); toast("Double authentification réinitialisée."); renderUsers(); } catch (e) { toast(e.message, "err"); }
+                const code = askCode("Confirme avec ton propre code.");
+                if (!code) return;
+                try { await api(`/users/${u.id}/reset-2fa`, { method: "POST", body: JSON.stringify({ code }) }); toast("Double authentification réinitialisée."); renderUsers(); } catch (e) { toast(e.message, "err"); }
               },
             }, "Réinitialiser sa 2FA"),
             h("button", {
               class: "btn ghost small danger", type: "button",
               onclick: async () => {
                 if (!confirm(`Retirer l'accès de « ${u.name} » ? Ses sessions seront fermées immédiatement, et tout son espace (réseaux connectés, posts, Canva) sera supprimé.`)) return;
-                try { await api(`/users/${u.id}`, { method: "DELETE" }); toast("Accès retiré."); renderUsers(); } catch (e) { toast(e.message, "err"); }
+                const code = askCode("Confirme avec ton propre code.");
+                if (!code) return;
+                try { await api(`/users/${u.id}`, { method: "DELETE", body: JSON.stringify({ code }) }); toast("Accès retiré."); renderUsers(); } catch (e) { toast(e.message, "err"); }
               },
             }, "Retirer"))
         : null));
@@ -1008,7 +1015,7 @@ async function renderUsers() {
       h("ul", { class: "user-list" }, ...rows),
       isOwner
         ? h("div", { class: "row invite-row" },
-            h("label", { class: "tcheck", for: "invite-admin" }, asAdmin, h("span", {}, "Administrateur (peut inviter et retirer des personnes)")),
+            me.role === "owner" ? h("label", { class: "tcheck", for: "invite-admin" }, asAdmin, h("span", {}, "Administrateur (peut inviter et gérer les membres)")) : null,
             h("button", { class: "btn primary small", type: "button", onclick: (e) => invite(e.currentTarget) }, "Inviter une personne"))
         : h("p", { class: "muted small" }, "Seuls les administrateurs peuvent inviter ou retirer des personnes."),
       linkBox),
@@ -1043,7 +1050,7 @@ async function renderSecurity() {
         ? h("p", { class: "small" }, h("a", { href: "/2fa/setup" }, "Activer la double authentification"), " (recommandé)")
         : null,
       h("p", { class: "muted small" }, "Si une session est restée ouverte ailleurs, déconnecte-les toutes : il faudra se reconnecter partout, ici compris."),
-      h("form", { method: "post", action: "/logout-all" }, h("button", { class: "btn ghost small danger", type: "submit" }, "Déconnecter tous les appareils")),
+      h("form", { method: "post", action: "/logout-all" }, h("button", { class: "btn ghost small danger", type: "submit" }, "Déconnecter tous mes appareils")),
       h("details", { class: "journal" },
         h("summary", {}, `Journal de sécurité (${s.events.length} derniers événements)`),
         rows.length
