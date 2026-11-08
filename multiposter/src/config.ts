@@ -36,9 +36,11 @@ export const config = {
   appSecret: required("APP_SECRET"),
   dataDir: resolve(process.env.DATA_DIR ?? "./data"),
   timezone: process.env.TZ_DISPLAY ?? "Europe/Paris",
-  maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 1024) * 1024 * 1024,
-  /** Espace média maximum par personne (Mo). */
-  mediaQuotaBytes: Number(process.env.MEDIA_QUOTA_MB ?? 5120) * 1024 * 1024,
+  maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 300) * 1024 * 1024,
+  /** Espace pour les médias et musiques de tout le site (Mo) : l'hébergement fait 1 Go en tout. */
+  storageTotalBytes: Number(process.env.STORAGE_TOTAL_MB ?? 600) * 1024 * 1024,
+  /** Part maximale d'une seule personne (Mo). */
+  mediaQuotaBytes: Number(process.env.MEDIA_QUOTA_MB ?? 400) * 1024 * 1024,
 
   /** Secret de l'adresse de réveil /cron/tick (tâche planifiée de l'hébergeur). 32 caractères min. */
   cronSecret: opt("CRON_SECRET"),

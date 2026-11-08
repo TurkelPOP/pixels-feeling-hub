@@ -5,7 +5,7 @@ Une app auto-hébergée pour écrire un post une fois, puis le programmer ou le 
 
 - Un seul texte, avec une version adaptée par réseau si besoin. Le nombre de caractères
   de chaque réseau est affiché en direct.
-- Images, carrousels et vidéos (jusqu'à 1 Go par défaut), envoyés en streaming.
+- Images, carrousels et vidéos (300 Mo max par fichier, 600 Mo pour tout le site par défaut), envoyés en streaming.
 - Programmation à la minute près, avec des raccourcis (+1 h, demain 9 h, demain 18 h).
 - Planning en liste ou en **calendrier mensuel**. Un clic sur un jour crée un post à cette date.
 - Brouillons, modification, duplication, et « Réessayer les échecs » réseau par réseau.

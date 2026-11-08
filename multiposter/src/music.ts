@@ -16,11 +16,11 @@ import { currentUser } from "./auth.ts";
 import { config } from "./config.ts";
 import { randomId } from "./crypto.ts";
 import { db } from "./db.ts";
-import { getMedia, mediaPath, saveUpload } from "./media.ts";
+import { getMedia, mediaPath, saveUpload, STORAGE_FULL, storageRoom } from "./media.ts";
 
 const FFMPEG = process.env.FFMPEG_PATH?.trim() || "ffmpeg";
 const FFPROBE = process.env.FFPROBE_PATH?.trim() || "ffprobe";
-const MAX_MUSIC_BYTES = 40 * 1024 * 1024;
+const MAX_MUSIC_BYTES = 20 * 1024 * 1024;
 export const musicDir = resolve(config.dataDir, "music");
 const tmpDir = resolve(config.dataDir, "tmp");
 mkdirSync(musicDir, { recursive: true });
@@ -116,14 +116,17 @@ export function registerMusicApi(api: Hono) {
     if (!ext) return c.json({ error: "Format de musique non pris en charge : MP3, M4A, AAC ou WAV." }, 400);
     if (!c.req.raw.body) return c.json({ error: "Fichier vide" }, 400);
     const n = (db.prepare("SELECT COUNT(*) AS n FROM music_tracks WHERE owner_id = ?").get(owner) as { n: number }).n;
-    if (n >= 50) return c.json({ error: "50 musiques maximum : supprimes-en une." }, 400);
+    if (n >= 20) return c.json({ error: "20 musiques maximum : supprimes-en une." }, 400);
+    const room = storageRoom(owner);
+    if (room <= 0) return c.json({ error: STORAGE_FULL }, 400);
+    const max = Math.min(MAX_MUSIC_BYTES, room);
     const id = randomId(18);
     const path = trackPath(id, mime);
     let size = 0;
     const limiter = new Transform({
       transform(chunk: Buffer, _e, cb) {
         size += chunk.length;
-        cb(size > MAX_MUSIC_BYTES ? new Error("Musique trop lourde (40 Mo maximum).") : null, chunk);
+        cb(size > max ? new Error(max < MAX_MUSIC_BYTES ? STORAGE_FULL : "Musique trop lourde (20 Mo maximum).") : null, chunk);
       },
     });
     try {

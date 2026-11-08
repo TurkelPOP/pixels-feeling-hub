@@ -90,6 +90,23 @@ function toMedia(r: Record<string, any>): MediaFile {
   };
 }
 
+// ---------- Espace disque ----------
+// L'hébergement est petit (1 Go) : médias + musiques ont une limite pour tout le site, et une part
+// maximale par personne (un compte, même piraté, ne peut pas remplir le disque).
+export const STORAGE_FULL = "Espace plein : supprime des brouillons, des médias ou des musiques.";
+const sum = (sql: string, ...args: number[]) => {
+  try { return (db.prepare(sql).get(...args) as { n: number }).n; } catch { return 0; }
+};
+export function storageUsed(ownerId?: number): number {
+  const where = ownerId == null ? "" : " WHERE owner_id = ?";
+  const args = ownerId == null ? [] : [ownerId];
+  return sum(`SELECT COALESCE(SUM(size), 0) AS n FROM media${where}`, ...args) + sum(`SELECT COALESCE(SUM(size), 0) AS n FROM music_tracks${where}`, ...args);
+}
+/** Octets encore disponibles pour cette personne. */
+export function storageRoom(ownerId: number): number {
+  return Math.min(config.storageTotalBytes - storageUsed(), config.mediaQuotaBytes - storageUsed(ownerId));
+}
+
 /** Enregistre un upload en streaming (pas de mise en mémoire des grosses vidéos). */
 export async function saveUpload(
   body: ReadableStream<Uint8Array>,
@@ -98,10 +115,8 @@ export async function saveUpload(
   ownerId: number,
 ): Promise<MediaFile> {
   if (!ALLOWED[mime]) throw new Error(`Format non pris en charge : ${mime}`);
-  // Espace par personne : un compte (même piraté) ne peut pas remplir le disque du serveur.
-  const used = (db.prepare("SELECT COALESCE(SUM(size), 0) AS n FROM media WHERE owner_id = ?").get(ownerId) as { n: number }).n;
-  const room = config.mediaQuotaBytes - used;
-  if (room <= 0) throw new Error(`Espace plein (${Math.round(config.mediaQuotaBytes / 1024 ** 3)} Go) : supprime des brouillons ou des médias.`);
+  const room = storageRoom(ownerId);
+  if (room <= 0) throw new Error(STORAGE_FULL);
   const max = Math.min(config.maxUploadBytes, room);
   const id = randomId(18);
   const path = mediaPath(id, mime);
@@ -109,7 +124,7 @@ export async function saveUpload(
   const limiter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       size += chunk.length;
-      if (size > max) cb(new Error(max < config.maxUploadBytes ? "Espace presque plein : supprime des brouillons ou des médias." : "Fichier trop volumineux"));
+      if (size > max) cb(new Error(max < config.maxUploadBytes ? STORAGE_FULL : `Fichier trop volumineux (${Math.round(config.maxUploadBytes / 1024 ** 2)} Mo max).`));
       else cb(null, chunk);
     },
   });
