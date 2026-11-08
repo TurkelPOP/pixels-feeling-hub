@@ -7,5 +7,5 @@
   compatible S3, liens signés lisibles par Meta/Threads). Plan B : Backblaze B2 (10 Go gratuits).
 
 ## Sécurité
-- Revue : étapes 7 (dépendances), 8 (hébergement).
+- Revue : étape 8 (hébergement).
 - À la fin : passer le repo en privé + clé de déploiement SSH (adapter `remoteOk` à l'URL SSH GitHub).
