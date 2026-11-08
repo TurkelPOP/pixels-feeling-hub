@@ -4,7 +4,7 @@
 // - Restauration : appliquée au redémarrage (voir db.ts), l'ancienne base est gardée de côté.
 // - Mise à jour : « git pull » puis redémarrage ; dépendances réinstallées si elles ont changé.
 import { execFile } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import type { Context, Hono } from "hono";
@@ -21,9 +21,20 @@ const KEEP = Number(process.env.BACKUP_KEEP ?? 14);
 const NAME_RE = /^(ptz-\d{4}-\d{2}-\d{2}(?:-\d{6})?|avant-restauration-[\dT-]+Z?)\.db$/;
 const APP_DIR = process.cwd();
 
+// Repo privé : mise à jour par SSH avec une clé de déploiement (lecture seule). L'empreinte de
+// GitHub est fixée ici : impossible de se faire passer pour GitHub, même au premier contact.
+const GITHUB_HOST_KEY = "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl\n";
+const knownHosts = resolve(config.dataDir, "github_known_hosts");
+function gitSsh(): string {
+  try { writeFileSync(knownHosts, GITHUB_HOST_KEY, { mode: 0o600 }); } catch { /* lecture seule : on garde le fichier existant */ }
+  const key = process.env.UPDATE_SSH_KEY?.trim();
+  const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
+  return ["ssh", "-o BatchMode=yes", "-o StrictHostKeyChecking=yes", `-o UserKnownHostsFile=${q(knownHosts)}`, ...(key ? ["-o IdentitiesOnly=yes", `-i ${q(key)}`] : [])].join(" ");
+}
+
 const run = (cmd: string, args: string[], timeoutMs = 120_000) =>
   new Promise<string>((ok, ko) =>
-    execFile(cmd, args, { cwd: APP_DIR, timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } }, (err, stdout, stderr) =>
+    execFile(cmd, args, { cwd: APP_DIR, timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...(cmd === "git" ? { GIT_SSH_COMMAND: gitSsh() } : {}) } }, (err, stdout, stderr) =>
       err ? ko(new Error(String(stderr || err.message).trim().slice(0, 600))) : ok(stdout.trim()),
     ),
   );
@@ -93,14 +104,16 @@ export function registerMaintenanceApi(api: Hono, sendFile: (c: Context, path: s
   // (On vérifie l'adresse réellement utilisée, après les éventuelles réécritures de la config git.)
   // UPDATE_REMOTE (variable du serveur) peut autoriser une autre source précise.
   const remoteOk = (url: string) =>
-    /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+?(\.git)?$/.test(url.replace(/\/\/[^@/]+@/, "//")) || (!!process.env.UPDATE_REMOTE && url === process.env.UPDATE_REMOTE);
+    /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+?(\.git)?$/.test(url.replace(/\/\/[^@/]+@/, "//")) ||
+    /^(git@github\.com:|ssh:\/\/git@github\.com\/)[\w.-]+\/[\w.-]+?(\.git)?$/.test(url) ||
+    (!!process.env.UPDATE_REMOTE && url === process.env.UPDATE_REMOTE);
 
   api.post("/maintenance/update/check", async (c) => {
     const denied = owner(c);
     if (denied) return denied;
     try {
       const remote = (await run("git", ["remote", "get-url", "origin"])).replace(/\/\/[^@/]+@/, "//"); // sans identifiants
-      if (!remoteOk(remote)) return c.json({ error: `Origine des mises à jour refusée : ${remote} (seul GitHub en HTTPS est accepté).` }, 400);
+      if (!remoteOk(remote)) return c.json({ error: `Origine des mises à jour refusée : ${remote} (seul GitHub, en HTTPS ou SSH, est accepté).` }, 400);
       await run("git", ["fetch", "--quiet", "origin"], 60_000);
       const upstream = await run("git", ["rev-parse", "@{u}"]);
       const branch = await run("git", ["rev-parse", "--abbrev-ref", "@{u}"]);

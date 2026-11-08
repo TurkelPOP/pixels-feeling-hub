@@ -8,4 +8,4 @@
 
 ## Sécurité
 - Revue : étape 8 (hébergement).
-- À la fin : passer le repo en privé + clé de déploiement SSH (adapter `remoteOk` à l'URL SSH GitHub).
+- À la fin : passer le repo en privé + clé de déploiement SSH (code prêt : remote `git@github.com:…`, clé via `UPDATE_SSH_KEY` ou ~/.ssh par défaut).
