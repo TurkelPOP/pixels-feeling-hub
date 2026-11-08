@@ -27,7 +27,7 @@ import { registerPresetApi } from "./presets.ts";
 import { registerStatsApi, startStats } from "./stats.ts";
 import { registerRecapApi, sendDueRecaps, startRecaps } from "./recap.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
-import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
+import { currentUser, isLogged, oauthCallerOk, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { DRAFT_DAYS, RETENTION_DAYS, startCleanup } from "./cleanup.ts";
@@ -238,6 +238,7 @@ app.get("/oauth/:flow/callback", async (c) => {
     | { provider: string; verifier: string | null; owner_id: number }
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
+  if (row && !(await oauthCallerOk(c, row.owner_id))) return back("Connexion refusée : lance-la depuis ton compte PTZ Posting, dans ce navigateur.");
   // Google Drive partage l'adresse de retour de YouTube : le « state » dit lequel des deux.
   if (row?.provider === "gdrive" && flow?.id === "google") {
     if (error || !code) return back(`Connexion Google Drive annulée${error ? ` (${error})` : ""}.`);

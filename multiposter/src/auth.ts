@@ -326,6 +326,18 @@ const current = new WeakMap<Request, User>();
 /** Utilisateur connecté (après requireAuth). */
 export const currentUser = (c: Context) => current.get(c.req.raw);
 
+/**
+ * Retour OAuth : accepté seulement dans le navigateur connecté de la personne qui l'a lancé.
+ * Sinon, quelqu'un pourrait envoyer son propre lien de connexion à une victime et récupérer ses
+ * pages Facebook/Instagram dans son compte à lui. (En local, le retour peut arriver sur une autre
+ * adresse sans la session : le « state » à usage unique suffit alors.)
+ */
+export async function oauthCallerOk(c: Context, ownerId: number): Promise<boolean> {
+  const sameSite = new URL(config.publicUrl).host === new URL(config.appUrl).host;
+  if (!config.serverMode || !sameSite) return true;
+  return (await isLogged(c)) && currentUser(c)?.id === ownerId;
+}
+
 export async function isLogged(c: Context) {
   const s = await session(c);
   if (s?.stage !== "f") return false;

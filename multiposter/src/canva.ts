@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { alert, appLink } from "./alerts.ts";
 import { accountsPage, callbackUrl, config } from "./config.ts";
 import { pkcePair, randomId, seal, unseal } from "./crypto.ts";
-import { currentUser } from "./auth.ts";
+import { currentUser, oauthCallerOk } from "./auth.ts";
 import { db, getOwnedAccount } from "./db.ts";
 import { form, json, postJson, request, sleep } from "./http.ts";
 import { saveUpload } from "./media.ts";
@@ -152,6 +152,7 @@ canvaRoutes.get("/oauth/canva/callback", async (c) => {
     | undefined;
   const back = (msg: string, ok = false) => c.redirect(accountsPage(msg, ok));
   if (!row) return back("Lien de connexion Canva expiré, recommence.");
+  if (!(await oauthCallerOk(c, row.owner_id))) return back("Connexion refusée : lance-la depuis ton compte PTZ Posting, dans ce navigateur.");
   if (error || !code) return back(`Connexion Canva annulée : ${error_description ?? error ?? "pas de code"}`);
   try {
     const t = await tokenRequest({
