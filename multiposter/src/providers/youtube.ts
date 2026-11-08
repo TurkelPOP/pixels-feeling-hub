@@ -69,8 +69,9 @@ export const youtube: Publisher = {
     const t = await token({ grant_type: "refresh_token", refresh_token: account.refreshToken! });
     return { accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: Date.now() + t.expires_in * 1000 };
   },
-  async publish({ account, text, title, media, options }) {
+  async publish({ account, text, title, media, options, progress }) {
     const v = videos(media)[0];
+    const p = progress ?? (() => {});
     const auth = `Bearer ${account.accessToken}`;
     const finalTitle = (options.title || title.trim() || text.split("\n")[0].trim() || v.filename).replace(/[<>]/g, "").slice(0, 100);
     const init = await request(
@@ -88,6 +89,7 @@ export const youtube: Publisher = {
 
     let result: any;
     for (let off = 0; off < v.size; off += CHUNK) {
+      p(0.02 + (off / v.size) * 0.93, 0.02 + (Math.min(v.size, off + CHUNK) / v.size) * 0.93, "Envoi de la vidéo");
       const chunk = await readChunk(v.path, off, CHUNK);
       const res = await fetch(location, {
         method: "PUT",

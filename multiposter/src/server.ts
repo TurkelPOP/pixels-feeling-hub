@@ -31,7 +31,7 @@ import { currentUser, isLogged, ownerId, registerAuth, registerUserApi, requireA
 import { autostartStatus, setAutostart } from "./autostart.ts";
 import { setupTailscale, tailscaleState } from "./tailscale.ts";
 import { DRAFT_DAYS, RETENTION_DAYS, startCleanup } from "./cleanup.ts";
-import { publishPost, rollupStatus, startScheduler, tick } from "./scheduler.ts";
+import { publishPost, rollupStatus, startScheduler, targetProgress, tick } from "./scheduler.ts";
 
 // Espaces personnels : les données de l'ancienne version partagée reviennent au propriétaire.
 migrateWorkspaces(ownerId());
@@ -417,6 +417,7 @@ function serializePost(p: Record<string, any>, viewer?: number) {
       publishedAt: t.published_at,
       stats: t.stats ? JSON.parse(t.stats) : null,
       statsAt: t.stats_at,
+      progress: t.status === "publishing" ? targetProgress(t.id) : null,
     })),
   };
 }

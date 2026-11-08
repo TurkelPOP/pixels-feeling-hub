@@ -90,24 +90,32 @@ export const threads: Publisher = {
     );
     return { accessToken: r.access_token, expiresAt: Date.now() + r.expires_in * 1000 };
   },
-  async publish({ account, text, media }) {
+  async publish({ account, text, media, progress }) {
     const uid = account.externalId;
     const token = account.accessToken!;
+    const p = progress ?? (() => {});
     let id: string;
+    p(0, 0.85, media.length > 1 ? "Envoi des médias" : media.length ? "Envoi du média" : "Envoi");
     if (media.length === 0) {
       id = await container(uid, token, { media_type: "TEXT", text });
     } else if (media.length === 1) {
       id = await container(uid, token, { ...itemParams(media[0]), text });
     } else {
       const children: string[] = [];
-      for (const m of media) {
+      for (const [i, m] of media.entries()) {
+        p((i / media.length) * 0.4, ((i + 1) / media.length) * 0.4, `Média ${i + 1}/${media.length}`);
         const c = await container(uid, token, { ...itemParams(m), is_carousel_item: "true" });
         children.push(c);
       }
-      for (const c of children) await waitReady(c, token);
+      for (const [i, c] of children.entries()) {
+        p(0.4 + (i / children.length) * 0.4, 0.4 + ((i + 1) / children.length) * 0.4, `Traitement ${i + 1}/${children.length}`);
+        await waitReady(c, token);
+      }
+      p(0.8, 0.9, "Carrousel");
       id = await container(uid, token, { media_type: "CAROUSEL", children: children.join(","), text });
     }
     await waitReady(id, token);
+    p(0.9, 1, "Publication");
     const pub = await json(`${G}/${uid}/threads_publish`, form({ creation_id: id, access_token: token }));
     const info = await json(`${G}/${pub.id}?fields=permalink&access_token=${encodeURIComponent(token)}`).catch(() => ({}));
     return { url: info.permalink, id: pub.id };

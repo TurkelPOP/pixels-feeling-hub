@@ -55,7 +55,12 @@ export interface PublishInput {
   title: string;
   media: MediaFile[];
   options: TargetOptions;
+  /** Avancement : l'étape en cours va de `from` à `to` (0 → 1). */
+  progress?: Progress;
 }
+
+/** Signale l'étape en cours (fractions 0 → 1 du travail de ce réseau) et son libellé. */
+export type Progress = (from: number, to: number, label: string) => void;
 
 export interface PostStats {
   views?: number;

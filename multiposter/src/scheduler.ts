@@ -33,6 +33,17 @@ export function rollupStatus(postId: number): void {
   db.prepare("UPDATE posts SET status = ?, updated_at = ? WHERE id = ?").run(status, Date.now(), postId);
 }
 
+/** Avancement des publications en cours (en mémoire : perdu au redémarrage, comme la publication). */
+const live = new Map<number, { from: number; to: number; at: number; label: string }>();
+
+/** Pourcentage affiché : avance doucement dans l'étape en cours, sans jamais l'atteindre avant qu'elle finisse. */
+export function targetProgress(targetId: number): { pct: number; label: string } | null {
+  const p = live.get(targetId);
+  if (!p) return { pct: 0, label: "En attente" };
+  const f = p.from + (p.to - p.from) * (1 - Math.exp(-(Date.now() - p.at) / 20_000));
+  return { pct: Math.min(99, Math.floor(f * 100)), label: p.label };
+}
+
 async function publishTarget(targetId: number): Promise<void> {
   // Verrou optimiste : une seule exécution par cible, même en cas de double tick.
   const claimed = db
@@ -47,6 +58,8 @@ async function publishTarget(targetId: number): Promise<void> {
     )
     .get(targetId) as Record<string, any>;
 
+  const step = (from: number, to: number, label: string) => live.set(targetId, { from, to, at: Date.now(), label });
+  step(0, 0.04, "Préparation");
   try {
     const account = getAccount(t.account_id);
     if (!account) throw new Error("Compte déconnecté");
@@ -58,11 +71,14 @@ async function publishTarget(targetId: number): Promise<void> {
     const invalid = pub.validate({ text, media, options });
     if (invalid) throw new Error(invalid);
     const acc = await freshAccount(account);
-    const result = await pub.publish({ account: acc, text, title: t.title, media, options });
+    // L'envoi au réseau occupe 4 → 96 % ; le premier commentaire, la fin.
+    const progress = (from: number, to: number, label: string) => step(0.04 + from * 0.92, 0.04 + to * 0.92, label);
+    const result = await pub.publish({ account: acc, text, title: t.title, media, options, progress });
     // Premier commentaire : le post est déjà en ligne, un échec ici ne doit jamais le republier.
     let note: string | null = null;
     if (options.firstComment && pub.comment && result.id) {
       try {
+        step(0.96, 1, "1er commentaire");
         await pub.comment({ account: acc, postId: result.id, text: resolveMentions(options.firstComment, account.provider, t.mention_owner) });
       } catch (e) {
         note = `Publié, mais le premier commentaire a échoué : ${e instanceof Error ? e.message : e}. Reconnecte le compte (nouvelles autorisations) puis commente à la main.`;
@@ -79,6 +95,7 @@ async function publishTarget(targetId: number): Promise<void> {
     void alert(`⚠️ Échec de publication${acc ? ` sur ${publishers[acc.provider].label} (${acc.name})` : ""}\n« ${excerpt} »\n${msg}\n${appLink("queue")}`);
     db.prepare("UPDATE post_targets SET status = 'failed', error = ? WHERE id = ?").run(msg.slice(0, 1000), targetId);
   } finally {
+    live.delete(targetId);
     rollupStatus(t.post_id);
   }
 }

@@ -154,6 +154,9 @@ summary { cursor: pointer; color: var(--cyan); font-weight: 600; }
 .targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 .targets li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
 .targets .error { flex-basis: 100%; margin: 0; }
+.pub-progress { flex-basis: 100%; display: grid; gap: 0.2rem; }
+.pub-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.pub-bar i { display: block; height: 100%; background: linear-gradient(90deg, #023197, #3b6cff); border-radius: inherit; transition: width 1.2s linear; }
 .post footer { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
 .status { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--muted); }

@@ -103,21 +103,25 @@ export const facebook: Publisher = {
     if (videos(media).length && images(media).length) return "Facebook : pas de mélange photos + vidéo.";
     return null;
   },
-  async publish({ account, text, media }) {
+  async publish({ account, text, media, progress }) {
     const page = account.externalId;
     const token = account.accessToken!;
     const vids = videos(media);
+    const p = progress ?? (() => {});
     // Facebook accepte l'envoi direct du fichier : pas besoin que l'app soit joignable en ligne.
     if (vids.length) {
       const fd = new FormData();
       fd.append("description", text);
       fd.append("access_token", token);
       fd.append("source", await openAsBlob(vids[0].path, { type: vids[0].mime }), vids[0].filename);
+      p(0, 1, "Envoi de la vidéo");
       const r = await json(`https://graph-video.facebook.com/${V}/${page}/videos`, { method: "POST", body: fd }, 30 * 60_000);
       return { url: `https://www.facebook.com/${page}/videos/${r.id}`, id: r.id };
     }
     const attached: string[] = [];
-    for (const img of images(media)) {
+    const imgs = images(media);
+    for (const [i, img] of imgs.entries()) {
+      p((i / imgs.length) * 0.9, ((i + 1) / imgs.length) * 0.9, imgs.length > 1 ? `Photo ${i + 1}/${imgs.length}` : "Envoi de la photo");
       const fd = new FormData();
       fd.append("published", "false");
       fd.append("access_token", token);
@@ -127,6 +131,7 @@ export const facebook: Publisher = {
     }
     const body: Record<string, string> = { message: text, access_token: token };
     attached.forEach((id, i) => (body[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id })));
+    p(0.9, 1, "Publication");
     const r = await json(`${G}/${page}/feed`, form(body));
     return { url: `https://www.facebook.com/${r.id}`, id: r.id };
   },
@@ -192,16 +197,21 @@ export const instagram: Publisher = {
     if (countChars(text) > 2_200) return "Instagram : légende limitée à 2 200 caractères.";
     return null;
   },
-  async publish({ account, text, media, options }) {
+  async publish({ account, text, media, options, progress }) {
     const igId = account.externalId;
     const token = account.accessToken!;
+    const p = progress ?? (() => {});
     const storiesUrl = `https://www.instagram.com/stories/${account.meta.username ?? ""}/`;
     if (options.format === "story") {
-      for (const m of media) await publishStory(igId, token, m);
+      for (const [i, m] of media.entries()) {
+        p(i / media.length, (i + 1) / media.length, media.length > 1 ? `Story ${i + 1}/${media.length}` : "Story");
+        await publishStory(igId, token, m);
+      }
       return { url: storiesUrl };
     }
     let creationId: string;
     if (media.length === 1) {
+      p(0, 0.85, media[0].kind === "video" ? "Traitement de la vidéo" : "Envoi de l'image");
       creationId = await igContainer(igId, token, {
         ...igItemParams(media[0], false),
         caption: text,
@@ -211,17 +221,21 @@ export const instagram: Publisher = {
       await igWaitReady(creationId, token);
     } else {
       const children: string[] = [];
-      for (const m of media) {
+      for (const [i, m] of media.entries()) {
+        p((i / media.length) * 0.8, ((i + 1) / media.length) * 0.8, `Média ${i + 1}/${media.length}`);
         const id = await igContainer(igId, token, igItemParams(m, true));
         await igWaitReady(id, token);
         children.push(id);
       }
+      p(0.8, 0.9, "Carrousel");
       creationId = await igContainer(igId, token, { media_type: "CAROUSEL", children: children.join(","), caption: text });
       await igWaitReady(creationId, token);
     }
+    p(0.9, options.alsoStory ? 0.95 : 1, "Publication");
     const pub = await json(`${G}/${igId}/media_publish`, form({ creation_id: creationId, access_token: token }));
     const info = await json(`${G}/${pub.id}?fields=permalink&access_token=${encodeURIComponent(token)}`).catch(() => ({}));
     if (options.alsoStory && media[0]) {
+      p(0.95, 1, "Story");
       // Le post est publié : un échec de la story ne doit pas le faire republier en double.
       await publishStory(igId, token, media[0]).catch((e) => {
         console.error("[instagram] story :", e);

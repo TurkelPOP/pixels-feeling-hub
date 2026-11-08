@@ -2560,7 +2560,8 @@ async function loadPosts() {
   if (!$("#view-queue").hidden) renderQueue();
   clearTimeout(pollTimer);
   if (state.posts.some((p) => p.status === "publishing" || (p.status === "scheduled" && p.scheduledAt < Date.now() + 60e3))) {
-    pollTimer = setTimeout(() => !$("#view-queue").hidden && loadPosts(), 5000);
+    const live = state.posts.some((p) => p.status === "publishing");
+    pollTimer = setTimeout(() => !$("#view-queue").hidden && loadPosts(), live ? 1500 : 5000);
   }
 }
 
@@ -2870,7 +2871,14 @@ function postCard(p) {
           {},
           badge(t.provider),
           h("span", {}, t.name),
-          h("span", { class: `status ${t.status}` }, STATUS[t.status] ?? t.status),
+          t.status === "publishing" && t.progress
+            ? h("span", { class: "status publishing" }, `${t.progress.pct} %`)
+            : h("span", { class: `status ${t.status}` }, STATUS[t.status] ?? t.status),
+          t.status === "publishing" && t.progress
+            ? h("div", { class: "pub-progress", title: t.progress.label },
+                h("div", { class: "pub-bar" }, h("i", { style: `width:${t.progress.pct}%` })),
+                h("small", { class: "muted" }, t.progress.label))
+            : null,
           t.url ? h("a", { href: t.url, target: "_blank", rel: "noopener" }, "Voir ↗") : null,
           t.stats ? statsLine(t.stats, t.statsAt) : null,
           t.provider === "instagram" && (t.status === "pending" || t.status === "failed")

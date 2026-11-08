@@ -70,8 +70,9 @@ export const tiktok: Publisher = {
     const t = await token({ grant_type: "refresh_token", refresh_token: account.refreshToken! });
     return { accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: Date.now() + t.expires_in * 1000 };
   },
-  async publish({ account, text, media, options }) {
+  async publish({ account, text, media, options, progress }) {
     const v = videos(media)[0];
+    const p = progress ?? (() => {});
     const auth = { Authorization: `Bearer ${account.accessToken}` };
 
     const creator = await json(`${API}/post/publish/creator_info/query/`, postJson({}, auth));
@@ -103,6 +104,7 @@ export const tiktok: Publisher = {
     for (let i = 0; i < count; i++) {
       const start = i * chunkSize;
       const end = i === count - 1 ? v.size : start + chunkSize;
+      p(0.05 + (start / v.size) * 0.75, 0.05 + (end / v.size) * 0.75, "Envoi de la vidéo");
       const chunk = await readChunk(v.path, start, end - start);
       await request(
         upload_url,
@@ -120,6 +122,7 @@ export const tiktok: Publisher = {
     }
 
     let postId: string | undefined;
+    p(0.8, 1, "Traitement TikTok");
     await waitFor(
       async () => {
         const s = await json(`${API}/post/publish/status/fetch/`, postJson({ publish_id }, auth));
