@@ -4,7 +4,7 @@
 // - Restauration : appliquée au redémarrage (voir db.ts), l'ancienne base est gardée de côté.
 // - Mise à jour : « git pull » puis redémarrage ; dépendances réinstallées si elles ont changé.
 import { execFile } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import type { Context, Hono } from "hono";
@@ -81,6 +81,25 @@ export function startBackups() {
   setInterval(() => { if (new Date().getHours() === 3) daily(); }, 30 * 60_000).unref?.();
 }
 
+// ---------- Versions ----------
+// Numéro MAJEUR.MINEUR.CORRECTIF dans package.json, nouveautés dans CHANGELOG.md (une section
+// « ## 1.2.0 — date » par version). La mise à jour affiche les nouveautés des versions à venir.
+const readVersion = (pkg: string) => { try { return String(JSON.parse(pkg).version ?? ""); } catch { return ""; } };
+export const appVersion = () => { try { return readVersion(readFileSync(resolve(APP_DIR, "package.json"), "utf8")); } catch { return ""; } };
+const vnum = (v: string) => v.split(".").map((x) => Number(x) || 0);
+const newer = (a: string, b: string) => { const [x, y] = [vnum(a), vnum(b)]; for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0); return false; };
+/** Sections du journal plus récentes que la version installée. */
+export function changesSince(changelog: string, current: string) {
+  const out: { version: string; date: string; items: string[] }[] = [];
+  for (const block of changelog.split(/^## /m).slice(1)) {
+    const [head, ...lines] = block.split("\n");
+    const m = head.match(/^(\d+\.\d+\.\d+)\s*(?:[—-]\s*(.*))?$/);
+    if (!m || !newer(m[1], current)) continue;
+    out.push({ version: m[1], date: (m[2] ?? "").trim(), items: lines.map((l) => l.match(/^\s*[-*]\s+(.*)$/)?.[1]).filter((x): x is string => !!x).slice(0, 30) });
+  }
+  return out;
+}
+
 /** Redémarre l'app : l'hébergeur relance le processus (alwaysdata, systemd, Docker « restart »). */
 const restartSoon = () => setTimeout(() => process.exit(0), 1200);
 
@@ -97,7 +116,7 @@ export function registerMaintenanceApi(api: Hono, sendFile: (c: Context, path: s
     } catch {
       /* pas un dépôt git (copie manuelle) */
     }
-    return c.json({ version, backups: listBackups(), keep: KEEP });
+    return c.json({ version, appVersion: appVersion(), backups: listBackups(), keep: KEEP });
   });
 
   /** Dépôt d'origine accepté pour les mises à jour : GitHub en HTTPS uniquement. */
@@ -120,7 +139,11 @@ export function registerMaintenanceApi(api: Hono, sendFile: (c: Context, path: s
       const log = await run("git", ["log", "--format=%h%x09%cI%x09%an%x09%s", "HEAD..@{u}"]);
       const commits = log ? log.split("\n").map((l) => { const [commit, date, author, subject] = l.split("\t"); return { commit, date, author, subject }; }) : [];
       const files = commits.length ? (await run("git", ["diff", "--name-only", "HEAD", "@{u}"])).split("\n").filter(Boolean) : [];
-      return c.json({ commits, files, target: upstream, remote, branch });
+      // Version et nouveautés de la version disponible (fichiers lus dans la mise à jour, sans l'installer).
+      const nextVersion = readVersion(await run("git", ["show", `${upstream}:./package.json`]).catch(() => ""));
+      const changelog = await run("git", ["show", `${upstream}:./CHANGELOG.md`]).catch(() => "");
+      const current = appVersion();
+      return c.json({ commits, files, target: upstream, remote, branch, current, nextVersion, changes: changesSince(changelog, current) });
     } catch (e) {
       return c.json({ error: `Vérification impossible : ${e instanceof Error ? e.message : e}` }, 502);
     }

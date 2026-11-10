@@ -845,10 +845,11 @@ async function renderMaintenance() {
   check.onclick = async () => {
     check.disabled = true; check.textContent = "Vérification…";
     try {
-      const { commits, files, target, remote, branch } = await api("/maintenance/update/check", { method: "POST" });
+      const { commits, files, target, remote, branch, current, nextVersion, changes = [] } = await api("/maintenance/update/check", { method: "POST" });
       if (!commits.length) updBox.replaceChildren(h("p", { class: "small" }, "✅ PTZ Posting est à jour."));
       else {
-        const go = h("button", { class: "btn primary small", type: "button" }, `Installer (${commits.length})`);
+        const bump = nextVersion && nextVersion !== current;
+        const go = h("button", { class: "btn primary small", type: "button" }, bump ? `Installer la ${nextVersion}` : `Installer (${commits.length})`);
         go.onclick = async () => {
           const code = askCode("Installer la mise à jour ? L'app sera indisponible quelques secondes (une sauvegarde est faite avant).");
           if (!code) return;
@@ -860,9 +861,13 @@ async function renderMaintenance() {
           } catch (e) { toast(e.message, "err"); go.disabled = false; go.textContent = "Réessayer"; }
         };
         updBox.replaceChildren(
-          h("p", { class: "muted small" }, `Source : ${remote} (${branch}) · version ${target.slice(0, 7)}`),
-          h("ul", { class: "maint-commits" }, ...commits.slice(0, 15).map((x) => h("li", {}, h("span", {}, x.subject), h("small", { class: "muted" }, ` · ${x.author} · ${frDateTime(Date.parse(x.date))}`)))),
-          commits.length > 15 ? h("p", { class: "muted small" }, `… et ${commits.length - 15} autres.`) : null,
+          bump ? h("p", { class: "small" }, "🆕 ", h("strong", {}, `Version ${nextVersion} disponible`), current ? ` (tu as la ${current})` : "") : h("p", { class: "small" }, "Correctifs disponibles (même version)."),
+          // Nouveautés du journal des versions, puis le détail technique replié.
+          ...changes.map((v) => h("div", { class: "maint-version" }, h("strong", {}, `${v.version}${v.date ? ` · ${v.date}` : ""}`),
+            h("ul", {}, ...v.items.map((it) => h("li", {}, it))))),
+          h("details", { class: "tuto-box" }, h("summary", {}, `${commits.length} modification${commits.length > 1 ? "s" : ""} (détail)`),
+            h("p", { class: "muted small" }, `Source : ${remote} (${branch}) · ${target.slice(0, 7)}`),
+            h("ul", { class: "maint-commits" }, ...commits.slice(0, 40).map((x) => h("li", {}, h("span", {}, x.subject), h("small", { class: "muted" }, ` · ${frDateTime(Date.parse(x.date))}`))))),
           h("details", { class: "tuto-box" }, h("summary", {}, `${files.length} fichier${files.length > 1 ? "s" : ""} modifié${files.length > 1 ? "s" : ""}`),
             h("ul", { class: "maint-files" }, ...files.map((f) => h("li", {}, h("code", {}, f))))),
           go);
@@ -901,7 +906,7 @@ async function renderMaintenance() {
       cardTitle("Maintenance", "proprietaire"),
       h("h3", {}, "Mise à jour"),
       h("p", { class: "small" }, m.version
-        ? ["Version installée : ", h("strong", {}, m.version.commit), ` du ${frDateTime(Date.parse(m.version.date))} — « ${m.version.subject} »`]
+        ? ["Version installée : ", h("strong", {}, m.appVersion || m.version.commit), ` (${m.version.commit}, ${frDateTime(Date.parse(m.version.date))})`]
         : "Version inconnue (l'app n'a pas été installée avec git)."),
       h("div", { class: "row" }, check,
         h("button", { class: "btn ghost small", type: "button", onclick: async () => {
