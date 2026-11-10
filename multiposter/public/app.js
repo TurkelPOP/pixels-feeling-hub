@@ -162,6 +162,12 @@ function toLocalInput(ms) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** Photo du compte avec le logo de son réseau en pastille (comme dans « Publier sur »). */
+function accAvatar(a) {
+  return h("span", { class: "acc-av", style: `--c:${PROVIDER[a.provider]?.color}`, title: `${a.name} · ${PROVIDER[a.provider]?.label ?? a.provider}` },
+    avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider)));
+}
+
 /** Logo du réseau en couleur, sans son nom (éditeur). */
 function netLogo(provider) {
   return h("span", { class: "net-logo", title: PROVIDER[provider]?.label ?? provider, style: `--c:${PROVIDER[provider]?.color ?? "#888"}` }, netIcon(provider));
@@ -1619,7 +1625,7 @@ function renderTextTabs() {
       });
       el = h("div", { class: `net-text net-${a.provider}`, "data-acc": a.id, style: `--c:${PROVIDER[a.provider]?.color}` },
         // Bande à la couleur du réseau, avec son logo.
-        h("div", { class: "net-band", title: PROVIDER[a.provider]?.label }, netIcon(a.provider)),
+        h("div", { class: "net-band", title: PROVIDER[a.provider]?.label }, accAvatar(a)),
         h("div", { class: "net-text-main" },
         h("div", { class: "net-text-head" }, h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
           h("button", { type: "button", class: "linklike small", title: "Remplacer par le texte d'un autre réseau", onclick: () => copyFrom(a) }, "Copier depuis…")),
@@ -2464,7 +2470,7 @@ function changed(rebuild = false) {
 function targetCard(a) {
   const o = optionsFor(a);
   const body = [];
-  const head = h("header", {}, netLogo(a.provider), h("strong", {}, a.name), h("span", { class: "tstatus" }));
+  const head = h("header", {}, accAvatar(a), h("strong", {}, a.name), h("span", { class: "tstatus" }));
   // Réseau vidéo sans vidéo dans le post : seul le message utile est affiché.
   if ((a.provider === "youtube" || a.provider === "tiktok") && state.media.length && !state.media.some((m) => m.kind === "video")) {
     return h("article", { class: "tcard compact", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head);

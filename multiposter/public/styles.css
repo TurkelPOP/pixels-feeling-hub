@@ -1109,6 +1109,15 @@ dialog.lightbox::backdrop { background: rgba(2, 6, 24, 0.8); }
 /* Texte par réseau : bande large à la couleur du réseau, logo dedans */
 .net-text { grid-template-columns: 3rem minmax(0, 1fr); gap: 0; padding: 0; border-left: 1px solid color-mix(in srgb, var(--c) 45%, transparent) !important; overflow: hidden; }
 .net-band { display: flex; justify-content: center; padding-top: 0.75rem; background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 55%, #020b2c)); }
-.net-band .net-icon { width: 1.5rem !important; height: 1.5rem !important; color: #fff !important; --c: #fff; }
+.net-band > .net-icon { width: 1.5rem !important; height: 1.5rem !important; color: #fff !important; }
+.net-band .acc-av { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
 .net-text-main { display: grid; gap: 0.35rem; padding: 0.6rem; min-width: 0; }
 .net-threads .net-band, .net-x .net-band, .net-tiktok .net-band { background: linear-gradient(180deg, #2a2f45, #0b0e1c); }
+
+/* Photo du compte + pastille réseau (texte par réseau, options par réseau) */
+.acc-av { position: relative; width: 34px; height: 34px; flex: none; border-radius: 50%; box-shadow: 0 0 0 2px var(--c, #3b6cff); display: inline-block; }
+.acc-av .avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: grid; place-items: center; }
+.acc-av .avatar-net { position: absolute; right: -5px; bottom: -5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: #0b1230; border: 2px solid #0b1230; }
+.net-band { padding-top: 0.6rem; }
+.net-text { grid-template-columns: 3.6rem minmax(0, 1fr); }
+.tcard > header { display: flex; align-items: center; gap: 0.6rem; }
