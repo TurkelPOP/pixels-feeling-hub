@@ -1905,6 +1905,37 @@ function openCrop(index) {
   img.decode().then(() => setRatio(RATIOS[0]), () => toast("Image illisible.", "err"));
 }
 
+// ---------- Aperçu en grand ----------
+
+/** Médias d'un post en grand : flèches, glisser (mobile), Échap pour fermer. */
+function lightbox(media, start = 0) {
+  let i = start;
+  const dlg = h("dialog", { class: "lightbox", "aria-label": "Aperçu" });
+  const stage = h("div", { class: "lb-stage" });
+  const count = h("span", { class: "lb-count" });
+  const show = () => {
+    const m = media[i];
+    stage.replaceChildren(m.kind === "video" ? h("video", { src: m.url, controls: true, autoplay: true, playsinline: true }) : h("img", { src: m.url, alt: m.filename || "" }));
+    count.textContent = media.length > 1 ? `${i + 1} / ${media.length}` : "";
+  };
+  const go = (d) => { if (media.length > 1) { i = (i + d + media.length) % media.length; show(); } };
+  const nav = (d, label) => h("button", { class: `lb-nav ${d < 0 ? "prev" : "next"}`, type: "button", "aria-label": label, onclick: (e) => { e.stopPropagation(); go(d); } }, d < 0 ? "‹" : "›");
+  dlg.append(
+    h("button", { class: "lb-close", type: "button", "aria-label": "Fermer", onclick: () => dlg.close() }, "✕"),
+    stage, count,
+    media.length > 1 ? nav(-1, "Précédent") : null, media.length > 1 ? nav(1, "Suivant") : null,
+  );
+  dlg.addEventListener("click", (e) => { if (e.target === dlg || e.target === stage) dlg.close(); });
+  dlg.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") go(-1); if (e.key === "ArrowRight") go(1); });
+  let x0 = null;
+  stage.addEventListener("touchstart", (e) => (x0 = e.touches[0].clientX), { passive: true });
+  stage.addEventListener("touchend", (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+  dlg.addEventListener("close", () => dlg.remove());
+  document.body.append(dlg);
+  show();
+  dlg.showModal();
+}
+
 // ---------- Programmation en lot ----------
 
 state.batch = new Set();
@@ -1915,7 +1946,8 @@ function batchToolbar(drafts) {
   all.addEventListener("change", () => { state.batch = all.checked ? new Set(drafts.map((p) => p.id)) : new Set(); renderQueue(); });
   return h("div", { class: "batch-bar" },
     h("label", { class: "check" }, all, h("span", {}, n ? `${plural(n, "brouillon")} choisi${n > 1 ? "s" : ""}` : "Tout sélectionner")),
-    h("button", { class: "btn primary small", type: "button", disabled: !n, onclick: () => openBatch(drafts.filter((p) => state.batch.has(p.id))) }, "📅 Programmer"));
+    // En lot = au moins 2 brouillons, chacun sur son propre créneau (jamais à la même heure).
+    h("button", { class: "btn primary small", type: "button", disabled: n < 2, title: n < 2 ? "Choisis au moins 2 brouillons" : "Chacun part sur un créneau différent", onclick: () => openBatch(drafts.filter((p) => state.batch.has(p.id))) }, n >= 2 ? `📅 Programmer ${n}` : "📅 Programmer"));
 }
 
 function batchPick(p) {
@@ -2862,7 +2894,8 @@ function postCard(p) {
     p.title ? h("strong", {}, p.title) : null,
     h("p", { class: "post-text" }, p.text || h("em", { class: "muted" }, "(sans texte)")),
     p.media.length
-      ? h("div", { class: "thumbs" }, ...p.media.map((m) => (m.kind === "video" ? h("video", { src: m.url, muted: true, preload: "metadata" }) : h("img", { src: m.url, alt: "" }))))
+      ? h("div", { class: "thumbs" }, ...p.media.map((m, i) => h("button", { class: "thumb-btn", type: "button", title: "Voir en grand", onclick: () => lightbox(p.media, i) },
+          m.kind === "video" ? h("video", { src: m.url, muted: true, preload: "metadata" }) : h("img", { src: m.url, alt: "" }))))
       : null,
     h(
       "ul",
@@ -2915,7 +2948,7 @@ function postCard(p) {
           } }, "↩ À revoir")
         : null,
       p.status === "draft"
-        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, p.ownerName ? "Modifier" : "Programmer")
+        ? h("button", { class: "btn primary small", onclick: () => editPost(p) }, p.ownerName ? "Modifier" : "Publier")
         : p.status === "scheduled" && !p.ownerName || p.status === "review" ? h("button", { class: "btn ghost small", onclick: () => editPost(p) }, "Modifier") : null,
       p.authorId || p.comments ? commentButton(p) : null,
       p.status === "failed" || p.status === "partial"
