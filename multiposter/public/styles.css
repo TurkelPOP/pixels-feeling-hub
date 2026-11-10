@@ -1105,3 +1105,10 @@ dialog.lightbox::backdrop { background: rgba(2, 6, 24, 0.8); }
 .contact-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.3rem 0 0.5rem; }
 .contact-photo .contact-av.ph { font-size: 1.2rem; }
 .mention-field { grid-template-columns: 2rem 1fr !important; }
+
+/* Texte par réseau : bande large à la couleur du réseau, logo dedans */
+.net-text { grid-template-columns: 3rem minmax(0, 1fr); gap: 0; padding: 0; border-left: 1px solid color-mix(in srgb, var(--c) 45%, transparent) !important; overflow: hidden; }
+.net-band { display: flex; justify-content: center; padding-top: 0.75rem; background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 55%, #020b2c)); }
+.net-band .net-icon { width: 1.5rem !important; height: 1.5rem !important; color: #fff !important; --c: #fff; }
+.net-text-main { display: grid; gap: 0.35rem; padding: 0.6rem; min-width: 0; }
+.net-threads .net-band, .net-x .net-band, .net-tiktok .net-band { background: linear-gradient(180deg, #2a2f45, #0b0e1c); }

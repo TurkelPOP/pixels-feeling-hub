@@ -1617,10 +1617,13 @@ function renderTextTabs() {
         if (selectedAccounts()[0]?.id === a.id) $("#text").value = ta.value;
         renderComposeMeta();
       });
-      el = h("div", { class: "net-text", "data-acc": a.id, style: `--c:${PROVIDER[a.provider]?.color}` },
-        h("div", { class: "net-text-head" }, netLogo(a.provider), h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
+      el = h("div", { class: `net-text net-${a.provider}`, "data-acc": a.id, style: `--c:${PROVIDER[a.provider]?.color}` },
+        // Bande à la couleur du réseau, avec son logo.
+        h("div", { class: "net-band", title: PROVIDER[a.provider]?.label }, netIcon(a.provider)),
+        h("div", { class: "net-text-main" },
+        h("div", { class: "net-text-head" }, h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
           h("button", { type: "button", class: "linklike small", title: "Remplacer par le texte d'un autre réseau", onclick: () => copyFrom(a) }, "Copier depuis…")),
-        ta);
+        ta));
     }
     const ta = el.querySelector("textarea");
     if (document.activeElement !== ta && ta.value !== state.overrides[a.id]) ta.value = state.overrides[a.id];
@@ -1725,15 +1728,6 @@ function pickContactPhoto(m) {
   inp.click();
 }
 
-/** Sous un contact : ce qui sera écrit sur chaque compte coché (ou « nom tel quel » s'il n'y a pas de compte). */
-function mentionTargets(m) {
-  const providers = [...new Set(selectedAccounts().map((a) => a.provider))];
-  if (!providers.length) return null;
-  return h("small", { class: "mention-targets" }, ...providers.map((p) =>
-    h("span", { class: `mt${m.handles[p] ? "" : " none"}`, title: m.handles[p] ? `${PROVIDER[p]?.label} : ${resolveMentions(`@[${m.name}]`, p)}` : `Pas de compte ${PROVIDER[p]?.label} : « ${m.name} » écrit tel quel` },
-      netIcon(p), m.handles[p] ? resolveMentions(`@[${m.name}]`, p) : "—")));
-}
-
 function renderMentionBox(editing = null) {
   const box = $("#mention-box");
   const search = h("input", { type: "search", placeholder: "Chercher un contact…", class: "mention-search" });
@@ -1746,7 +1740,6 @@ function renderMentionBox(editing = null) {
           h("button", { type: "button", class: "chip small-chip mention-chip", title: MENTION_NETS.filter(([n]) => m.handles[n]).map(([n, l]) => `${l} : ${m.handles[n]}`).join("\n") || "Aucun compte renseigné",
             onclick: () => { insertAtCursor(`@[${m.name}]`); } },
             contactAvatar(m), m.name, ...MENTION_NETS.filter(([n]) => m.handles[n]).map(([n]) => netIcon(n))),
-          mentionTargets(m),
           h("button", { type: "button", class: "mention-edit", title: `Modifier ${m.name}`, "aria-label": `Modifier ${m.name}`, onclick: () => renderMentionBox(m) }, "✎"))),
       state.mentions.length ? null : h("p", { class: "muted small" }, "Aucun contact pour l'instant : crée le premier ci-dessous."));
   };
