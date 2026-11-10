@@ -206,7 +206,7 @@ A-FAIRE.md         points restants
 - 3 paquets d'exécution, `npm audit` sans vulnérabilité, aucun script chargé depuis un autre site.
 
 ### Hébergement (étape 8, faite par le propriétaire)
-- Double authentification alwaysdata et GitHub ; variables d'environnement (`APP_URL`, `TRUST_PROXY=1`, `APP_SECRET` sauvegardé, `ADMIN_PASSWORD_HASH`) ; site de type Node.js avec « Forcer HTTPS » ; sauvegardes ; webhook d'alertes. Repo passé en privé avec une clé de déploiement SSH.
+- Double authentification alwaysdata et GitHub ; variables d'environnement (`APP_URL`, `TRUST_PROXY=1`, `APP_SECRET` sauvegardé, `ADMIN_PASSWORD_HASH`) ; site de type Node.js avec « Forcer HTTPS » ; sauvegardes ; webhook d'alertes. **Le repo est encore public** : passage en privé en cours (clé de déploiement SSH sur le serveur, puis changement de visibilité).
 
 ---
 
