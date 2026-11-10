@@ -99,6 +99,8 @@ for (const sql of [
   "ALTER TABLE post_targets ADD COLUMN stats_at INTEGER",
   // Post proposé par une autre personne (profil partagé) : son auteur. NULL = le propriétaire.
   "ALTER TABLE posts ADD COLUMN author_id INTEGER",
+  // Format publié (photo, carrousel, video, story, texte), pour les stats.
+  "ALTER TABLE post_targets ADD COLUMN kind TEXT",
 ]) {
   try {
     db.exec(sql);

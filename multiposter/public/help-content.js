@@ -352,6 +352,18 @@ ${networks[id].owner}`,
 <p class="tip">Garde l'écran allumé et l'app ouverte pendant l'envoi d'une longue vidéo : une barre de progression s'affiche sur la vignette.</p>`,
     },
     {
+      id: "stats",
+      title: "Les statistiques",
+      html: `
+<ul>
+  <li><strong>Période</strong> : 7 j, 30 j, 90 j, 12 mois, ce mois, le mois dernier, ou <strong>Perso</strong> (du… au…). Chaque chiffre est comparé à la période précédente de même durée (▲ / ▼).</li>
+  <li><strong>Filtres</strong> : touche un logo pour retirer ou garder un réseau, choisis un profil ou un format.</li>
+  <li>Les posts comptent <strong>au jour de leur publication</strong>, avec leurs derniers chiffres. <strong>Engagement</strong> = (j'aime + commentaires + partages) ÷ vues, là où le réseau donne les vues.</li>
+  <li><strong>Meilleurs créneaux</strong> : plus la case est claire, plus les posts publiés ce jour-là à cette heure ont fait réagir.</li>
+  <li>Les chiffres sont relevés souvent les 2 premiers jours, puis de plus en plus espacés, jusqu'à 90 jours. Facebook ne donne pas toujours les vues.</li>
+</ul>`,
+    },
+    {
       id: "planning",
       title: "Le planning et les brouillons oubliés",
       html: `

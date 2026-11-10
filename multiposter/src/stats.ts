@@ -1,10 +1,13 @@
 // Statistiques des posts publiés : vues, j'aime, commentaires, partages, récupérés chez chaque
-// réseau pendant les 14 jours qui suivent la publication (toutes les 3 h), ou à la demande.
+// réseau pendant les 90 jours qui suivent la publication (souvent au début, puis espacé), ou à la demande.
+// Chaque relevé est gardé (historique) ; /stats/overview alimente l'onglet Stats.
 // Chaque réseau ne donne pas tout : ce qui manque n'est simplement pas affiché.
 import type { Context, Hono } from "hono";
 
 import { currentUser } from "./auth.ts";
+import { config } from "./config.ts";
 import { db, getAccount, type Account } from "./db.ts";
+import { getMediaList } from "./media.ts";
 import { json, postJson } from "./http.ts";
 import type { PostStats } from "./providers/types.ts";
 import { freshAccount } from "./scheduler.ts";
@@ -13,6 +16,13 @@ const META = "https://graph.facebook.com/v23.0";
 const THREADS = "https://graph.threads.net/v1.0";
 const enc = encodeURIComponent;
 const num = (v: unknown) => (v == null || v === "" || Number.isNaN(Number(v)) ? undefined : Number(v));
+
+// Historique : un relevé par passage, pour suivre la vie d'un post (vues sur ses premiers jours…).
+db.exec(`CREATE TABLE IF NOT EXISTS stats_history (
+  target_id INTEGER NOT NULL REFERENCES post_targets(id) ON DELETE CASCADE, at INTEGER NOT NULL,
+  views INTEGER, likes INTEGER, comments INTEGER, shares INTEGER
+)`);
+db.exec("CREATE INDEX IF NOT EXISTS stats_history_target ON stats_history (target_id, at)");
 
 export const FETCHERS: Record<string, (a: Account, id: string) => Promise<PostStats>> = {
   async instagram(a, id) {
@@ -64,6 +74,9 @@ async function refreshTarget(t: { id: number; account_id: number; external_id: s
   try {
     const s = await fetcher(await freshAccount(acc), t.external_id);
     db.prepare("UPDATE post_targets SET stats = ?, stats_at = ? WHERE id = ?").run(JSON.stringify(s), Date.now(), t.id);
+    db.prepare("INSERT INTO stats_history (target_id, at, views, likes, comments, shares) VALUES (?, ?, ?, ?, ?, ?)").run(
+      t.id, Date.now(), s.views ?? null, s.likes ?? null, s.comments ?? null, s.shares ?? null,
+    );
   } catch (e) {
     // On note la tentative pour ne pas réessayer en boucle ; l'erreur n'est pas affichée (pas grave).
     db.prepare("UPDATE post_targets SET stats_at = ? WHERE id = ?").run(Date.now(), t.id);
@@ -71,16 +84,60 @@ async function refreshTarget(t: { id: number; account_id: number; external_id: s
   }
 }
 
-const WINDOW = 14 * 86_400_000;
-const EVERY = 3 * 3_600_000;
+const H = 3_600_000;
+const WINDOW = 90 * 24 * H;
+/** Plus le post est ancien, moins on relève souvent : 3 h les 2 premiers jours, 12 h jusqu'à 14 jours, puis 2 jours. */
+const everyFor = (age: number) => (age < 48 * H ? 3 * H : age < 14 * 24 * H ? 12 * H : 48 * H);
 
-/** Collecte régulière : posts publiés depuis moins de 14 jours, au plus toutes les 3 h. */
+/** Collecte régulière : posts publiés depuis moins de 90 jours. */
 export async function collectStats() {
-  const due = db.prepare(
-    `SELECT id, account_id, external_id FROM post_targets
-     WHERE status = 'done' AND external_id IS NOT NULL AND published_at > ? AND COALESCE(stats_at, 0) < ? LIMIT 40`,
-  ).all(Date.now() - WINDOW, Date.now() - EVERY) as { id: number; account_id: number; external_id: string }[];
+  const now = Date.now();
+  const rows = db.prepare(
+    `SELECT id, account_id, external_id, published_at, stats_at FROM post_targets
+     WHERE status = 'done' AND external_id IS NOT NULL AND published_at > ? AND COALESCE(stats_at, 0) < ?
+     ORDER BY COALESCE(stats_at, 0) LIMIT 300`,
+  ).all(now - WINDOW, now - 3 * H) as { id: number; account_id: number; external_id: string; published_at: number; stats_at: number | null }[];
+  const due = rows.filter((t) => now - (t.stats_at ?? 0) >= everyFor(now - t.published_at)).slice(0, 40);
   for (const t of due) await refreshTarget(t);
+}
+
+// ---------- Tableau de bord ----------
+
+const DAY = 24 * H;
+const dayKey = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: config.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(t);
+const localParts = (t: number) => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: config.timezone, weekday: "short", hour: "2-digit", hourCycle: "h23" }).formatToParts(t).map((x) => [x.type, x.value]));
+  return { wd: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p.weekday), hour: Number(p.hour) % 24 };
+};
+
+interface Row { id: number; post_id: number; provider: string; account_name: string; avatar_url: string | null; published_at: number; stats: string | null; kind: string | null;
+  media_ids: string; text: string; title: string; source: string | null; external_url: string | null; options: string | null }
+type Totals = { posts: number; views: number; likes: number; comments: number; shares: number; interactions: number; engagement: number | null };
+
+function totals(rows: Row[]): Totals {
+  const t = { posts: new Set(rows.map((r) => r.post_id)).size, views: 0, likes: 0, comments: 0, shares: 0, interactions: 0, engagement: null as number | null };
+  let viewsWithEng = 0, interWithViews = 0;
+  for (const r of rows) {
+    const s: PostStats = r.stats ? JSON.parse(r.stats) : {};
+    const inter = (s.likes ?? 0) + (s.comments ?? 0) + (s.shares ?? 0);
+    t.views += s.views ?? 0; t.likes += s.likes ?? 0; t.comments += s.comments ?? 0; t.shares += s.shares ?? 0; t.interactions += inter;
+    // Engagement = interactions / vues, seulement là où le réseau donne les vues.
+    if (s.views) { viewsWithEng += s.views; interWithViews += inter; }
+  }
+  t.engagement = viewsWithEng ? Math.round((interWithViews / viewsWithEng) * 1000) / 10 : null;
+  return t;
+}
+
+/** Format d'une publication : enregistré à la publication, sinon deviné d'après ses médias. */
+function kindOf(r: Row): string {
+  if (r.kind) return r.kind;
+  const o = r.options ? JSON.parse(r.options) : {};
+  if (o.format === "story") return "story";
+  const ids: string[] = o.media ?? JSON.parse(r.media_ids);
+  if (!ids.length) return "texte";
+  if (ids.length > 1) return "carrousel";
+  const m = getMediaList(ids)[0];
+  return m ? (m.kind === "video" ? "video" : "photo") : "photo";
 }
 
 export function startStats() {
@@ -100,6 +157,93 @@ export function registerStatsApi(api: Hono) {
     ).all(id) as { id: number; account_id: number; external_id: string; stats_at: number | null }[];
     for (const t of targets) if (!t.stats_at || Date.now() - t.stats_at > 10 * 60_000) await refreshTarget(t);
     return c.json({ ok: true });
+  });
+
+  /**
+   * Tableau de bord d'une période (from → to, en ms) comparée à la période précédente de même durée.
+   * Filtres : réseaux (providers=a,b), profil, format. Les posts sont comptés au jour de leur publication.
+   */
+  api.get("/stats/overview", (c) => {
+    const owner = uid(c);
+    const to = Math.min(Date.now(), Number(c.req.query("to")) || Date.now());
+    const from = Math.max(to - 3 * 365 * DAY, Number(c.req.query("from")) || to - 30 * DAY);
+    const len = Math.max(DAY, to - from);
+    const providers = new Set((c.req.query("providers") ?? "").split(",").filter(Boolean));
+    const format = c.req.query("format") ?? "";
+    const profile = Number(c.req.query("profile")) || 0;
+    const profileAccs = profile
+      ? new Set((db.prepare("SELECT pa.account_id AS id FROM profile_accounts pa JOIN profiles p ON p.id = pa.profile_id WHERE p.id = ? AND p.owner_id = ?").all(profile, owner) as { id: number }[]).map((r) => r.id))
+      : null;
+    const all = db.prepare(
+      `SELECT t.id, t.post_id, a.provider, a.name AS account_name, a.avatar_url, a.id AS account_id, t.published_at, t.stats, t.kind, t.external_url, t.options,
+              p.media_ids, p.text, p.title, p.source
+       FROM post_targets t JOIN posts p ON p.id = t.post_id JOIN accounts a ON a.id = t.account_id
+       WHERE p.owner_id = ? AND t.status = 'done' AND t.published_at >= ? AND t.published_at <= ?`,
+    ).all(owner, from - len, to) as unknown as (Row & { account_id: number })[];
+    const rows = all.filter((r) => (!providers.size || providers.has(r.provider)) && (!profileAccs || profileAccs.has(r.account_id)) && (!format || kindOf(r) === format));
+    const cur = rows.filter((r) => r.published_at >= from);
+    const prev = rows.filter((r) => r.published_at < from);
+
+    // Courbe : par jour (≤ 92 jours), par semaine (≤ 1 an), sinon par mois.
+    const step = len <= 92 * DAY ? "day" : len <= 400 * DAY ? "week" : "month";
+    const bucketOf = (t: number) => {
+      const k = dayKey(t);
+      if (step === "day") return k;
+      if (step === "month") return k.slice(0, 7);
+      const d = new Date(`${k}T12:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // lundi de la semaine
+      return d.toISOString().slice(0, 10);
+    };
+    const buckets: string[] = [];
+    for (let t = from; t <= to + DAY; t += DAY) { const b = bucketOf(Math.min(t, to)); if (!buckets.includes(b)) buckets.push(b); }
+    const nets = [...new Set(cur.map((r) => r.provider))].sort();
+    const series = Object.fromEntries(nets.map((n) => [n, buckets.map(() => ({ views: 0, interactions: 0, posts: 0 }))]));
+    for (const r of cur) {
+      const i = buckets.indexOf(bucketOf(r.published_at));
+      if (i < 0) continue;
+      const s: PostStats = r.stats ? JSON.parse(r.stats) : {};
+      const e = series[r.provider][i];
+      e.views += s.views ?? 0; e.interactions += (s.likes ?? 0) + (s.comments ?? 0) + (s.shares ?? 0); e.posts++;
+    }
+
+    const byProvider = [...new Set([...cur, ...prev].map((r) => r.provider))].map((p) => ({
+      provider: p, cur: totals(cur.filter((r) => r.provider === p)), prev: totals(prev.filter((r) => r.provider === p)),
+    }));
+    const byFormat = [...new Set(cur.map(kindOf))].map((k) => {
+      const list = cur.filter((r) => kindOf(r) === k);
+      const t = totals(list);
+      return { format: k, count: list.length, avgInteractions: list.length ? Math.round(t.interactions / list.length) : 0, avgViews: list.length ? Math.round(t.views / list.length) : 0 };
+    });
+
+    // Meilleurs créneaux : interactions moyennes par jour de la semaine × heure de publication.
+    const heat = new Map<string, { n: number; sum: number }>();
+    for (const r of cur) {
+      const { wd, hour } = localParts(r.published_at);
+      const s: PostStats = r.stats ? JSON.parse(r.stats) : {};
+      const k = `${wd}:${hour}`;
+      const e = heat.get(k) ?? { n: 0, sum: 0 };
+      e.n++; e.sum += (s.likes ?? 0) + (s.comments ?? 0) + (s.shares ?? 0);
+      heat.set(k, e);
+    }
+    const heatmap = [...heat.entries()].map(([k, v]) => { const [wd, hour] = k.split(":").map(Number); return { wd, hour, posts: v.n, avg: Math.round(v.sum / v.n) }; });
+
+    // Classement des posts (tous réseaux additionnés).
+    const posts = new Map<number, any>();
+    for (const r of cur) {
+      const s: PostStats = r.stats ? JSON.parse(r.stats) : {};
+      const e = posts.get(r.post_id) ?? {
+        id: r.post_id, label: (r.title || r.text.split("\n")[0] || r.source || "(sans texte)").slice(0, 90), at: r.published_at, kind: kindOf(r),
+        thumb: getMediaList(JSON.parse(r.media_ids))[0]?.localUrl ?? null, targets: [], views: 0, likes: 0, comments: 0, shares: 0,
+      };
+      e.targets.push({ provider: r.provider, account: r.account_name, url: r.external_url, stats: s });
+      e.views += s.views ?? 0; e.likes += s.likes ?? 0; e.comments += s.comments ?? 0; e.shares += s.shares ?? 0;
+      e.at = Math.min(e.at, r.published_at);
+      posts.set(r.post_id, e);
+    }
+    const ranking = [...posts.values()].map((p) => ({ ...p, interactions: p.likes + p.comments + p.shares, engagement: p.views ? Math.round(((p.likes + p.comments + p.shares) / p.views) * 1000) / 10 : null }))
+      .sort((a, b) => b.interactions - a.interactions || b.views - a.views).slice(0, 100);
+
+    return c.json({ from, to, step, buckets, series, total: totals(cur), previous: totals(prev), byProvider, byFormat, heatmap, ranking });
   });
 
   /** Meilleurs posts sur une période (somme des interactions, tous réseaux). */

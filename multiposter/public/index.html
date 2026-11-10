@@ -21,6 +21,7 @@
     <nav>
       <a href="#compose" data-view="compose">Nouveau post</a>
       <a href="#queue" data-view="queue">Planning <span class="nav-badge" id="draft-badge" hidden></span></a>
+      <a href="#stats" data-view="stats">Stats</a>
       <a href="#accounts" data-view="accounts">Comptes</a>
       <a href="/aide" data-help="index">Aide</a>
     </nav>
@@ -137,6 +138,49 @@
     </section>
 
     <!-- Comptes -->
+    <!-- Statistiques -->
+    <section id="view-stats" class="view" hidden>
+      <div class="queue-head">
+        <h1>Stats <button class="help-q" type="button" data-help="stats" aria-label="Aide : statistiques">?</button></h1>
+      </div>
+      <div class="card stats-filters">
+        <div id="st-periods" class="seg-chips" role="radiogroup" aria-label="Période"></div>
+        <div id="st-custom" class="st-custom" hidden>
+          <label>Du <input id="st-from" type="date"></label>
+          <label>au <input id="st-to" type="date"></label>
+        </div>
+        <div class="st-row">
+          <div id="st-nets" class="st-nets" aria-label="Réseaux"></div>
+          <select id="st-profile" aria-label="Profil"></select>
+          <select id="st-format" aria-label="Format">
+            <option value="">Tous les formats</option>
+            <option value="carrousel">Carrousels</option>
+            <option value="video">Vidéos / Reels</option>
+            <option value="photo">Photos</option>
+            <option value="texte">Texte seul</option>
+            <option value="story">Stories</option>
+          </select>
+        </div>
+      </div>
+      <div id="st-kpis" class="st-kpis"></div>
+      <div class="st-grid">
+        <div class="card st-chart st-wide">
+          <div class="st-chart-head"><strong>Évolution</strong><div id="st-metric" class="seg-chips small" role="radiogroup" aria-label="Mesure"></div></div>
+          <div id="ch-trend" class="chart"></div>
+        </div>
+        <div class="card st-chart"><div class="st-chart-head"><strong>Par réseau</strong><small class="muted">vs période précédente</small></div><div id="ch-nets" class="chart"></div></div>
+        <div class="card st-chart"><div class="st-chart-head"><strong>Par format</strong><small class="muted">interactions moyennes</small></div><div id="ch-formats" class="chart"></div></div>
+        <div class="card st-chart st-wide"><div class="st-chart-head"><strong>Meilleurs créneaux</strong><small class="muted">interactions moyennes selon le jour et l'heure de publication</small></div><div id="ch-heat" class="chart"></div></div>
+      </div>
+      <div class="card st-ranking">
+        <div class="st-chart-head"><strong>Classement des posts</strong>
+          <select id="st-sort" aria-label="Trier par">
+            <option value="interactions">Interactions</option><option value="views">Vues</option><option value="engagement">Engagement</option><option value="at">Plus récents</option>
+          </select></div>
+        <div id="st-posts"></div>
+      </div>
+    </section>
+
     <section id="view-accounts" class="view" hidden>
       <div id="device"></div>
       <div id="system"></div>

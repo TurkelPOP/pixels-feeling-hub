@@ -189,7 +189,7 @@ function avatar(a) {
 
 function route() {
   const [view, query] = (location.hash.slice(1) || "compose").split("?");
-  for (const v of ["compose", "queue", "accounts"]) $(`#view-${v}`).hidden = v !== view;
+  for (const v of ["compose", "queue", "stats", "accounts"]) $(`#view-${v}`).hidden = v !== view;
   document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
   if (query) {
     const q = new URLSearchParams(query);
@@ -198,6 +198,7 @@ function route() {
     history.replaceState(null, "", `#${view}`);
   }
   if (view === "queue") loadPosts();
+  if (view === "stats") openStats();
   if (view === "accounts") {
     loadAccounts();
     renderSystem();
@@ -3041,20 +3042,11 @@ function statsLine(s, at) {
 }
 
 async function renderTopStats() {
+  // Les stats ont leur onglet : dans « Publiés », un simple raccourci.
   const box = $("#stats-top");
   if (!box) return;
   if (state.filter !== "done" || state.mode !== "list") return box.replaceChildren();
-  let r;
-  try { r = await api("/stats/top?days=30"); } catch { return; }
-  if (!r.top.length) return box.replaceChildren(h("p", { class: "muted small" }, "📊 Les statistiques apparaissent quelques heures après publication (vues, j'aime, commentaires)."));
-  box.replaceChildren(h("div", { class: "card stats-card" },
-    h("div", { class: "card-title" }, h("strong", {}, "📊 30 derniers jours"), helpQ("planning")),
-    h("div", { class: "stats-total" },
-      ...[["views", "vues"], ["likes", "j'aime"], ["comments", "commentaires"], ["shares", "partages"]].map(([k, l]) => h("div", {}, h("strong", {}, fmtNum(r.total[k])), h("small", { class: "muted" }, l))),
-      h("div", {}, h("strong", {}, String(r.total.posts)), h("small", { class: "muted" }, "posts"))),
-    h("ol", { class: "stats-top" }, ...r.top.slice(0, 5).map((p) => h("li", {},
-      h("button", { type: "button", class: "linklike", onclick: () => document.getElementById(`post-${p.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }) }, p.label),
-      h("span", { class: "stats-line" }, ...[...new Set(p.providers)].map((pr) => netIcon(pr)), statsLine(p)))))));
+  box.replaceChildren(h("a", { class: "btn ghost small stats-link", href: "#stats" }, "📊 Voir les stats (graphiques, périodes, classement)"));
 }
 
 /** Fil de commentaires internes d'un post (entre le propriétaire du profil et l'auteur). */
@@ -3536,5 +3528,255 @@ async function init() {
   loadPosts().catch(() => {});
   setInterval(() => loadPosts().catch(() => {}), 5 * 60_000);
 }
+
+// ---------- Statistiques ----------
+// Onglet Stats : période fixe ou personnalisée (comparée à la précédente), filtres, graphiques
+// (bibliothèque ECharts, hébergée sur le serveur et chargée seulement à l'ouverture de l'onglet).
+
+const ST = { period: "30", nets: new Set(), profile: "", format: "", metric: "views", sort: "interactions", data: null, seq: 0 };
+const ST_PERIODS = [["7", "7 j"], ["30", "30 j"], ["90", "90 j"], ["365", "12 mois"], ["month", "Ce mois"], ["lastmonth", "Mois dernier"], ["custom", "Perso"]];
+const ST_METRICS = [["views", "Vues"], ["interactions", "Interactions"], ["posts", "Posts"]];
+const KIND_LABEL = { carrousel: "Carrousel", video: "Vidéo / Reel", photo: "Photo", texte: "Texte", story: "Story" };
+const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const CH_TEXT = "#c9d6f5", CH_GRID = "rgba(255,255,255,0.07)";
+
+let echartsReady = null;
+function loadECharts() {
+  return (echartsReady ??= new Promise((ok, ko) => {
+    if (window.echarts) return ok(window.echarts);
+    const s = document.createElement("script");
+    s.src = "/assets/echarts.js";
+    s.onload = () => ok(window.echarts);
+    s.onerror = () => { echartsReady = null; ko(new Error("Graphiques indisponibles (chargement impossible).")); };
+    document.head.append(s);
+  }));
+}
+
+function stRange() {
+  const now = new Date();
+  const day = 864e5;
+  if (ST.period === "month") return [new Date(now.getFullYear(), now.getMonth(), 1).getTime(), Date.now()];
+  if (ST.period === "lastmonth") return [new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime(), new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1];
+  if (ST.period === "custom") {
+    const f = Date.parse(`${$("#st-from").value}T00:00`), t = Date.parse(`${$("#st-to").value}T23:59:59`);
+    return [f || Date.now() - 30 * day, Math.min(Date.now(), t || Date.now())];
+  }
+  const start = new Date(Date.now() - (Number(ST.period) - 1) * day);
+  start.setHours(0, 0, 0, 0);
+  return [start.getTime(), Date.now()];
+}
+
+function openStats() {
+  renderStatsFilters();
+  void loadStats();
+}
+
+function renderStatsFilters() {
+  const seg = (items, cur, onPick) => items.map(([v, l]) => h("button", { type: "button", role: "radio", "aria-checked": String(cur === v), class: `seg${cur === v ? " on" : ""}`, onclick: () => onPick(v) }, l));
+  $("#st-periods").replaceChildren(...seg(ST_PERIODS, ST.period, (v) => {
+    ST.period = v;
+    if (v === "custom" && !$("#st-from").value) {
+      $("#st-to").value = toLocalInput(Date.now()).slice(0, 10);
+      $("#st-from").value = toLocalInput(Date.now() - 29 * 864e5).slice(0, 10);
+    }
+    renderStatsFilters();
+    void loadStats();
+  }));
+  $("#st-custom").hidden = ST.period !== "custom";
+  $("#st-metric").replaceChildren(...seg(ST_METRICS, ST.metric, (v) => { ST.metric = v; renderStatsFilters(); paintStats(); }));
+  const nets = [...new Set(state.accounts.filter((a) => !a.shared).map((a) => a.provider))];
+  $("#st-nets").replaceChildren(...nets.map((p) => {
+    const on = !ST.nets.size || ST.nets.has(p);
+    return h("button", { type: "button", class: `st-net${on ? " on" : ""}`, title: PROVIDER[p]?.label, "aria-pressed": String(on), style: `--c:${PROVIDER[p]?.color}`, onclick: () => {
+      // Tout coché = aucun filtre ; un clic isole ou retire un réseau.
+      const cur = ST.nets.size ? new Set(ST.nets) : new Set(nets);
+      cur.has(p) ? cur.delete(p) : cur.add(p);
+      ST.nets = cur.size === nets.length || !cur.size ? new Set() : cur;
+      renderStatsFilters();
+      void loadStats();
+    } }, netIcon(p, "1.5rem"));
+  }));
+  const prof = $("#st-profile");
+  prof.replaceChildren(h("option", { value: "" }, "Tous les profils"), ...state.profiles.map((p) => h("option", { value: String(p.id), selected: String(p.id) === ST.profile }, p.name)));
+  prof.hidden = !state.profiles.length;
+  $("#st-format").value = ST.format;
+  $("#st-sort").value = ST.sort;
+}
+
+async function loadStats() {
+  const [from, to] = stRange();
+  const q = new URLSearchParams({ from: String(from), to: String(to) });
+  if (ST.nets.size) q.set("providers", [...ST.nets].join(","));
+  if (ST.profile) q.set("profile", ST.profile);
+  if (ST.format) q.set("format", ST.format);
+  const seq = ++ST.seq;
+  $("#view-stats").classList.add("loading");
+  try {
+    const [data] = await Promise.all([api(`/stats/overview?${q}`), loadECharts()]);
+    if (seq !== ST.seq) return; // une autre période a été choisie entre-temps
+    ST.data = data;
+    paintStats();
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    if (seq === ST.seq) $("#view-stats").classList.remove("loading");
+  }
+}
+
+const pct = (a, b) => (b ? Math.round(((a - b) / b) * 100) : a ? null : 0);
+function delta(cur, prev, points = false) {
+  if (cur == null || prev == null) return h("span", { class: "st-delta" }, "—");
+  const d = points ? Math.round((cur - prev) * 10) / 10 : pct(cur, prev);
+  if (d == null) return h("span", { class: "st-delta up" }, "nouveau");
+  const cls = d > 0 ? "up" : d < 0 ? "down" : "";
+  return h("span", { class: `st-delta ${cls}`, title: "Par rapport à la période précédente" }, `${d > 0 ? "▲" : d < 0 ? "▼" : "="} ${Math.abs(d)}${points ? " pt" : " %"}`);
+}
+
+function paintStats() {
+  const d = ST.data;
+  if (!d) return;
+  const t = d.total, p = d.previous;
+  const tile = (label, cur, prev, fmt = fmtNum, points = false, big = false) =>
+    h("div", { class: `card st-kpi${big ? " big" : ""}` }, h("small", {}, label), h("strong", {}, cur == null ? "—" : fmt(cur)), delta(cur, prev, points));
+  $("#st-kpis").replaceChildren(
+    tile("Vues", t.views, p.views, fmtNum, false, true),
+    tile("Interactions", t.interactions, p.interactions, fmtNum, false, true),
+    tile("Engagement", t.engagement, p.engagement, (v) => `${String(v).replace(".", ",")} %`, true, true),
+    tile("Posts publiés", t.posts, p.posts),
+    tile("J'aime", t.likes, p.likes),
+    tile("Commentaires", t.comments, p.comments),
+    tile("Partages", t.shares, p.shares),
+  );
+  const empty = !t.posts;
+  for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) $(`#${id}`).closest(".st-chart").classList.toggle("empty", empty);
+  if (empty) {
+    $("#st-posts").replaceChildren(h("p", { class: "muted" }, "Aucun post publié sur cette période. Les chiffres arrivent quelques heures après la publication."));
+    for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) window.echarts?.getInstanceByDom($(`#${id}`))?.clear();
+    return;
+  }
+  paintTrend(d);
+  paintNets(d);
+  paintFormats(d);
+  paintHeat(d);
+  paintRanking(d);
+}
+
+function chart(id) {
+  const el = $(`#${id}`);
+  return echarts.getInstanceByDom(el) ?? echarts.init(el, null, { renderer: "canvas" });
+}
+const baseOpt = () => ({
+  backgroundColor: "transparent",
+  textStyle: { color: CH_TEXT, fontFamily: "inherit" },
+  tooltip: { backgroundColor: "#0b1440", borderColor: "#23408f", textStyle: { color: "#eaf0ff" }, confine: true },
+  animationDuration: 500,
+});
+const axisStyle = { axisLine: { lineStyle: { color: CH_GRID } }, axisLabel: { color: CH_TEXT }, splitLine: { lineStyle: { color: CH_GRID } } };
+const netColor = (p) => (p === "threads" || p === "x" ? "#e8e8e8" : PROVIDER[p]?.color ?? "#3b6cff");
+
+function bucketLabel(b, step) {
+  if (step === "month") return new Date(`${b}-01T12:00`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+  const dt = new Date(`${b}T12:00`);
+  const s = dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return step === "week" ? `sem. ${s}` : s;
+}
+
+function paintTrend(d) {
+  const m = ST.metric;
+  const nets = Object.keys(d.series);
+  chart("ch-trend").setOption({
+    ...baseOpt(),
+    tooltip: { ...baseOpt().tooltip, trigger: "axis", valueFormatter: (v) => fmtNum(v ?? 0) },
+    legend: { top: 0, textStyle: { color: CH_TEXT }, icon: "circle", data: nets.map((n) => PROVIDER[n]?.label ?? n) },
+    grid: { left: 8, right: 12, top: 34, bottom: d.buckets.length > 40 ? 40 : 8, containLabel: true },
+    xAxis: { type: "category", boundaryGap: false, data: d.buckets.map((b) => bucketLabel(b, d.step)), ...axisStyle, splitLine: { show: false } },
+    yAxis: { type: "value", ...axisStyle, axisLabel: { color: CH_TEXT, formatter: (v) => fmtNum(v) } },
+    dataZoom: d.buckets.length > 40 ? [{ type: "inside" }, { type: "slider", height: 18, bottom: 6, borderColor: CH_GRID, textStyle: { color: CH_TEXT } }] : [],
+    series: nets.map((n) => ({
+      name: PROVIDER[n]?.label ?? n, type: "line", stack: "total", smooth: true, showSymbol: false,
+      lineStyle: { width: 2, color: netColor(n) }, itemStyle: { color: netColor(n) },
+      areaStyle: { opacity: 0.22, color: netColor(n) }, emphasis: { focus: "series" },
+      data: d.series[n].map((x) => x[m]),
+    })),
+  }, true);
+}
+
+function paintNets(d) {
+  const m = ST.metric === "posts" ? "posts" : ST.metric;
+  const list = [...d.byProvider].sort((a, b) => a.cur[m] - b.cur[m]);
+  chart("ch-nets").setOption({
+    ...baseOpt(),
+    tooltip: { ...baseOpt().tooltip, trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: (v) => fmtNum(v ?? 0) },
+    legend: { top: 0, textStyle: { color: CH_TEXT }, data: ["Période", "Précédente"] },
+    grid: { left: 8, right: 24, top: 30, bottom: 4, containLabel: true },
+    xAxis: { type: "value", ...axisStyle, axisLabel: { color: CH_TEXT, formatter: (v) => fmtNum(v) } },
+    yAxis: { type: "category", data: list.map((x) => PROVIDER[x.provider]?.label ?? x.provider), ...axisStyle, splitLine: { show: false } },
+    series: [
+      { name: "Période", type: "bar", barMaxWidth: 18, data: list.map((x) => ({ value: x.cur[m], itemStyle: { color: netColor(x.provider), borderRadius: [0, 6, 6, 0] } })),
+        label: { show: true, position: "right", color: CH_TEXT, formatter: (p) => fmtNum(p.value) } },
+      { name: "Précédente", type: "bar", barMaxWidth: 10, itemStyle: { color: "rgba(160,180,230,0.28)", borderRadius: [0, 4, 4, 0] }, data: list.map((x) => x.prev[m]) },
+    ],
+  }, true);
+}
+
+function paintFormats(d) {
+  const list = [...d.byFormat].sort((a, b) => b.avgInteractions - a.avgInteractions);
+  chart("ch-formats").setOption({
+    ...baseOpt(),
+    tooltip: { ...baseOpt().tooltip, trigger: "axis", axisPointer: { type: "shadow" },
+      formatter: (ps) => { const f = list[ps[0].dataIndex]; return `<b>${KIND_LABEL[f.format] ?? f.format}</b><br>${f.count} publication${f.count > 1 ? "s" : ""}<br>${fmtNum(f.avgInteractions)} interactions en moyenne<br>${fmtNum(f.avgViews)} vues en moyenne`; } },
+    grid: { left: 8, right: 8, top: 16, bottom: 4, containLabel: true },
+    xAxis: { type: "category", data: list.map((f) => KIND_LABEL[f.format] ?? f.format), ...axisStyle, axisLabel: { color: CH_TEXT, interval: 0, fontSize: 11 }, splitLine: { show: false } },
+    yAxis: { type: "value", ...axisStyle, axisLabel: { color: CH_TEXT, formatter: (v) => fmtNum(v) } },
+    series: [{ type: "bar", barMaxWidth: 42, data: list.map((f) => f.avgInteractions),
+      itemStyle: { borderRadius: [8, 8, 0, 0], color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "#5b8cff" }, { offset: 1, color: "#023197" }]) },
+      label: { show: true, position: "top", color: CH_TEXT, formatter: (p) => fmtNum(p.value) } }],
+  }, true);
+}
+
+function paintHeat(d) {
+  const max = Math.max(1, ...d.heatmap.map((x) => x.avg));
+  const cells = new Map(d.heatmap.map((x) => [`${x.wd}:${x.hour}`, x]));
+  chart("ch-heat").setOption({
+    ...baseOpt(),
+    tooltip: { ...baseOpt().tooltip, formatter: (p) => { const c = cells.get(`${p.value[1]}:${p.value[0]}`); return `${WEEKDAYS[p.value[1]]} ${p.value[0]} h<br>${c ? `${c.posts} publication${c.posts > 1 ? "s" : ""} · ${fmtNum(c.avg)} interactions en moyenne` : "Aucune publication"}`; } },
+    grid: { left: 8, right: 8, top: 8, bottom: 46, containLabel: true },
+    xAxis: { type: "category", data: [...Array(24).keys()].map((x) => `${x}h`), ...axisStyle, splitArea: { show: false } },
+    yAxis: { type: "category", data: WEEKDAYS, inverse: true, ...axisStyle, splitLine: { show: false } },
+    visualMap: { min: 0, max, calculable: false, orient: "horizontal", left: "center", bottom: 0, itemHeight: 120, itemWidth: 10, textStyle: { color: CH_TEXT },
+      inRange: { color: ["#0d1a4a", "#023197", "#3b6cff", "#7cc4ff"] }, text: ["Plus", "Moins"] },
+    series: [{ type: "heatmap", data: d.heatmap.map((x) => [x.hour, x.wd, x.avg]), itemStyle: { borderRadius: 4, borderColor: "#071036", borderWidth: 2 },
+      emphasis: { itemStyle: { borderColor: "#fff" } } }],
+  }, true);
+}
+
+function paintRanking(d) {
+  const key = ST.sort;
+  const list = [...d.ranking].sort((a, b) => (key === "at" ? b.at - a.at : (b[key] ?? -1) - (a[key] ?? -1)));
+  $("#st-posts").replaceChildren(h("div", { class: "st-table" },
+    h("div", { class: "st-tr st-th" }, h("span", {}, "Post"), h("span", {}, "Vues"), h("span", {}, "Interactions"), h("span", {}, "Engag.")),
+    ...list.slice(0, 50).map((p, i) => h("div", { class: "st-tr" },
+      h("span", { class: "st-post" },
+        h("span", { class: "st-rank" }, String(i + 1)),
+        p.thumb ? h("img", { class: "st-thumb", src: p.thumb, alt: "", loading: "lazy" }) : h("span", { class: "st-thumb ph" }, (KIND_LABEL[p.kind] ?? "?")[0]),
+        h("span", { class: "st-post-txt" }, h("strong", {}, p.label),
+          h("small", { class: "muted" }, `${new Date(p.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · ${KIND_LABEL[p.kind] ?? ""} `,
+            ...p.targets.map((t) => t.url
+              ? h("a", { href: t.url, target: "_blank", rel: "noopener", title: `${t.account} : ${fmtNum(t.stats.views ?? 0)} vues, ${fmtNum((t.stats.likes ?? 0) + (t.stats.comments ?? 0) + (t.stats.shares ?? 0))} interactions` }, netIcon(t.provider))
+              : h("span", { title: t.account }, netIcon(t.provider)))))),
+      h("span", { class: "st-num" }, p.views ? fmtNum(p.views) : "—"),
+      h("span", { class: "st-num" }, fmtNum(p.interactions)),
+      h("span", { class: "st-num" }, p.engagement == null ? "—" : `${String(p.engagement).replace(".", ",")} %`)))));
+}
+
+window.addEventListener("resize", () => {
+  if (!window.echarts) return;
+  for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) echarts.getInstanceByDom($(`#${id}`))?.resize();
+});
+$("#st-from").addEventListener("change", () => void loadStats());
+$("#st-to").addEventListener("change", () => void loadStats());
+$("#st-profile").addEventListener("change", (e) => { ST.profile = e.target.value; void loadStats(); });
+$("#st-format").addEventListener("change", (e) => { ST.format = e.target.value; void loadStats(); });
+$("#st-sort").addEventListener("change", (e) => { ST.sort = e.target.value; if (ST.data) paintRanking(ST.data); });
 
 init().catch((e) => toast(e.message, "err"));

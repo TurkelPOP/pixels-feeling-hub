@@ -84,9 +84,11 @@ async function publishTarget(targetId: number): Promise<void> {
         note = `Publié, mais le premier commentaire a échoué : ${e instanceof Error ? e.message : e}. Reconnecte le compte (nouvelles autorisations) puis commente à la main.`;
       }
     }
+    // Format publié, gardé pour les stats (les médias, eux, sont supprimés au bout de 3 jours).
+    const kind = options.format === "story" ? "story" : !media.length ? "texte" : media.length > 1 ? "carrousel" : media[0].kind === "video" ? "video" : "photo";
     db.prepare(
-      "UPDATE post_targets SET status = 'done', external_url = ?, external_id = ?, error = ?, published_at = ? WHERE id = ?",
-    ).run(result.url ?? null, result.id ?? null, note, Date.now(), targetId);
+      "UPDATE post_targets SET status = 'done', external_url = ?, external_id = ?, error = ?, published_at = ?, kind = ? WHERE id = ?",
+    ).run(result.url ?? null, result.id ?? null, note, Date.now(), kind, targetId);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[publish] cible ${targetId} :`, msg);

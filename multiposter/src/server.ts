@@ -138,6 +138,7 @@ const MIME: Record<string, string> = {
   mp4: "video/mp4",
   mov: "video/quicktime",
   webm: "video/webm",
+  txt: "text/plain; charset=utf-8",
 };
 
 function sendFile(c: Context, path: string, cache = "no-cache", forcedType?: string) {
@@ -203,7 +204,16 @@ app.get("/:file{google[0-9a-f]{8,32}\\.html}", (c) => {
   const file = c.req.param("file");
   return process.env.GOOGLE_SITE_VERIFICATION?.trim() === file ? c.text(`google-site-verification: ${file}`) : c.notFound();
 });
-app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png|mp3)}", (c) => sendFile(c, resolve(PUBLIC, c.req.param("file"))));
+app.get("/assets/:file{[a-z0-9-]+\\.(css|js|svg|png|mp3|txt)}", (c) => {
+  const file = resolve(PUBLIC, c.req.param("file"));
+  // Version compressée prête (grosse bibliothèque de graphiques) : 3 fois moins lourde à charger.
+  if (/\bgzip\b/.test(c.req.header("accept-encoding") ?? "") && existsSync(`${file}.gz`)) {
+    c.header("Content-Encoding", "gzip");
+    c.header("Vary", "Accept-Encoding");
+    return sendFile(c, `${file}.gz`, "public, max-age=86400", MIME[file.split(".").pop()!]);
+  }
+  return sendFile(c, file);
+});
 
 // ---------- OAuth ----------
 
