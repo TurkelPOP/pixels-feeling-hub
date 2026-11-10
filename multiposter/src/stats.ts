@@ -31,8 +31,15 @@ export const FETCHERS: Record<string, (a: Account, id: string) => Promise<PostSt
     if (id.startsWith("story:")) {
       const out: PostStats = { views: 0, likes: 0, comments: 0, shares: 0 };
       for (const sid of id.slice(6).split(",").filter(Boolean)) {
-        const ins = await json(`${META}/${sid}/insights?metric=views,replies,shares,total_interactions&access_token=${t}`);
-        const get = (n: string) => { const m = (ins.data ?? []).find((x: any) => x.name === n); return num(m?.values?.[0]?.value ?? m?.total_value?.value) ?? 0; };
+        const vals: Record<string, number> = {};
+        for (const metric of ["views", "replies", "shares", "total_interactions"]) {
+          try {
+            const ins = await json(`${META}/${sid}/insights?metric=${metric}&access_token=${t}`);
+            const m = ins.data?.[0];
+            vals[metric] = num(m?.values?.[0]?.value ?? m?.total_value?.value) ?? 0;
+          } catch { /* story expirée ou mesure indisponible */ }
+        }
+        const get = (n: string) => vals[n] ?? 0;
         out.views! += get("views");
         out.comments! += get("replies");
         out.shares! += get("shares");
@@ -44,18 +51,36 @@ export const FETCHERS: Record<string, (a: Account, id: string) => Promise<PostSt
     const base = await json(`${META}/${id}?fields=like_count,comments_count&access_token=${t}`);
     const out: PostStats = { likes: num(base.like_count), comments: num(base.comments_count) };
     // Vues et partages : demande l'autorisation « insights » (reconnexion) ; sinon on s'en passe.
-    try {
-      const ins = await json(`${META}/${id}/insights?metric=views,shares&access_token=${t}`);
-      for (const m of ins.data ?? []) {
-        if (m.name === "views") out.views = num(m.values?.[0]?.value ?? m.total_value?.value);
-        if (m.name === "shares") out.shares = num(m.values?.[0]?.value ?? m.total_value?.value);
-      }
-    } catch { /* pas d'accès aux statistiques détaillées */ }
+    // Une mesure à la fois : selon le format (carrousel, Reel, photo), Instagram n'accepte pas toutes les mesures.
+    for (const metric of ["views", "shares"] as const) {
+      try {
+        const ins = await json(`${META}/${id}/insights?metric=${metric}&access_token=${t}`);
+        const m = ins.data?.[0];
+        out[metric] = num(m?.values?.[0]?.value ?? m?.total_value?.value);
+      } catch { /* pas d'accès à cette mesure pour ce format */ }
+    }
     return out;
   },
   async facebook(a, id) {
-    const r = await json(`${META}/${id}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares&access_token=${enc(a.accessToken!)}`);
-    return { likes: num(r.reactions?.summary?.total_count), comments: num(r.comments?.summary?.total_count), shares: num(r.shares?.count ?? 0) };
+    const t = enc(a.accessToken!);
+    const video = async (vid: string): Promise<PostStats> => {
+      const r = await json(`${META}/${vid}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)&access_token=${t}`);
+      const out: PostStats = { likes: num(r.reactions?.summary?.total_count), comments: num(r.comments?.summary?.total_count) };
+      try {
+        const ins = await json(`${META}/${vid}/video_insights?metric=total_video_views&period=lifetime&access_token=${t}`);
+        out.views = num(ins.data?.[0]?.values?.[0]?.value);
+      } catch { /* vues : autorisation « statistiques » de la Page nécessaire */ }
+      return out;
+    };
+    if (id.startsWith("video:")) return video(id.slice(6));
+    try {
+      const r = await json(`${META}/${id}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares&access_token=${t}`);
+      return { likes: num(r.reactions?.summary?.total_count), comments: num(r.comments?.summary?.total_count), shares: num(r.shares?.count ?? 0) };
+    } catch (e) {
+      // Vidéos publiées avant la 1.2.2 : enregistrées sans « video: ».
+      if (!/^\d+$/.test(id)) throw e;
+      return video(id);
+    }
   },
   async threads(a, id) {
     const r = await json(`${THREADS}/${id}/insights?metric=views,likes,replies,reposts&access_token=${enc(a.accessToken!)}`);
@@ -73,6 +98,13 @@ export const FETCHERS: Record<string, (a: Account, id: string) => Promise<PostSt
     return { views: num(s.viewCount), likes: num(s.likeCount), comments: num(s.commentCount) };
   },
   async tiktok(a, id) {
+    if (id.startsWith("publish:")) {
+      // Vidéo pas encore publique au moment de la publication : on retrouve son identifiant.
+      const s = await json(`https://open.tiktokapis.com/v2/post/publish/status/fetch/`, postJson({ publish_id: id.slice(8) }, { Authorization: `Bearer ${a.accessToken}` }));
+      const vid = s.data?.publicaly_available_post_id?.[0];
+      if (!vid) return {};
+      id = String(vid);
+    }
     const r = await json("https://open.tiktokapis.com/v2/video/query/?fields=id,view_count,like_count,comment_count,share_count",
       postJson({ filters: { video_ids: [id] } }, { Authorization: `Bearer ${a.accessToken}` }));
     const v = r.data?.videos?.[0] ?? {};

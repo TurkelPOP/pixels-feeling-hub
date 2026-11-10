@@ -132,6 +132,8 @@ export const tiktok: Publisher = {
       },
       { what: "traitement TikTok" },
     );
-    return { url: postId ? `https://www.tiktok.com/@/video/${postId}` : undefined, id: postId ? String(postId) : undefined };
+    // Vidéo pas encore publique (privée, en brouillon) : pas d'identifiant tout de suite. On garde
+    // celui de la publication, les stats retrouveront la vidéo dès que TikTok la rend disponible.
+    return { url: postId ? `https://www.tiktok.com/@/video/${postId}` : undefined, id: postId ? String(postId) : `publish:${publish_id}` };
   },
 };

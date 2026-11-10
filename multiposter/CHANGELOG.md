@@ -7,6 +7,11 @@ Numéro MAJEUR.MINEUR.CORRECTIF :
 
 Une section par version, la plus récente en haut. L'app affiche ces lignes avant d'installer une mise à jour.
 
+## 1.2.2 — 10/11/2026
+- Stats des vidéos Facebook (réactions, commentaires, vues) : elles n'étaient pas relevées.
+- Stats TikTok des vidéos pas encore publiques à la publication : retrouvées dès que TikTok les rend disponibles.
+- Instagram : vues et partages relevés séparément (un format qui refuse l'un ne bloque plus l'autre).
+
 ## 1.2.1 — 10/11/2026
 - Stats des stories Instagram : vues, réponses, partages et réactions (relevés dans les 24 h, Instagram ne les garde pas plus longtemps).
 - Filtre « Stories » : message explicatif quand il n'y a rien.

@@ -116,7 +116,8 @@ export const facebook: Publisher = {
       fd.append("source", await openAsBlob(vids[0].path, { type: vids[0].mime }), vids[0].filename);
       p(0, 1, "Envoi de la vidéo");
       const r = await json(`https://graph-video.facebook.com/${V}/${page}/videos`, { method: "POST", body: fd }, 30 * 60_000);
-      return { url: `https://www.facebook.com/${page}/videos/${r.id}`, id: r.id };
+      // « video:id » : une vidéo n'a pas les mêmes statistiques qu'un post (voir stats.ts).
+      return { url: `https://www.facebook.com/${page}/videos/${r.id}`, id: `video:${r.id}` };
     }
     const attached: string[] = [];
     const imgs = images(media);
@@ -136,7 +137,7 @@ export const facebook: Publisher = {
     return { url: `https://www.facebook.com/${r.id}`, id: r.id };
   },
   async comment({ account, postId, text }) {
-    await json(`${G}/${postId}/comments`, form({ message: text, access_token: account.accessToken! }));
+    await json(`${G}/${postId.replace(/^video:/, "")}/comments`, form({ message: text, access_token: account.accessToken! }));
   },
 };
 
@@ -249,6 +250,6 @@ export const instagram: Publisher = {
     return { url: info.permalink, id: pub.id };
   },
   async comment({ account, postId, text }) {
-    await json(`${G}/${postId}/comments`, form({ message: text, access_token: account.accessToken! }));
+    await json(`${G}/${postId.replace(/^video:/, "")}/comments`, form({ message: text, access_token: account.accessToken! }));
   },
 };
