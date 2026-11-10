@@ -1,3 +1,0 @@
-# Fichiers Windows : fins de ligne CRLF conservées telles quelles.
-*.cmd -text
-*.vbs -text
