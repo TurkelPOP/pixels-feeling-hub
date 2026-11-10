@@ -3651,7 +3651,7 @@ function paintStats() {
   for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) $(`#${id}`).closest(".st-chart").classList.toggle("empty", empty);
   if (empty) {
     $("#st-posts").replaceChildren(h("p", { class: "muted" }, ST.format === "story"
-      ? "Aucune story publiée seule sur cette période. Les chiffres des stories sont relevés à partir de la version 1.2.1 (Instagram ne les garde qu'environ 24 h). L'option « + 1re slide en story » compte avec son post."
+      ? "Aucune story publiée seule sur cette période. Les chiffres des stories sont relevés à partir de la version 0.2.1 (Instagram ne les garde qu'environ 24 h). L'option « + 1re slide en story » compte avec son post."
       : "Aucun post publié sur cette période. Les chiffres arrivent quelques heures après la publication."));
     for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) window.echarts?.getInstanceByDom($(`#${id}`))?.clear();
     return;

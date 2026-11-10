@@ -77,7 +77,7 @@ export const FETCHERS: Record<string, (a: Account, id: string) => Promise<PostSt
       const r = await json(`${META}/${id}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares&access_token=${t}`);
       return { likes: num(r.reactions?.summary?.total_count), comments: num(r.comments?.summary?.total_count), shares: num(r.shares?.count ?? 0) };
     } catch (e) {
-      // Vidéos publiées avant la 1.2.2 : enregistrées sans « video: ».
+      // Vidéos publiées avant la 0.2.2 : enregistrées sans « video: ».
       if (!/^\d+$/.test(id)) throw e;
       return video(id);
     }
