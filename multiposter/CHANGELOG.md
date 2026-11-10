@@ -7,6 +7,12 @@ Numéro MAJEUR.MINEUR.CORRECTIF :
 
 Une section par version, la plus récente en haut. L'app affiche ces lignes avant d'installer une mise à jour.
 
+## 0.3.1 — 10/11/2026
+- Sécurité : taille des requêtes limitée à 1 Mo (hors envoi de fichiers), y compris avant connexion.
+- Sécurité : limite de débit par personne (600 requêtes/min, 20/min pour les opérations coûteuses, 120 envois de fichiers/min).
+- Sécurité : règle du navigateur (CSP) durcie, plus aucun style écrit dans le HTML ; infobulles des graphiques dessinées dans le graphique.
+- Sécurité : photos des contacts téléchargées sans redirection et avec une taille plafonnée ; pages de stats Instagram suivies seulement chez Meta.
+
 ## 0.3.0 — 10/11/2026
 - Stats de tout le compte : posts, carrousels, Reels, stories et vidéos publiés directement dans les applis (Instagram, Facebook, Threads, YouTube, TikTok), marqués « hors app ».
 - Abonnés relevés chaque jour : tuile (total + gain sur la période) et courbe par compte.

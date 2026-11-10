@@ -64,7 +64,9 @@ const SOURCES: Record<string, { items(a: Account): Promise<Item[]>; insights?(a:
             stats: { likes: num(m.like_count), comments: num(m.comments_count) }, needsInsights: true,
           });
         }
-        url = url && r.paging?.next;
+        // Page suivante : seulement si elle reste chez Meta (l'adresse contient le token).
+        const next: unknown = r.paging?.next;
+        url = url && typeof next === "string" && next.startsWith(`${META}/`) ? next : undefined;
       }
       // Stories en ligne (24 h) : relevées tant qu'elles existent.
       try {

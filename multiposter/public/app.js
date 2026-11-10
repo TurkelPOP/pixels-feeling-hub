@@ -3706,7 +3706,8 @@ function chart(id) {
 const baseOpt = () => ({
   backgroundColor: "transparent",
   textStyle: { color: CH_TEXT, fontFamily: "inherit" },
-  tooltip: { backgroundColor: "#0b1440", borderColor: "#23408f", textStyle: { color: "#eaf0ff" }, confine: true },
+  // Infobulles dessinées dans le graphique (pas de HTML injecté : compatible avec la CSP stricte).
+  tooltip: { renderMode: "richText", backgroundColor: "#0b1440", borderColor: "#23408f", textStyle: { color: "#eaf0ff" }, confine: true },
   animationDuration: 500,
 });
 const axisStyle = { axisLine: { lineStyle: { color: CH_GRID } }, axisLabel: { color: CH_TEXT }, splitLine: { lineStyle: { color: CH_GRID } } };
@@ -3762,7 +3763,7 @@ function paintFormats(d) {
   chart("ch-formats").setOption({
     ...baseOpt(),
     tooltip: { ...baseOpt().tooltip, trigger: "axis", axisPointer: { type: "shadow" },
-      formatter: (ps) => { const f = list[ps[0].dataIndex]; return `<b>${KIND_LABEL[f.format] ?? f.format}</b><br>${f.count} publication${f.count > 1 ? "s" : ""}<br>${fmtNum(f.avgInteractions)} interactions en moyenne<br>${fmtNum(f.avgViews)} vues en moyenne`; } },
+      formatter: (ps) => { const f = list[ps[0].dataIndex]; return `${KIND_LABEL[f.format] ?? f.format}\n${f.count} publication${f.count > 1 ? "s" : ""}\n${fmtNum(f.avgInteractions)} interactions en moyenne\n${fmtNum(f.avgViews)} vues en moyenne`; } },
     grid: { left: 8, right: 8, top: 16, bottom: 4, containLabel: true },
     xAxis: { type: "category", data: list.map((f) => KIND_LABEL[f.format] ?? f.format), ...axisStyle, axisLabel: { color: CH_TEXT, interval: 0, fontSize: 11 }, splitLine: { show: false } },
     yAxis: { type: "value", ...axisStyle, axisLabel: { color: CH_TEXT, formatter: (v) => fmtNum(v) } },
@@ -3777,7 +3778,7 @@ function paintHeat(d) {
   const cells = new Map(d.heatmap.map((x) => [`${x.wd}:${x.hour}`, x]));
   chart("ch-heat").setOption({
     ...baseOpt(),
-    tooltip: { ...baseOpt().tooltip, formatter: (p) => { const c = cells.get(`${p.value[1]}:${p.value[0]}`); return `${WEEKDAYS[p.value[1]]} ${p.value[0]} h<br>${c ? `${c.posts} publication${c.posts > 1 ? "s" : ""} · ${fmtNum(c.avg)} interactions en moyenne` : "Aucune publication"}`; } },
+    tooltip: { ...baseOpt().tooltip, formatter: (p) => { const c = cells.get(`${p.value[1]}:${p.value[0]}`); return `${WEEKDAYS[p.value[1]]} ${p.value[0]} h\n${c ? `${c.posts} publication${c.posts > 1 ? "s" : ""} · ${fmtNum(c.avg)} interactions en moyenne` : "Aucune publication"}`; } },
     grid: { left: 8, right: 8, top: 8, bottom: 46, containLabel: true },
     xAxis: { type: "category", data: [...Array(24).keys()].map((x) => `${x}h`), ...axisStyle, splitArea: { show: false } },
     yAxis: { type: "category", data: WEEKDAYS, inverse: true, ...axisStyle, splitLine: { show: false } },

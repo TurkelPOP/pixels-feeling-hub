@@ -7,6 +7,7 @@ import { Readable } from "node:stream";
 
 import { serve } from "@hono/node-server";
 import { Hono, type Context, type Next } from "hono";
+import { bodyLimit } from "hono/body-limit";
 
 import { accountsPage, config, mediaDir } from "./config.ts";
 import { pkcePair, randomId } from "./crypto.ts";
@@ -60,7 +61,8 @@ const hostOf = (c: Context) => (c.req.header("host") ?? "").toLowerCase().replac
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  // Pas de style écrit dans le HTML : les styles posés par le code (element.style) restent permis.
+  "style-src 'self'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob:",
   "connect-src 'self'",
@@ -98,6 +100,11 @@ app.use("*", async (c, next) => {
   }
   return next();
 });
+
+// Taille des requêtes : 1 Mo partout (formulaires, JSON), y compris avant connexion. Seuls les
+// envois de fichiers (médias, musiques) sont plus gros : ils sont lus en flux avec leurs propres limites.
+const smallBody = bodyLimit({ maxSize: 1024 * 1024, onError: (c) => c.json({ error: "Requête trop volumineuse." }, 413) });
+app.use("*", (c, next) => (c.req.method === "PUT" && /^\/api\/(media|music)$/.test(c.req.path) ? next() : smallBody(c, next)));
 
 registerAuth(app);
 
@@ -276,6 +283,27 @@ app.get("/oauth/:flow/callback", async (c) => {
 
 const api = new Hono();
 api.use("*", requireAuth);
+
+// Limite de débit par personne (par minute) : un compte piraté ou un script ne peut pas saturer
+// le serveur ni épuiser les quotas des réseaux. Large pour l'usage normal (l'app interroge le
+// Planning toutes les 1,5 s pendant une publication) ; serrée pour les opérations coûteuses.
+const HEAVY = /^\/api\/(music\/render|gdrive\/(import|link)|canva\/(designs\/[^/]+\/import|rules\/run)|mentions\/\d+\/avatar\/fetch|posts\/\d+\/stats|maintenance\/)/;
+const hits = new Map<string, { n: number; reset: number }>();
+setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.reset < now) hits.delete(k); }, 60_000).unref?.();
+api.use("*", async (c, next) => {
+  const heavy = c.req.method !== "GET" && HEAVY.test(c.req.path);
+  const upload = c.req.method === "PUT" && /^\/api\/(media|music)$/.test(c.req.path);
+  const [bucket, max] = heavy ? ["heavy", 20] : upload ? ["upload", 120] : ["api", 600];
+  const key = `${currentUser(c)!.id}:${bucket}`;
+  const now = Date.now();
+  let h = hits.get(key);
+  if (!h || h.reset < now) hits.set(key, (h = { n: 0, reset: now + 60_000 }));
+  if (++h.n > max) {
+    c.header("Retry-After", String(Math.ceil((h.reset - now) / 1000)));
+    return c.json({ error: "Trop de requêtes : patiente une minute." }, 429);
+  }
+  return next();
+});
 
 api.get("/meta", (c) =>
   c.json({

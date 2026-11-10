@@ -1,7 +1,7 @@
 # PTZ Posting : résumé complet du projet
 
 Document de passation pour une repasse **sécurité** et **visuelle**.
-État : version **0.3.0**, installée sur `https://ptzcorp.alwaysdata.net`, branche `ccr-174b691b-7a3vf3`.
+État : version **0.3.1** (0.3.0 installée), installée sur `https://ptzcorp.alwaysdata.net`, branche `ccr-174b691b-7a3vf3`.
 
 ---
 
@@ -157,7 +157,7 @@ A-FAIRE.md         points restants
   - `Permissions-Policy` : caméra et micro pour le site seulement ; HSTS 1 an.
 - **CSP** (pages HTML) :
   ```
-  default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+  default-src 'self'; script-src 'self'; style-src 'self';
   img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self';
   object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
   ```
@@ -213,15 +213,13 @@ A-FAIRE.md         points restants
 ## 5. Points à examiner lors de la repasse
 
 ### Sécurité (pistes non traitées ou à confirmer)
-1. **CSP** :
-   - `style-src 'unsafe-inline'` (styles inline utilisés par `h()` via `style.cssText` et par ECharts) ;
-   - `img-src https:` est large : les miniatures « hors app » et les avatars viennent des CDN des réseaux, ce qui donne au CDN l'IP de la personne qui consulte.
-2. **Limite de débit** : pas de limite côté API, hors connexion et codes (exports, relevé de stats à la demande toutes les 10 min, upload).
+1. **CSP** : `img-src https:` reste large (avatars et miniatures viennent des CDN des réseaux, dont les domaines changent) : risque accepté. `'unsafe-inline'` a été retiré des styles en 0.3.1.
+2. **Limite de débit** : faite en 0.3.1 (par personne, en mémoire), avec la limite de taille des requêtes à 1 Mo.
 3. **Photos des contacts** stockées en `data:` URL dans `mention_contacts.avatar`, renvoyées en entier par `GET /mentions`.
 4. **Tokens dans les URL** des appels Graph et Threads (`access_token=` en query, pratique standard de Meta) : vérifier qu'aucun log tiers ne les capte.
 5. **Retour OAuth lié à la session** : en local, ou quand `PUBLIC_URL` ≠ `APP_URL`, la protection repose seulement sur le `state`.
 6. **Relevé « hors app »** (`accountstats.ts`) : jusqu'à 60 appels « insights » par compte toutes les 3 h. Vérifier les quotas Meta.
-7. Code mort : `src/providers/x.ts` et le fetcher `x` dans `stats.ts`.
+7. `src/providers/x.ts` est gardé volontairement (anciens comptes X éventuels), mais on ne peut plus en connecter.
 8. Revoir `app.js` (monolithe) pour toute insertion `innerHTML` future.
 
 ### Visuel

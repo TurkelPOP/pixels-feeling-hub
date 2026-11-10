@@ -33,9 +33,18 @@ const asDataUrl = (b: Buffer) => {
 async function download(url: string): Promise<string | null> {
   const u = new URL(url);
   if (u.protocol !== "https:" || !AVATAR_HOSTS.test(u.hostname)) return null;
-  const res = await request(url, {}, 15_000);
-  if (Number(res.headers.get("content-length") ?? 0) > MAX_AVATAR) return null;
-  return asDataUrl(Buffer.from(await res.arrayBuffer()));
+  // Pas de redirection (elle pourrait sortir des sites autorisés), et lecture plafonnée même
+  // si le serveur n'annonce pas la taille.
+  const res = await request(url, { redirect: "error" }, 15_000);
+  if (Number(res.headers.get("content-length") ?? 0) > MAX_AVATAR || !res.body) return null;
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    size += chunk.length;
+    if (size > MAX_AVATAR) return null;
+    chunks.push(Buffer.from(chunk));
+  }
+  return asDataUrl(Buffer.concat(chunks));
 }
 
 /** Cherche la photo de profil : Instagram (comptes pro/créateur), sinon YouTube. */
