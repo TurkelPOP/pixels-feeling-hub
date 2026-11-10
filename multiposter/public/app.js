@@ -162,6 +162,11 @@ function toLocalInput(ms) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** Logo du réseau en couleur, sans son nom (éditeur). */
+function netLogo(provider) {
+  return h("span", { class: "net-logo", title: PROVIDER[provider]?.label ?? provider, style: `--c:${PROVIDER[provider]?.color ?? "#888"}` }, netIcon(provider));
+}
+
 function badge(provider) {
   const p = PROVIDER[provider] ?? { label: provider, color: "#888" };
   // X : le logo suffit (sinon « X X »).
@@ -1293,7 +1298,9 @@ function renderPicker() {
     }),
   );
   const sel = selectedAccounts();
-  $("#picked-names").textContent = sel.length ? sel.map((a) => `${a.name} (${PROVIDER[a.provider]?.label})`).join(" · ") : "Touche un compte pour l'ajouter.";
+  $("#picked-names").replaceChildren(...(sel.length
+    ? sel.map((a) => h("span", { class: "picked" }, netIcon(a.provider), a.name))
+    : ["Touche un compte pour l'ajouter."]));
 }
 
 function maxFor(provider) {
@@ -1310,7 +1317,7 @@ function renderComposeMeta() {
       const used = accs.filter((a) => a.provider === p).map((a) => finalText(a));
       const n = Math.max(...used.map(countChars));
       const max = maxFor(p);
-      return h("span", { class: `counter ${n > max ? "over" : ""}` }, badge(p), ` ${n} / ${max}`);
+      return h("span", { class: `counter ${n > max ? "over" : ""}` }, netLogo(p), ` ${n} / ${max}`);
     }),
   );
 
@@ -1611,7 +1618,7 @@ function renderTextTabs() {
         renderComposeMeta();
       });
       el = h("div", { class: "net-text", "data-acc": a.id, style: `--c:${PROVIDER[a.provider]?.color}` },
-        h("div", { class: "net-text-head" }, badge(a.provider), h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
+        h("div", { class: "net-text-head" }, netLogo(a.provider), h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
           h("button", { type: "button", class: "linklike small", title: "Remplacer par le texte d'un autre réseau", onclick: () => copyFrom(a) }, "Copier depuis…")),
         ta);
     }
@@ -1692,6 +1699,32 @@ function insertAtCursor(snippet) {
   ta.dispatchEvent(new Event("input"));
 }
 
+/** Photo du contact (ou son initiale). */
+function contactAvatar(m, size = 22) {
+  return m.avatar
+    ? h("img", { class: "contact-av", src: m.avatar, alt: "", style: `width:${size}px;height:${size}px` })
+    : h("span", { class: "contact-av ph", style: `width:${size}px;height:${size}px` }, (m.name || "?")[0].toUpperCase());
+}
+
+/** Image choisie → petite photo carrée (128 px), envoyée au serveur. */
+function pickContactPhoto(m) {
+  const inp = h("input", { type: "file", accept: "image/jpeg,image/png,image/webp" });
+  inp.onchange = async () => {
+    const f = inp.files?.[0];
+    if (!f) return;
+    try {
+      const bmp = await createImageBitmap(f);
+      const s = Math.min(bmp.width, bmp.height);
+      const cv = h("canvas", { width: 128, height: 128 });
+      cv.getContext("2d").drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, 128, 128);
+      await api(`/mentions/${m.id}/avatar`, { method: "PUT", body: JSON.stringify({ dataUrl: cv.toDataURL("image/jpeg", 0.85) }) });
+      await loadMentions();
+      renderMentionBox(state.mentions.find((x) => x.id === m.id));
+    } catch (e) { toast(e.message || "Image illisible.", "err"); }
+  };
+  inp.click();
+}
+
 /** Sous un contact : ce qui sera écrit sur chaque compte coché (ou « nom tel quel » s'il n'y a pas de compte). */
 function mentionTargets(m) {
   const providers = [...new Set(selectedAccounts().map((a) => a.provider))];
@@ -1712,7 +1745,7 @@ function renderMentionBox(editing = null) {
         h("span", { class: "mention-chip-wrap" },
           h("button", { type: "button", class: "chip small-chip mention-chip", title: MENTION_NETS.filter(([n]) => m.handles[n]).map(([n, l]) => `${l} : ${m.handles[n]}`).join("\n") || "Aucun compte renseigné",
             onclick: () => { insertAtCursor(`@[${m.name}]`); } },
-            "@ ", m.name, ...MENTION_NETS.filter(([n]) => m.handles[n]).map(([n]) => netIcon(n))),
+            contactAvatar(m), m.name, ...MENTION_NETS.filter(([n]) => m.handles[n]).map(([n]) => netIcon(n))),
           mentionTargets(m),
           h("button", { type: "button", class: "mention-edit", title: `Modifier ${m.name}`, "aria-label": `Modifier ${m.name}`, onclick: () => renderMentionBox(m) }, "✎"))),
       state.mentions.length ? null : h("p", { class: "muted small" }, "Aucun contact pour l'instant : crée le premier ci-dessous."));
@@ -1724,14 +1757,14 @@ function renderMentionBox(editing = null) {
   const fields = MENTION_NETS.map(([n, l]) => {
     const inp = h("input", { placeholder: n === "facebook" ? "Nom exact de la Page" : "nom du compte, sans @ (ou lien du profil)", value: editing?.handles?.[n] ?? "", autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
     inp.dataset.net = n;
-    return h("label", { class: "mention-field" }, h("span", { class: "net-label" }, netIcon(n), l), inp);
+    return h("label", { class: "mention-field", title: l }, h("span", { class: "net-label" }, netIcon(n, "1.3em")), inp);
   });
   const save = async () => {
     const handles = Object.fromEntries(fields.map((f) => { const i = f.querySelector("input"); return [i.dataset.net, i.value]; }));
     try {
-      await api(editing ? `/mentions/${editing.id}` : "/mentions", { method: editing ? "PUT" : "POST", body: JSON.stringify({ name: name.value, handles }) });
+      const r = await api(editing ? `/mentions/${editing.id}` : "/mentions", { method: editing ? "PUT" : "POST", body: JSON.stringify({ name: name.value, handles }) });
       await loadMentions();
-      toast(editing ? "Contact modifié." : `Contact « ${name.value.trim()} » créé.`);
+      toast(`${editing ? "Contact modifié" : `Contact « ${name.value.trim()} » créé`}${r.avatar && !editing?.avatar ? " · photo récupérée" : ""}.`);
       renderMentionBox();
       renderComposeMeta();
     } catch (e) { toast(e.message, "err"); }
@@ -1743,6 +1776,15 @@ function renderMentionBox(editing = null) {
     list,
     h("details", { class: "tuto-box mention-form", open: !!editing || !state.mentions.length },
       h("summary", {}, editing ? `Modifier « ${editing.name} »` : "＋ Nouveau contact"),
+      editing ? h("div", { class: "contact-photo" }, contactAvatar(editing, 48),
+        h("button", { type: "button", class: "btn ghost small", onclick: () => pickContactPhoto(editing) }, "Choisir une photo"),
+        h("button", { type: "button", class: "btn ghost small", title: "Depuis son compte Instagram (pro/créateur) ou YouTube", onclick: async () => {
+          try { await api(`/mentions/${editing.id}/avatar/fetch`, { method: "POST" }); await loadMentions(); renderMentionBox(state.mentions.find((x) => x.id === editing.id)); toast("Photo récupérée."); }
+          catch (e) { toast(e.message, "err"); }
+        } }, "Photo auto"),
+        editing.avatar ? h("button", { type: "button", class: "linklike small", onclick: async () => {
+          await api(`/mentions/${editing.id}/avatar`, { method: "PUT", body: JSON.stringify({ dataUrl: null }) }); await loadMentions(); renderMentionBox(state.mentions.find((x) => x.id === editing.id));
+        } }, "Retirer") : null) : null,
       name, ...fields,
       h("div", { class: "row" },
         h("button", { class: "btn primary small", type: "button", onclick: save }, editing ? "Enregistrer" : "Créer le contact"),
@@ -1754,7 +1796,7 @@ function renderMentionBox(editing = null) {
           renderMentionBox();
           renderComposeMeta();
         } }, "Supprimer") : null),
-      h("p", { class: "muted small" }, "Un réseau laissé vide : le nom est écrit en texte simple sur ce réseau.")),
+      h("p", { class: "muted small" }, editing ? "Un réseau laissé vide : le nom est écrit en texte simple sur ce réseau." : "Un réseau laissé vide : le nom est écrit en texte simple. La photo est récupérée sur Instagram ou YouTube si possible.")),
   );
   box.hidden = false;
 }
@@ -2203,6 +2245,56 @@ function relevantSets() {
   });
 }
 
+const TAG_STOP = new Set(("le la les un une des du de d l au aux ce cet cette ces il elle ils elles on nous vous je tu et ou mais donc or ni car " +
+  "pour par sur sous dans avec sans chez entre vers depuis pendant apres avant quel quelle quels quelles qui que quoi dont ou comment pourquoi " +
+  "quand si ne pas plus tres tout tous toute toutes son sa ses leur leurs mon ma mes ton ta tes notre nos votre vos voici voila enfin aussi " +
+  "alors encore deja bientot aujourd hui demain hier nouveau nouvelle nouveaux nouvelles grand grande petit petite premier premiere " +
+  "the a an and or but of to in on for with at by from is are this that these those it its new our your").split(" "));
+const plain = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/**
+ * Hashtags suggérés à partir du texte : d'abord ceux déjà utilisés dans tes posts dont le mot
+ * (ou l'enchaînement de mots) apparaît dans le texte, puis les noms propres (« Mass Effect » →
+ * #MassEffect, « GTA VI » → #GTAVI).
+ */
+function suggestHashtags(text, history = []) {
+  const clean = text.replace(/https?:\/\/\S+/g, " ").replace(/@\[[^\]]*\]|@\w+/g, " ").replace(/#[\p{L}\p{N}_]+/gu, " ");
+  const words = clean.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? [];
+  if (!words.length) return [];
+  const out = new Map();
+  const add = (tag) => { const k = tag.toLowerCase(); if (tag.length > 2 && !out.has(k)) out.set(k, tag); };
+  // 1. Tes hashtags habituels présents dans le texte.
+  const keys = new Set();
+  for (let i = 0; i < words.length; i++)
+    for (let n = 1; n <= 3 && i + n <= words.length; n++) keys.add(plain(words.slice(i, i + n).join("")).replace(/['’-]/g, "").toLowerCase());
+  for (const t of history) if (keys.has(plain(t.tag.slice(1)).toLowerCase())) add(t.tag);
+  // 2. Noms propres : suites de mots qui commencent par une majuscule (ou chiffres romains / nombres).
+  const isCap = (w) => /^\p{Lu}/u.test(w) || /^\d+$/.test(w);
+  const sentenceStart = new Set();
+  clean.replace(/(^|[.!?…:\n]\s*)([\p{L}\p{N}]+)/gu, (_m, _p, w) => { sentenceStart.add(w); return ""; });
+  const capElsewhere = new Set();
+  clean.replace(/[\p{L}\p{N}][^\S\n]+(\p{Lu}[\p{L}\p{N}]+)/gu, (_m, w) => { capElsewhere.add(w); return ""; });
+  // Par morceau de phrase : un nom propre ne traverse jamais une ponctuation.
+  for (const seg of clean.split(/[.!?…:;,\n()"«»]+/)) {
+  const words = seg.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? [];
+  for (let i = 0; i < words.length; i++) {
+    if (!isCap(words[i]) || /^\d+$/.test(words[i])) continue;
+    let j = i;
+    while (j + 1 < words.length && isCap(words[j + 1]) && j - i < 2) j++;
+    const run = words.slice(i, j + 1).filter((w) => !TAG_STOP.has(plain(w).toLowerCase()));
+    i = j;
+    if (!run.length) continue;
+    const single = run.length === 1;
+    const w0 = run[0];
+    // Début de phrase : majuscule de grammaire, sauf nom marqué (BioWare, SEGA, N7) ou revu ailleurs.
+    const startOnly = sentenceStart.has(w0) && !/\p{Lu}.*\p{Lu}|\d/u.test(w0) && !capElsewhere.has(w0);
+    if (single && (w0.length < 3 || startOnly)) continue;
+    add("#" + run.map((w) => { const p = plain(w).replace(/['’-]/g, ""); return /^\p{Lu}+$/u.test(p) && p.length > 1 ? p : p[0].toUpperCase() + p.slice(1); }).join(""));
+  }
+  }
+  return [...out.values()].slice(0, 12);
+}
+
 function renderHashtags() {
   const box = $("#hashtags-box");
   if (!box) return;
@@ -2219,7 +2311,7 @@ function renderHashtags() {
     .filter(Boolean);
   const inText = new Set(tags.map((t) => t.toLowerCase()));
   const sets = relevantSets();
-  const freq = H.top.filter((t) => !inText.has(t.tag.toLowerCase())).slice(0, 12);
+  const sugg = suggestHashtags(text, H.top).filter((t) => !inText.has(t.toLowerCase()));
 
   box.replaceChildren(...[
     tags.length
@@ -2227,11 +2319,18 @@ function renderHashtags() {
           ...tags.slice(0, 40).map((t) => h("span", { class: "tag-pill" }, t)))
       : null,
     ...notes.map(([lvl, msg]) => h("p", { class: `tag-note ${lvl}` }, msg)),
-    H.open && (sets.length || freq.length)
+    // Suggestions tirées du texte en cours (noms propres, mots-clés déjà utilisés en hashtag).
+    sugg.length
       ? h("div", { class: "tag-insert" },
-          h("small", { class: "muted" }, "Insérer :"),
-          ...sets.map((s) => h("button", { type: "button", class: "chip small-chip tag-set", title: s.tags.join(" "), onclick: () => insertHashtags(s.tags) }, `# ${s.name}`)),
-          ...freq.map((t) => h("button", { type: "button", class: "chip small-chip tag-freq", title: `Utilisé dans ${t.n} post${t.n > 1 ? "s" : ""}`, onclick: () => insertHashtags([t.tag]) }, t.tag)))
+          h("small", { class: "muted" }, "Suggestions :"),
+          ...sugg.map((t) => h("button", { type: "button", class: "chip small-chip tag-freq", onclick: () => insertHashtags([t]) }, t)),
+          sugg.length > 1 ? h("button", { type: "button", class: "linklike small", onclick: () => insertHashtags(sugg) }, "Tout ajouter") : null)
+      : null,
+    // Jeux enregistrés : un clic ajoute tout le jeu.
+    H.open && sets.length
+      ? h("div", { class: "tag-insert" },
+          h("small", { class: "muted" }, "Jeux :"),
+          ...sets.map((s) => h("button", { type: "button", class: "chip small-chip tag-set", title: s.tags.join(" "), onclick: () => insertHashtags(s.tags) }, `# ${s.name} · ${s.tags.length}`)))
       : null,
     H.open ? h("button", { type: "button", class: "link-btn small", onclick: () => { H.editing = !H.editing; renderHashtags(); } },
       H.editing ? "Fermer" : sets.length || H.sets.length ? "Jeux de hashtags" : "＋ Jeux de hashtags") : null,
@@ -2372,7 +2471,7 @@ function changed(rebuild = false) {
 function targetCard(a) {
   const o = optionsFor(a);
   const body = [];
-  const head = h("header", {}, badge(a.provider), h("strong", {}, a.name), h("span", { class: "tstatus" }));
+  const head = h("header", {}, netLogo(a.provider), h("strong", {}, a.name), h("span", { class: "tstatus" }));
   // Réseau vidéo sans vidéo dans le post : seul le message utile est affiché.
   if ((a.provider === "youtube" || a.provider === "tiktok") && state.media.length && !state.media.some((m) => m.kind === "video")) {
     return h("article", { class: "tcard compact", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head);

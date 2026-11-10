@@ -4,12 +4,68 @@
 import type { Context, Hono } from "hono";
 
 import { currentUser } from "./auth.ts";
-import { db } from "./db.ts";
+import { db, listAccounts } from "./db.ts";
+import { request } from "./http.ts";
+import { freshAccount } from "./scheduler.ts";
 
 db.exec(`CREATE TABLE IF NOT EXISTS mention_contacts (
   id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL, name TEXT NOT NULL, handles TEXT NOT NULL DEFAULT '{}',
   created_at INTEGER NOT NULL, UNIQUE (owner_id, name)
 )`);
+try { db.exec("ALTER TABLE mention_contacts ADD COLUMN avatar TEXT"); } catch { /* déjà là */ }
+
+// ---------- Photo du contact ----------
+// Gardée en petite image dans la base (data:…) : pas de lien vers un réseau qui expire.
+const MAX_AVATAR = 300 * 1024;
+const AVATAR_HOSTS = /(^|\.)(fbcdn\.net|cdninstagram\.com|ggpht\.com|googleusercontent\.com|ytimg\.com)$/i;
+
+function imageMime(b: Buffer): string | null {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP") return "image/webp";
+  return null;
+}
+const asDataUrl = (b: Buffer) => {
+  const mime = imageMime(b);
+  return mime && b.length <= MAX_AVATAR ? `data:${mime};base64,${b.toString("base64")}` : null;
+};
+
+async function download(url: string): Promise<string | null> {
+  const u = new URL(url);
+  if (u.protocol !== "https:" || !AVATAR_HOSTS.test(u.hostname)) return null;
+  const res = await request(url, {}, 15_000);
+  if (Number(res.headers.get("content-length") ?? 0) > MAX_AVATAR) return null;
+  return asDataUrl(Buffer.from(await res.arrayBuffer()));
+}
+
+/** Cherche la photo de profil : Instagram (comptes pro/créateur), sinon YouTube. */
+async function findAvatar(owner: number, handles: Handles): Promise<string | null> {
+  const accs = listAccounts(owner);
+  const ig = accs.find((a) => a.provider === "instagram" && a.accessToken);
+  const igName = handles.instagram?.replace(/^@+/, "");
+  if (ig && igName && /^[\w.]{1,30}$/.test(igName)) {
+    try {
+      const a = await freshAccount(ig);
+      const r = await request(`https://graph.facebook.com/v23.0/${a.externalId}?${new URLSearchParams({ fields: `business_discovery.username(${igName}){profile_picture_url}`, access_token: a.accessToken! })}`, {}, 15_000);
+      const url = (await r.json())?.business_discovery?.profile_picture_url;
+      const img = url ? await download(url) : null;
+      if (img) return img;
+    } catch { /* compte perso ou introuvable : on essaie ailleurs */ }
+  }
+  const yt = accs.find((a) => a.provider === "youtube" && a.accessToken);
+  const ytName = handles.youtube?.replace(/^@+/, "");
+  if (yt && ytName && /^[\w.-]{1,100}$/.test(ytName)) {
+    try {
+      const a = await freshAccount(yt);
+      const r = await request(`https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ part: "snippet", forHandle: `@${ytName}` })}`, { headers: { Authorization: `Bearer ${a.accessToken}` } }, 15_000);
+      const t = (await r.json())?.items?.[0]?.snippet?.thumbnails;
+      const url = t?.medium?.url ?? t?.default?.url;
+      const img = url ? await download(url) : null;
+      if (img) return img;
+    } catch { /* rien trouvé */ }
+  }
+  return null;
+}
 
 export const MENTION_NETWORKS = ["instagram", "threads", "x", "tiktok", "youtube", "facebook"] as const;
 /** Réseaux où une mention s'écrit « @compte » (Facebook : le nom de la Page, en texte). */
@@ -53,7 +109,7 @@ export function registerMentionApi(api: Hono) {
 
   api.get("/mentions", (c) =>
     c.json((db.prepare("SELECT * FROM mention_contacts WHERE owner_id = ? ORDER BY name COLLATE NOCASE").all(uid(c)) as Record<string, any>[]).map((r) => ({
-      id: r.id, name: r.name, handles: JSON.parse(r.handles),
+      id: r.id, name: r.name, handles: JSON.parse(r.handles), avatar: r.avatar ?? null,
     }))),
   );
 
@@ -70,15 +126,49 @@ export function registerMentionApi(api: Hono) {
       } else {
         const n = (db.prepare("SELECT COUNT(*) AS n FROM mention_contacts WHERE owner_id = ?").get(owner) as { n: number }).n;
         if (n >= 300) return c.json({ error: "300 contacts maximum." }, 400);
-        db.prepare("INSERT INTO mention_contacts (owner_id, name, handles, created_at) VALUES (?, ?, ?, ?)").run(owner, name, JSON.stringify(handles), Date.now());
+        id = Number(db.prepare("INSERT INTO mention_contacts (owner_id, name, handles, created_at) VALUES (?, ?, ?, ?)").run(owner, name, JSON.stringify(handles), Date.now()).lastInsertRowid);
       }
     } catch {
       return c.json({ error: `Tu as déjà un contact « ${name} ».` }, 400);
     }
-    return c.json({ ok: true });
+    // Pas encore de photo : on essaie de la récupérer sur ses réseaux.
+    const row = db.prepare("SELECT avatar FROM mention_contacts WHERE id = ?").get(id) as { avatar: string | null };
+    let avatar = row.avatar;
+    if (!avatar) {
+      avatar = await findAvatar(owner, handles).catch(() => null);
+      if (avatar) db.prepare("UPDATE mention_contacts SET avatar = ? WHERE id = ? AND owner_id = ?").run(avatar, id, owner);
+    }
+    return c.json({ ok: true, id, avatar });
   };
   api.post("/mentions", (c) => save(c));
   api.put("/mentions/:id", (c) => save(c, Number(c.req.param("id"))));
+  /** Photo choisie à la main (image déjà réduite par le navigateur), ou retirée. */
+  api.put("/mentions/:id/avatar", async (c) => {
+    const owner = uid(c);
+    const id = Number(c.req.param("id"));
+    const b = await c.req.json<{ dataUrl?: string | null }>().catch(() => ({}) as { dataUrl?: string | null });
+    let avatar: string | null = null;
+    if (b.dataUrl) {
+      const m = String(b.dataUrl).match(/^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+      avatar = m ? asDataUrl(Buffer.from(m[1], "base64")) : null;
+      if (!avatar) return c.json({ error: "Image invalide (JPG, PNG ou WebP, 300 Ko max)." }, 400);
+    }
+    const r = db.prepare("UPDATE mention_contacts SET avatar = ? WHERE id = ? AND owner_id = ?").run(avatar, id, owner);
+    return r.changes ? c.json({ ok: true, avatar }) : c.json({ error: "Contact introuvable" }, 404);
+  });
+
+  /** Relance la recherche de la photo sur Instagram / YouTube. */
+  api.post("/mentions/:id/avatar/fetch", async (c) => {
+    const owner = uid(c);
+    const id = Number(c.req.param("id"));
+    const r = db.prepare("SELECT handles FROM mention_contacts WHERE id = ? AND owner_id = ?").get(id, owner) as { handles: string } | undefined;
+    if (!r) return c.json({ error: "Contact introuvable" }, 404);
+    const avatar = await findAvatar(owner, JSON.parse(r.handles)).catch(() => null);
+    if (!avatar) return c.json({ error: "Photo introuvable : compte Instagram perso ou non renseigné. Ajoute une image à la main." }, 404);
+    db.prepare("UPDATE mention_contacts SET avatar = ? WHERE id = ? AND owner_id = ?").run(avatar, id, owner);
+    return c.json({ ok: true, avatar });
+  });
+
   api.delete("/mentions/:id", (c) => {
     const del = db.prepare("DELETE FROM mention_contacts WHERE id = ? AND owner_id = ?").run(Number(c.req.param("id")), uid(c));
     return del.changes ? c.json({ ok: true }) : c.json({ error: "Introuvable" }, 404);

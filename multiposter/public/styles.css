@@ -1092,3 +1092,16 @@ dialog.lightbox::backdrop { background: rgba(2, 6, 24, 0.8); }
 .mention-targets { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.75rem; opacity: 0.85; }
 .mention-targets .mt { display: inline-flex; align-items: center; gap: 0.2rem; }
 .mention-targets .mt.none { opacity: 0.5; }
+
+/* Logos seuls (éditeur) et photos des contacts */
+.net-logo { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 8px; background: color-mix(in srgb, var(--c) 16%, transparent); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); flex: none; }
+.net-logo .net-icon { width: 1.05em !important; height: 1.05em !important; }
+.counter { display: inline-flex; align-items: center; gap: 0.35rem; }
+.picked-names { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; }
+.picked { display: inline-flex; align-items: center; gap: 0.3rem; }
+.contact-av { border-radius: 50%; object-fit: cover; flex: none; display: inline-grid; place-items: center; vertical-align: middle; }
+.contact-av.ph { background: #023197; color: #fff; font-size: 0.7em; font-weight: 700; }
+.mention-chip { display: inline-flex; align-items: center; gap: 0.35rem; }
+.contact-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.3rem 0 0.5rem; }
+.contact-photo .contact-av.ph { font-size: 1.2rem; }
+.mention-field { grid-template-columns: 2rem 1fr !important; }
