@@ -6,6 +6,6 @@
 - Si ça ne suffit pas : stocker les médias sur **Cloudflare R2** (10 Go gratuits, sortie gratuite,
   compatible S3, liens signés lisibles par Meta/Threads). Plan B : Backblaze B2 (10 Go gratuits).
 
-## Sécurité
-- Revue : étape 8 (hébergement).
-- À la fin : passer le repo en privé + clé de déploiement SSH (code prêt : remote `git@github.com:…`, clé via `UPDATE_SSH_KEY` ou ~/.ssh par défaut).
+## Vers la 1.0.0
+- Faire valider les apps par les réseaux (Meta : Facebook/Instagram et Threads ; TikTok ; Google) pour sortir du mode testeur.
+- Tester en vrai : sondage Threads, stats des stories, vidéos Facebook, TikTok, photos des contacts.
