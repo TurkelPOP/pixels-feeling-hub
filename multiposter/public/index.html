@@ -44,17 +44,10 @@
 
           <div class="text-head">
             <label for="text">Texte</label>
-            <div id="text-tabs" class="text-tabs" role="tablist" aria-label="Texte par réseau"></div>
+            <div id="text-tabs" class="text-tabs" role="radiogroup" aria-label="Texte"></div>
           </div>
           <textarea id="text" rows="8" placeholder="Écris ton post…"></textarea>
-          <div id="net-text-box" class="net-text-box" hidden>
-            <p id="net-text-info" class="muted small"></p>
-            <textarea id="net-text" rows="8"></textarea>
-            <div class="row">
-              <button class="btn ghost small" id="net-text-custom" type="button">✏️ Modifier</button>
-              <button class="btn ghost small" id="net-text-reset" type="button">↺ Texte commun</button>
-            </div>
-          </div>
+          <div id="net-texts" class="net-texts" hidden></div>
           <div class="text-tools">
             <button class="btn ghost small" id="btn-mention" type="button">@ Mentionner</button>
             <button class="btn ghost small" id="btn-templates" type="button">📄 Modèles</button>

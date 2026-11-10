@@ -71,7 +71,7 @@ const state = {
   canva: { status: null, items: [], continuation: null, query: "" },
   hashtags: { sets: [], top: [], editing: false },
   mentions: [],
-  textTab: "all",
+  perNet: false,
   slots: [],
   templates: [],
   slotEditing: false,
@@ -1288,6 +1288,7 @@ function renderPicker() {
         h("span", { class: "avatar-wrap" }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider))),
         h("span", {}, a.name),
         h("small", { class: "net-label", title: PROVIDER[a.provider]?.label }, netIcon(a.provider), a.provider === "x" ? null : PROVIDER[a.provider]?.label),
+        h("span", { class: "chip-check", "aria-hidden": "true" }, state.selected.has(a.id) ? "✓" : "+"),
         a.shared ? h("small", { class: "share-badge", title: `Compte de ${a.shared.ownerName} : le post partira en validation` }, `↗ ${a.shared.ownerName}`) : null,
       ),
     ),
@@ -1313,6 +1314,7 @@ function renderComposeMeta() {
   );
 
   renderTextTabs();
+  $("#counters").hidden = perNet(); // chaque champ « Par réseau » a déjà son compteur
   renderMentionPreview();
   renderSlots();
   const sharedSel = selectedAccounts().find((a) => a.shared);
@@ -1552,36 +1554,85 @@ async function loadMentions() {
   try { state.mentions = await api("/mentions"); } catch { /* garde l'existant */ }
 }
 
+/** Un texte par réseau : choisi, ou dès qu'un réseau a son propre texte. */
+const perNet = () => state.perNet || selectedAccounts().some((a) => state.overrides[a.id] != null);
+/** Dernier champ de texte utilisé (pour insérer mentions, hashtags, modèles au bon endroit). */
+let lastTextArea = null;
+function activeTextArea() {
+  if (!perNet()) return $("#text");
+  if (lastTextArea?.isConnected && lastTextArea.dataset.acc) return lastTextArea;
+  return $("#net-texts textarea");
+}
+
+function setPerNet(on) {
+  const accs = selectedAccounts();
+  if (on) {
+    state.perNet = true;
+    for (const a of accs) state.overrides[a.id] ??= $("#text").value;
+  } else {
+    const first = accs.find((a) => state.overrides[a.id] != null);
+    const differ = accs.some((a) => (state.overrides[a.id] ?? $("#text").value) !== (first ? state.overrides[first.id] : $("#text").value));
+    if (differ && !confirm(`Un seul texte pour tous les réseaux ?\n\nLe texte ${first ? `de ${PROVIDER[first.provider]?.label}` : "commun"} sera utilisé partout, les autres seront perdus.`)) return renderTextTabs();
+    if (first) $("#text").value = state.overrides[first.id];
+    state.perNet = false;
+    state.overrides = {};
+  }
+  renderComposeMeta();
+  (on ? $("#net-texts textarea") : $("#text"))?.focus();
+}
+
 function renderTextTabs() {
   const accs = selectedAccounts();
-  if (state.textTab !== "all" && !accs.some((a) => a.id === state.textTab)) state.textTab = "all";
-  const tab = (id, label, custom) =>
-    h("button", { type: "button", role: "tab", class: `text-tab${state.textTab === id ? " active" : ""}${custom ? " custom" : ""}`, "aria-selected": String(state.textTab === id),
-      title: custom ? "Texte modifié pour ce compte" : "", onclick: () => { state.textTab = id; renderTextTabs(); } }, ...label);
-  $("#text-tabs").replaceChildren(
-    accs.length > 1 || accs.some((a) => state.overrides[a.id]) ? tab("all", ["Tous les réseaux"], false) : null,
-    ...(accs.length > 1 || accs.some((a) => state.overrides[a.id])
-      ? accs.map((a) => tab(a.id, [netIcon(a.provider), accs.filter((x) => x.provider === a.provider).length > 1 ? h("span", {}, a.name) : a.provider === "x" ? null : h("span", {}, PROVIDER[a.provider]?.label ?? a.provider), state.overrides[a.id] ? h("span", { class: "dot-custom", "aria-hidden": "true" }) : null], !!state.overrides[a.id]))
-      : []),
-  );
-  const a = accs.find((x) => x.id === state.textTab);
-  $("#text").hidden = !!a;
-  $("#net-text-box").hidden = !a;
-  if (!a) return;
-  const custom = state.overrides[a.id] != null;
-  const ta = $("#net-text");
-  const label = `${PROVIDER[a.provider]?.label} · ${a.name}`;
-  if (custom) {
-    if (document.activeElement !== ta) ta.value = state.overrides[a.id];
-    ta.readOnly = false;
-    $("#net-text-info").textContent = `Texte propre à ${label}. Les slides restent les mêmes.`;
-  } else {
-    ta.value = resolveMentions($("#text").value, a.provider);
-    ta.readOnly = true;
-    $("#net-text-info").textContent = `Aperçu pour ${label} : c'est le texte commun, mentions adaptées à ce réseau.`;
-  }
-  $("#net-text-custom").hidden = custom;
-  $("#net-text-reset").hidden = !custom;
+  const multi = perNet();
+  const opt = (on, label, hint) => h("button", { type: "button", role: "radio", "aria-checked": String(multi === on), title: hint,
+    class: `text-tab${multi === on ? " active" : ""}`, onclick: () => multi !== on && setPerNet(on) }, label);
+  $("#text-tabs").replaceChildren(...(accs.length > 1 || multi
+    ? [opt(false, "Même texte", "Le même texte et les mêmes # partout"), opt(true, "Par réseau", "Un texte modifiable pour chaque réseau")]
+    : []));
+  $("#text").hidden = multi;
+  const box = $("#net-texts");
+  box.hidden = !multi;
+  if (!multi) return box.replaceChildren();
+  for (const a of accs) state.overrides[a.id] ??= $("#text").value;
+  // Les champs existants sont gardés tels quels (pas de perte du curseur pendant la frappe).
+  const blocks = new Map([...box.children].map((el) => [Number(el.dataset.acc), el]));
+  const want = accs.map((a) => {
+    let el = blocks.get(a.id);
+    if (!el) {
+      const ta = h("textarea", { rows: 6, "data-acc": a.id, placeholder: `Texte pour ${PROVIDER[a.provider]?.label}…` });
+      ta.value = state.overrides[a.id];
+      ta.addEventListener("focus", () => (lastTextArea = ta));
+      ta.addEventListener("input", () => {
+        state.overrides[a.id] = ta.value;
+        // Le 1er réseau sert de texte principal (aperçu dans le Planning, réseaux ajoutés ensuite).
+        if (selectedAccounts()[0]?.id === a.id) $("#text").value = ta.value;
+        renderComposeMeta();
+      });
+      el = h("div", { class: "net-text", "data-acc": a.id, style: `--c:${PROVIDER[a.provider]?.color}` },
+        h("div", { class: "net-text-head" }, badge(a.provider), h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
+          h("button", { type: "button", class: "linklike small", title: "Remplacer par le texte d'un autre réseau", onclick: () => copyFrom(a) }, "Copier depuis…")),
+        ta);
+    }
+    const ta = el.querySelector("textarea");
+    if (document.activeElement !== ta && ta.value !== state.overrides[a.id]) ta.value = state.overrides[a.id];
+    const n = countChars(finalText(a)), max = maxFor(a.provider);
+    const cnt = el.querySelector(".net-count");
+    cnt.textContent = `${n} / ${max}`;
+    cnt.classList.toggle("over", n > max);
+    return el;
+  });
+  // Ne touche au DOM que si la liste change : sinon le champ en cours de frappe perdrait le focus.
+  if (want.length !== box.children.length || want.some((el, i) => box.children[i] !== el)) box.replaceChildren(...want);
+}
+
+/** Reprend le texte d'un autre réseau coché dans celui-ci. */
+function copyFrom(a) {
+  const others = selectedAccounts().filter((x) => x.id !== a.id);
+  if (!others.length) return;
+  const src = others.length === 1 ? others[0] : others[Number(prompt(`Copier le texte de :\n${others.map((x, i) => `${i + 1}. ${PROVIDER[x.provider]?.label} · ${x.name}`).join("\n")}\n\nTape le numéro :`)) - 1];
+  if (!src) return;
+  state.overrides[a.id] = state.overrides[src.id] ?? $("#text").value;
+  renderComposeMeta();
 }
 
 function renderMentionPreview() {
@@ -1600,9 +1651,7 @@ function renderMentionPreview() {
 
 /** Insère du texte à la position du curseur dans le texte affiché (commun ou propre au réseau). */
 function insertAtCursor(snippet) {
-  const net = !$("#net-text-box").hidden;
-  if (net && $("#net-text").readOnly) $("#net-text-custom").click();
-  const ta = net ? $("#net-text") : $("#text");
+  const ta = activeTextArea();
   const { selectionStart: s = ta.value.length, selectionEnd: e = ta.value.length } = ta;
   const before = ta.value.slice(0, s), after = ta.value.slice(e);
   const pad = before && !/\s$/.test(before) ? " " : "";
@@ -2018,13 +2067,12 @@ function fillTemplate(text) {
 }
 
 function applyTemplate(tpl) {
-  const ta = $("#text");
+  const ta = activeTextArea();
   const text = fillTemplate(tpl.text);
   if (ta.value.trim()) {
     const replace = confirm(`Appliquer le modèle « ${tpl.name} » ?\n\nOK : remplacer le texte actuel\nAnnuler : l'ajouter à la fin`);
     ta.value = replace ? text : `${ta.value.replace(/\s+$/, "")}\n\n${text}`;
   } else ta.value = text;
-  state.textTab = "all";
   ta.dispatchEvent(new Event("input"));
   $("#template-box").hidden = true;
   toast(`Modèle « ${tpl.name} » appliqué.`);
@@ -2094,7 +2142,7 @@ async function loadHashtags() {
 
 /** Ajoute des hashtags à la fin du texte, sans doublon. */
 function insertHashtags(tags) {
-  const ta = $("#text");
+  const ta = activeTextArea();
   const have = new Set(extractHashtags(ta.value).map((t) => t.toLowerCase()));
   const add = tags.filter((t) => !have.has(t.toLowerCase()));
   if (!add.length) return toast("Ces hashtags sont déjà dans le texte.");
@@ -2119,7 +2167,7 @@ function renderHashtags() {
   const box = $("#hashtags-box");
   if (!box) return;
   const H = state.hashtags;
-  const text = $("#text").value;
+  const text = perNet() ? activeTextArea()?.value ?? "" : $("#text").value;
   const tags = extractHashtags(text);
   const accs = selectedAccounts();
   const providers = [...new Set(accs.map((a) => a.provider))];
@@ -2396,12 +2444,13 @@ function targetCard(a) {
       h("small", { class: "muted" }, "Nouvelle autorisation : si c'est la première fois, reconnecte ce compte dans l'onglet Comptes pour l'activer.")));
   }
 
-  // Texte propre à ce réseau : il se modifie dans l'onglet du réseau, au-dessus du texte.
+  // Texte propre à ce réseau : passe en « Par réseau » et va sur son champ.
   body.push(h("button", { type: "button", class: "linklike", onclick: () => {
-    state.textTab = a.id;
-    renderTextTabs();
-    $("#text-tabs").scrollIntoView({ behavior: "smooth", block: "center" });
-  } }, state.overrides[a.id] ? "✏️ Texte de ce réseau" : "✏️ Texte de ce réseau"));
+    if (!perNet()) setPerNet(true);
+    const ta = $(`#net-texts textarea[data-acc="${a.id}"]`);
+    ta?.scrollIntoView({ behavior: "smooth", block: "center" });
+    ta?.focus({ preventScroll: true });
+  } }, "✏️ Texte de ce réseau"));
 
   return h("article", { class: "tcard", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head, ...body);
 }
@@ -2549,7 +2598,7 @@ function forgetMedia(list) {
 
 function resetCompose() {
   state.editingId = null;
-  state.textTab = "all";
+  state.perNet = false;
   state.selected = new Set();
   state.overrides = {};
   state.targetOptions = {};
@@ -3211,23 +3260,6 @@ async function init() {
   $("#btn-preview").onclick = openPreview;
   $("#btn-templates").onclick = () => ($("#template-box").hidden ? renderTemplateBox() : ($("#template-box").hidden = true));
   $("#btn-mention").onclick = () => ($("#mention-box").hidden ? renderMentionBox() : ($("#mention-box").hidden = true));
-  $("#net-text-custom").onclick = () => {
-    const id = state.textTab;
-    state.overrides[id] = $("#text").value;
-    renderTextTabs();
-    $("#net-text").focus();
-    renderComposeMeta();
-  };
-  $("#net-text-reset").onclick = () => {
-    if (!confirm("Revenir au texte commun pour ce réseau ? Les modifications propres à ce réseau seront perdues.")) return;
-    delete state.overrides[state.textTab];
-    renderComposeMeta();
-  };
-  $("#net-text").addEventListener("input", (e) => {
-    if (e.target.readOnly) return;
-    state.overrides[state.textTab] = e.target.value;
-    renderComposeMeta();
-  });
   $("#btn-music").onclick = openMusic;
   $("#music-close").onclick = () => $("#music-dialog").close();
   $("#btn-drive").onclick = openDrive;

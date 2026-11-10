@@ -1045,3 +1045,13 @@ dialog.lightbox::backdrop { background: rgba(2, 6, 24, 0.8); }
 .lb-nav.next { right: 0.6rem; }
 .lb-count { position: absolute; bottom: 0.9rem; left: 50%; transform: translateX(-50%); font-size: 0.85rem; opacity: 0.8; }
 @media (max-width: 600px) { .lb-stage { padding: 3.2rem 0.5rem 2.6rem; } .lb-nav { width: 2.3rem; height: 2.3rem; font-size: 1.5rem; } }
+
+/* Texte : même texte ou un texte par réseau */
+.net-texts { display: grid; gap: 0.7rem; }
+.net-text { display: grid; gap: 0.35rem; padding: 0.6rem; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-left: 3px solid var(--c, #3b6cff); border-radius: 12px; background: rgba(2, 8, 40, 0.35); }
+.net-text-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.net-text-head .net-count { margin-left: auto; }
+.net-text-head .net-count.over { color: #ff6b81; font-weight: 600; }
+.net-text textarea { min-height: 7rem; }
+.chip-check { margin-left: 0.15rem; width: 1.2rem; height: 1.2rem; border-radius: 99px; display: inline-grid; place-items: center; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.25); opacity: 0.7; }
+.account-chip.active .chip-check { background: #023197; border-color: #3b6cff; opacity: 1; }
