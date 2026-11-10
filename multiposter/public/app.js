@@ -1629,7 +1629,9 @@ function renderTextTabs() {
         h("div", { class: "net-text-main" },
         h("div", { class: "net-text-head" }, h("strong", {}, a.name), h("span", { class: "net-count muted small" }),
           h("button", { type: "button", class: "linklike small", title: "Remplacer par le texte d'un autre réseau", onclick: () => copyFrom(a) }, "Copier depuis…")),
-        ta));
+        ta,
+        // Options de ce réseau (format, médias, 1er commentaire), placées ici en « Par réseau ».
+        h("div", { class: "net-opts" })));
     }
     const ta = el.querySelector("textarea");
     if (document.activeElement !== ta && ta.value !== state.overrides[a.id]) ta.value = state.overrides[a.id];
@@ -2453,12 +2455,22 @@ let cardsKey = "";
 
 function renderTargetCards() {
   const accs = selectedAccounts();
-  $("#targets-box").hidden = accs.length === 0;
-  // Ne reconstruit les cartes que si les comptes ou les médias changent (pour ne pas perdre la saisie).
-  const key = JSON.stringify([accs.map((a) => a.id), state.media.map((m) => m.id), accs.map((a) => state.targetOptions[a.id]?.format)]);
-  if (key === cardsKey) return paintCardStatus();
+  const inline = perNet();
+  // « Par réseau » : chaque réseau a déjà son bloc, ses options y sont rangées (pas de doublon).
+  $("#targets-box").hidden = accs.length === 0 || inline;
+  // Ne reconstruit les cartes que si les comptes, les médias ou la vue changent (pour ne pas perdre la saisie).
+  const key = JSON.stringify([inline, accs.map((a) => a.id), state.media.map((m) => m.id), accs.map((a) => state.targetOptions[a.id]?.format)]);
+  const slots = new Map([...document.querySelectorAll("#net-texts .net-text")].map((el) => [Number(el.dataset.acc), el.querySelector(".net-opts")]));
+  // Un bloc « Par réseau » recréé est vide : il faut alors reconstruire.
+  if (key === cardsKey && (!inline || [...slots.values()].every((s) => s.firstChild))) return paintCardStatus();
   cardsKey = key;
-  $("#target-cards").replaceChildren(...accs.map(targetCard));
+  if (inline) {
+    $("#target-cards").replaceChildren();
+    for (const a of accs) slots.get(a.id)?.replaceChildren(targetCard(a, true));
+  } else {
+    for (const s of slots.values()) s.replaceChildren();
+    $("#target-cards").replaceChildren(...accs.map((a) => targetCard(a)));
+  }
   paintCardStatus();
 }
 
@@ -2467,10 +2479,13 @@ function changed(rebuild = false) {
   renderComposeMeta();
 }
 
-function targetCard(a) {
+function targetCard(a, inline = false) {
   const o = optionsFor(a);
   const body = [];
-  const head = h("header", {}, accAvatar(a), h("strong", {}, a.name), h("span", { class: "tstatus" }));
+  // Dans le bloc du réseau : pas de photo ni de nom (déjà au-dessus), le format et l'état sur une ligne.
+  const head = inline
+    ? h("header", { class: "inline" }, h("strong", { class: "tformat" }, formatSummary(a, o)), h("span", { class: "tstatus" }))
+    : h("header", {}, accAvatar(a), h("strong", {}, a.name), h("span", { class: "tstatus" }));
   // Réseau vidéo sans vidéo dans le post : seul le message utile est affiché.
   if ((a.provider === "youtube" || a.provider === "tiktok") && state.media.length && !state.media.some((m) => m.kind === "video")) {
     return h("article", { class: "tcard compact", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head);
@@ -2478,10 +2493,9 @@ function targetCard(a) {
 
   // Format
   if (a.provider === "instagram" && state.media.length) {
-    body.push(field("Format", select([["feed", "Publication (post, carrousel ou Reel)"], ["story", "Story"]], o.format, (v) => { o.format = v; changed(true); })));
-    if (o.format === "feed") body.push(checkbox("Publier aussi la 1re slide en story", !!o.alsoStory, (v) => { o.alsoStory = v; changed(); }));
-    body.push(h("div", { class: "ig-finish" },
-      h("button", { class: "btn ghost small", type: "button", onclick: () => finishInInstagram({
+    const fmt = select([["feed", inline ? "Post / carrousel / Reel" : "Publication (post, carrousel ou Reel)"], ["story", "Story"]], o.format, (v) => { o.format = v; changed(true); });
+    const story = o.format === "feed" ? checkbox(inline ? "+ 1re slide en story" : "Publier aussi la 1re slide en story", !!o.alsoStory, (v) => { o.alsoStory = v; changed(); }) : null;
+    const finish = h("button", { class: "btn ghost small", type: "button", title: "Instagram ne laisse ajouter sa musique que dans son appli.", onclick: () => finishInInstagram({
         media: chosenMedia(o),
         caption: finalText(a),
         onPublished: async () => {
@@ -2491,10 +2505,15 @@ function targetCard(a) {
           renderComposeMeta();
           toast("Instagram retiré de ce post (déjà publié depuis l'appli).");
         },
-      }) }, "📲 Finir dans Instagram"),
-      h("small", { class: "muted" }, "Instagram ne laisse ajouter sa musique que dans son appli.")));
+      }) }, inline ? "📲 Finir dans Insta" : "📲 Finir dans Instagram");
+    if (inline) body.push(h("div", { class: "tinline-row" }, fmt, story, finish));
+    else {
+      body.push(field("Format", fmt));
+      if (story) body.push(story);
+      body.push(h("div", { class: "ig-finish" }, finish, h("small", { class: "muted" }, "Instagram ne laisse ajouter sa musique que dans son appli.")));
+    }
   }
-  body.push(h("p", { class: "tformat" }, formatSummary(a, o)));
+  if (!inline) body.push(h("p", { class: "tformat" }, formatSummary(a, o)));
 
   // Médias envoyés à ce réseau
   if (state.media.length) {
@@ -2583,14 +2602,14 @@ function targetCard(a) {
   }
 
   // Texte propre à ce réseau : passe en « Par réseau » et va sur son champ.
-  body.push(h("button", { type: "button", class: "linklike", onclick: () => {
+  if (!inline) body.push(h("button", { type: "button", class: "linklike", onclick: () => {
     if (!perNet()) setPerNet(true);
     const ta = $(`#net-texts textarea[data-acc="${a.id}"]`);
     ta?.scrollIntoView({ behavior: "smooth", block: "center" });
     ta?.focus({ preventScroll: true });
   } }, "✏️ Texte de ce réseau"));
 
-  return h("article", { class: "tcard", "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head, ...body);
+  return h("article", { class: `tcard${inline ? " inline" : ""}`, "data-id": a.id, style: `--c:${PROVIDER[a.provider]?.color}` }, head, ...body);
 }
 
 function paintCardStatus() {
