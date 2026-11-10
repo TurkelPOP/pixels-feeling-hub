@@ -77,8 +77,13 @@ export const threads: Publisher = {
   label: "Threads",
   maxText: 500,
   refreshMarginMs: 7 * 24 * 3600_000,
-  validate({ text, media }) {
+  validate({ text, media, options }) {
     if (!text.trim() && !media.length) return "Threads : texte ou média requis.";
+    if (options.poll) {
+      if (options.poll.length < 2) return "Threads : un sondage a au moins 2 réponses.";
+      if (media.length) return "Threads : un sondage se publie sans image ni vidéo (décoche les médias pour Threads).";
+      if (!text.trim()) return "Threads : écris la question du sondage dans le texte.";
+    }
     if (hasWebm(media)) return "Threads n'accepte que les vidéos MP4 ou MOV (cette vidéo est en WebM).";
     if (countChars(text) > 500) return "Threads : 500 caractères maximum.";
     if (media.length > 20) return "Threads : 20 médias maximum.";
@@ -90,14 +95,15 @@ export const threads: Publisher = {
     );
     return { accessToken: r.access_token, expiresAt: Date.now() + r.expires_in * 1000 };
   },
-  async publish({ account, text, media, progress }) {
+  async publish({ account, text, media, options, progress }) {
     const uid = account.externalId;
     const token = account.accessToken!;
     const p = progress ?? (() => {});
     let id: string;
     p(0, 0.85, media.length > 1 ? "Envoi des médias" : media.length ? "Envoi du média" : "Envoi");
     if (media.length === 0) {
-      id = await container(uid, token, { media_type: "TEXT", text });
+      const poll: Record<string, string> = options.poll?.length ? { poll_attachment: JSON.stringify(Object.fromEntries(options.poll.map((t, i) => [`option_${"abcd"[i]}`, t]))) } : {};
+      id = await container(uid, token, { media_type: "TEXT", text, ...poll });
     } else if (media.length === 1) {
       id = await container(uid, token, { ...itemParams(media[0]), text });
     } else {

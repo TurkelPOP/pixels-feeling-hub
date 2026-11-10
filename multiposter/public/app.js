@@ -27,6 +27,10 @@ const TOOL_SVG = {
   camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.8"/></svg>',
   video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 6-3.5v10l-6-3.5z"/><circle cx="6.5" cy="10" r="1" fill="currentColor"/></svg>',
   gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="9.5" r="1.8"/><path d="m3.5 17 5.5-5 4 3.5 2.5-2 5 4"/></svg>',
+  hashtag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 9h14M4 15h14M10 3 8 21M16 3l-2 18"/></svg>',
+  at: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>',
+  poll: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>',
+  template: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
   music: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
 };
 function paintToolIcons() {
@@ -1271,28 +1275,25 @@ function renderPicker() {
       }, h("span", {}, pr.name), h("small", {}, String(ids.length)));
     }),
   );
+  // Comptes en avatars : allumé = coché (contour à la couleur du réseau), éteint = pas coché.
   $("#account-picker").replaceChildren(
-    ...state.accounts.map((a) =>
-      h(
-        "button",
-        {
-          class: `chip account-chip ${state.selected.has(a.id) ? "active" : ""}`,
-          style: `--c:${PROVIDER[a.provider]?.color}`,
-          type: "button",
-          onclick: () => {
-            state.selected.has(a.id) ? state.selected.delete(a.id) : state.selected.add(a.id);
-            renderPicker();
-            renderComposeMeta();
-          },
+    h("a", { class: "acc-add", href: "#accounts", title: "Connecter un compte", "aria-label": "Connecter un compte" }, "+"),
+    ...state.accounts.map((a) => {
+      const on = state.selected.has(a.id);
+      const label = `${a.name} · ${PROVIDER[a.provider]?.label ?? a.provider}${a.shared ? ` (compte de ${a.shared.ownerName}, partira en validation)` : ""}`;
+      return h("button", {
+        class: `acc-pick${on ? " on" : ""}`, style: `--c:${PROVIDER[a.provider]?.color}`, type: "button",
+        title: label, "aria-label": label, "aria-pressed": String(on),
+        onclick: () => {
+          on ? state.selected.delete(a.id) : state.selected.add(a.id);
+          renderPicker();
+          renderComposeMeta();
         },
-        h("span", { class: "avatar-wrap" }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider))),
-        h("span", {}, a.name),
-        h("small", { class: "net-label", title: PROVIDER[a.provider]?.label }, netIcon(a.provider), a.provider === "x" ? null : PROVIDER[a.provider]?.label),
-        h("span", { class: "chip-check", "aria-hidden": "true" }, state.selected.has(a.id) ? "✓" : "+"),
-        a.shared ? h("small", { class: "share-badge", title: `Compte de ${a.shared.ownerName} : le post partira en validation` }, `↗ ${a.shared.ownerName}`) : null,
-      ),
-    ),
+      }, avatar(a), h("span", { class: "avatar-net" }, netIcon(a.provider)), a.shared ? h("span", { class: "acc-shared", "aria-hidden": "true" }, "↗") : null);
+    }),
   );
+  const sel = selectedAccounts();
+  $("#picked-names").textContent = sel.length ? sel.map((a) => `${a.name} (${PROVIDER[a.provider]?.label})`).join(" · ") : "Touche un compte pour l'ajouter.";
 }
 
 function maxFor(provider) {
@@ -1314,6 +1315,7 @@ function renderComposeMeta() {
   );
 
   renderTextTabs();
+  syncPoll();
   $("#counters").hidden = perNet(); // chaque champ « Par réseau » a déjà son compteur
   renderMentionPreview();
   renderSlots();
@@ -1635,6 +1637,34 @@ function copyFrom(a) {
   renderComposeMeta();
 }
 
+/** Sondage : publié sur les comptes Threads cochés (les autres réseaux ne le permettent pas). */
+function syncPoll() {
+  const threadsAccs = selectedAccounts().filter((a) => a.provider === "threads");
+  if (!threadsAccs.length) state.poll = null;
+  for (const a of threadsAccs) {
+    const o = (state.targetOptions[a.id] ??= {});
+    if (state.poll?.some((x) => x.trim())) o.poll = state.poll.map((x) => x.trim()).filter(Boolean);
+    else delete o.poll;
+  }
+  $("#btn-poll").classList.toggle("on", !!state.poll);
+  $("#btn-poll").classList.toggle("dim", !threadsAccs.length);
+  const box = $("#poll-box");
+  box.hidden = !state.poll;
+  if (!state.poll) return box.replaceChildren();
+  if (box.querySelector("input") && box.dataset.n === String(state.poll.length)) return; // en cours de frappe
+  box.dataset.n = String(state.poll.length);
+  box.replaceChildren(
+    h("div", { class: "poll-head" }, h("strong", {}, "Sondage"), h("span", { class: "muted small" }, "Threads · question = le texte · 25 caractères par réponse"),
+      h("button", { type: "button", class: "linklike small", onclick: () => { state.poll = null; renderComposeMeta(); } }, "Retirer")),
+    ...state.poll.map((v, i) => {
+      const inp = h("input", { type: "text", maxlength: 25, placeholder: `Réponse ${i + 1}${i > 1 ? " (facultatif)" : ""}`, value: v });
+      inp.addEventListener("input", () => { state.poll[i] = inp.value; syncPoll(); scheduleValidation(); });
+      return inp;
+    }),
+    state.poll.length < 4 ? h("button", { type: "button", class: "linklike small", onclick: () => { state.poll.push(""); renderComposeMeta(); } }, "＋ Réponse") : null,
+  );
+}
+
 function renderMentionPreview() {
   // Sous le texte commun : comment chaque mention sera écrite sur les réseaux cochés.
   const text = $("#text").value + Object.values(state.overrides).join(" ");
@@ -1662,6 +1692,15 @@ function insertAtCursor(snippet) {
   ta.dispatchEvent(new Event("input"));
 }
 
+/** Sous un contact : ce qui sera écrit sur chaque compte coché (ou « nom tel quel » s'il n'y a pas de compte). */
+function mentionTargets(m) {
+  const providers = [...new Set(selectedAccounts().map((a) => a.provider))];
+  if (!providers.length) return null;
+  return h("small", { class: "mention-targets" }, ...providers.map((p) =>
+    h("span", { class: `mt${m.handles[p] ? "" : " none"}`, title: m.handles[p] ? `${PROVIDER[p]?.label} : ${resolveMentions(`@[${m.name}]`, p)}` : `Pas de compte ${PROVIDER[p]?.label} : « ${m.name} » écrit tel quel` },
+      netIcon(p), m.handles[p] ? resolveMentions(`@[${m.name}]`, p) : "—")));
+}
+
 function renderMentionBox(editing = null) {
   const box = $("#mention-box");
   const search = h("input", { type: "search", placeholder: "Chercher un contact…", class: "mention-search" });
@@ -1674,6 +1713,7 @@ function renderMentionBox(editing = null) {
           h("button", { type: "button", class: "chip small-chip mention-chip", title: MENTION_NETS.filter(([n]) => m.handles[n]).map(([n, l]) => `${l} : ${m.handles[n]}`).join("\n") || "Aucun compte renseigné",
             onclick: () => { insertAtCursor(`@[${m.name}]`); } },
             "@ ", m.name, ...MENTION_NETS.filter(([n]) => m.handles[n]).map(([n]) => netIcon(n))),
+          mentionTargets(m),
           h("button", { type: "button", class: "mention-edit", title: `Modifier ${m.name}`, "aria-label": `Modifier ${m.name}`, onclick: () => renderMentionBox(m) }, "✎"))),
       state.mentions.length ? null : h("p", { class: "muted small" }, "Aucun contact pour l'instant : crée le premier ci-dessous."));
   };
@@ -2187,15 +2227,15 @@ function renderHashtags() {
           ...tags.slice(0, 40).map((t) => h("span", { class: "tag-pill" }, t)))
       : null,
     ...notes.map(([lvl, msg]) => h("p", { class: `tag-note ${lvl}` }, msg)),
-    sets.length || freq.length
+    H.open && (sets.length || freq.length)
       ? h("div", { class: "tag-insert" },
           h("small", { class: "muted" }, "Insérer :"),
           ...sets.map((s) => h("button", { type: "button", class: "chip small-chip tag-set", title: s.tags.join(" "), onclick: () => insertHashtags(s.tags) }, `# ${s.name}`)),
           ...freq.map((t) => h("button", { type: "button", class: "chip small-chip tag-freq", title: `Utilisé dans ${t.n} post${t.n > 1 ? "s" : ""}`, onclick: () => insertHashtags([t.tag]) }, t.tag)))
       : null,
-    h("button", { type: "button", class: "link-btn small", onclick: () => { H.editing = !H.editing; renderHashtags(); } },
-      H.editing ? "Fermer" : sets.length || H.sets.length ? "Jeux de hashtags" : "＋ Jeux de hashtags"),
-    H.editing ? hashtagEditor() : null,
+    H.open ? h("button", { type: "button", class: "link-btn small", onclick: () => { H.editing = !H.editing; renderHashtags(); } },
+      H.editing ? "Fermer" : sets.length || H.sets.length ? "Jeux de hashtags" : "＋ Jeux de hashtags") : null,
+    H.open && H.editing ? hashtagEditor() : null,
   ].filter(Boolean));
 }
 
@@ -2599,6 +2639,7 @@ function forgetMedia(list) {
 function resetCompose() {
   state.editingId = null;
   state.perNet = false;
+  state.poll = null;
   state.selected = new Set();
   state.overrides = {};
   state.targetOptions = {};
@@ -2626,6 +2667,7 @@ function editPost(p) {
     state.selected.add(t.accountId);
     if (t.textOverride) state.overrides[t.accountId] = t.textOverride;
     if (t.options && Object.keys(t.options).length) state.targetOptions[t.accountId] = { ...t.options, _manual: !!t.options.media };
+    if (t.options?.poll?.length) state.poll = [...t.options.poll];
   }
   if (p.scheduledAt && p.scheduledAt > Date.now()) $("#when").value = toLocalInput(p.scheduledAt);
   renderPicker();
@@ -3259,6 +3301,22 @@ async function init() {
   $("#share-close").onclick = () => $("#share-dialog").close();
   $("#btn-preview").onclick = openPreview;
   $("#btn-templates").onclick = () => ($("#template-box").hidden ? renderTemplateBox() : ($("#template-box").hidden = true));
+  // Bouton allumé tant que son panneau est ouvert (Mentionner, Modèles).
+  for (const [btn, box] of [["#btn-mention", "#mention-box"], ["#btn-templates", "#template-box"]])
+    new MutationObserver(() => $(btn).classList.toggle("on", !$(box).hidden)).observe($(box), { attributes: true, attributeFilter: ["hidden"] });
+  $("#btn-cam").onclick = () => $("#btn-photo").click();
+  $("#btn-gal").onclick = () => $("#file").click();
+  $("#btn-hash").onclick = () => {
+    state.hashtags.open = !state.hashtags.open;
+    renderHashtags();
+    $("#btn-hash").classList.toggle("on", !!state.hashtags.open);
+  };
+  $("#btn-poll").onclick = () => {
+    if (!selectedAccounts().some((a) => a.provider === "threads")) return toast("Le sondage est disponible sur Threads : coche un compte Threads.", "err");
+    state.poll = state.poll ? null : ["", ""];
+    renderComposeMeta();
+    if (state.poll) $("#poll-box input")?.focus();
+  };
   $("#btn-mention").onclick = () => ($("#mention-box").hidden ? renderMentionBox() : ($("#mention-box").hidden = true));
   $("#btn-music").onclick = openMusic;
   $("#music-close").onclick = () => $("#music-dialog").close();

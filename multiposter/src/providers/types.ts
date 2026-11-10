@@ -21,6 +21,8 @@ export interface TargetOptions {
   firstComment?: string;
   /** Instagram (Reel) et TikTok : image de couverture = moment de la vidéo, en millisecondes. */
   coverMs?: number;
+  /** Threads : sondage (2 à 4 réponses), sur un post sans média. */
+  poll?: string[];
 }
 
 const PRIVACY = new Set(["public", "unlisted", "private", "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"]);
@@ -37,6 +39,10 @@ export function sanitizeOptions(raw: unknown): TargetOptions {
   if (typeof r.privacy === "string" && PRIVACY.has(r.privacy)) o.privacy = r.privacy;
   for (const k of ["allowComment", "allowDuet", "allowStitch"] as const) if (typeof r[k] === "boolean") o[k] = r[k] as boolean;
   if (typeof r.firstComment === "string" && r.firstComment.trim()) o.firstComment = r.firstComment.trim().slice(0, 2200);
+  if (Array.isArray(r.poll)) {
+    const p = r.poll.map((x) => String(x ?? "").replace(/[\n\r]/g, " ").trim().slice(0, 25)).filter(Boolean).slice(0, 4);
+    if (p.length) o.poll = p;
+  }
   if (typeof r.coverMs === "number" && Number.isFinite(r.coverMs) && r.coverMs >= 0) o.coverMs = Math.min(Math.round(r.coverMs), 15 * 60_000);
   return o;
 }

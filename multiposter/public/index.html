@@ -37,7 +37,8 @@
         <div class="card">
           <div class="card-title"><h2>Publier sur</h2><button class="help-q" type="button" data-help="publier" aria-label="Aide : publier">?</button></div>
           <div id="profile-picker" class="chips profile-chips"></div>
-          <div id="account-picker" class="chips"></div>
+          <div id="account-picker" class="acc-picker"></div>
+          <p id="picked-names" class="muted small picked-names"></p>
           <p id="no-accounts" class="muted" hidden>Aucun compte connecté. <a href="#accounts">Connecte tes réseaux</a>.</p>
 
           <input id="title" type="hidden">
@@ -46,12 +47,20 @@
             <label for="text">Texte</label>
             <div id="text-tabs" class="text-tabs" role="radiogroup" aria-label="Texte"></div>
           </div>
-          <textarea id="text" rows="8" placeholder="Écris ton post…"></textarea>
-          <div id="net-texts" class="net-texts" hidden></div>
-          <div class="text-tools">
-            <button class="btn ghost small" id="btn-mention" type="button">@ Mentionner</button>
-            <button class="btn ghost small" id="btn-templates" type="button">📄 Modèles</button>
+          <div class="composer">
+            <textarea id="text" rows="7" placeholder="Que se passe-t-il ?"></textarea>
+            <div id="net-texts" class="net-texts" hidden></div>
+            <div class="composer-bar" role="toolbar" aria-label="Outils du texte">
+              <button class="cbtn" id="btn-cam" type="button" title="Photo ou vidéo" aria-label="Photo ou vidéo"><span class="tool-ico" data-ico="camera"></span></button>
+              <button class="cbtn" id="btn-gal" type="button" title="Galerie / fichiers" aria-label="Galerie"><span class="tool-ico" data-ico="gallery"></span></button>
+              <button class="cbtn" id="btn-hash" type="button" title="Hashtags" aria-label="Hashtags"><span class="tool-ico" data-ico="hashtag"></span></button>
+              <button class="cbtn" id="btn-mention" type="button" title="Mentionner" aria-label="Mentionner"><span class="tool-ico" data-ico="at"></span></button>
+              <button class="cbtn" id="btn-poll" type="button" title="Sondage (Threads)" aria-label="Sondage"><span class="tool-ico" data-ico="poll"></span></button>
+              <span class="cbar-space"></span>
+              <button class="cbtn" id="btn-templates" type="button" title="Modèles" aria-label="Modèles"><span class="tool-ico" data-ico="template"></span></button>
+            </div>
           </div>
+          <div id="poll-box" class="poll-box" hidden></div>
           <div id="mention-box" class="mention-box" hidden></div>
           <div id="template-box" class="mention-box" hidden></div>
           <div id="counters" class="counters"></div>

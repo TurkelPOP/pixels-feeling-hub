@@ -1055,3 +1055,40 @@ dialog.lightbox::backdrop { background: rgba(2, 6, 24, 0.8); }
 .net-text textarea { min-height: 7rem; }
 .chip-check { margin-left: 0.15rem; width: 1.2rem; height: 1.2rem; border-radius: 99px; display: inline-grid; place-items: center; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.25); opacity: 0.7; }
 .account-chip.active .chip-check { background: #023197; border-color: #3b6cff; opacity: 1; }
+
+/* ---------- Éditeur façon « une seule boîte » ---------- */
+.acc-picker { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; margin: 0.2rem 0 0.1rem; }
+.acc-add { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; text-decoration: none; color: #cfe0ff; background: rgba(2, 49, 151, 0.35); border: 1px solid rgba(91, 140, 255, 0.45); }
+.acc-add:hover { background: rgba(2, 49, 151, 0.6); }
+.acc-pick { position: relative; width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 2px solid transparent; background: none; cursor: pointer; filter: grayscale(1) brightness(0.55); opacity: 0.75; transition: filter 0.15s, opacity 0.15s, box-shadow 0.15s; }
+.acc-pick .avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: grid; place-items: center; }
+.acc-pick.on { filter: none; opacity: 1; border-color: var(--c, #3b6cff); box-shadow: 0 0 0 2px rgba(2, 8, 40, 0.9), 0 0 12px -2px var(--c, #3b6cff); }
+.acc-pick:hover { opacity: 1; filter: grayscale(0.3); }
+.acc-pick.on:hover { filter: none; }
+.acc-pick .avatar-net { position: absolute; right: -4px; bottom: -4px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #0b1230; border: 2px solid #0b1230; font-size: 12px; }
+.acc-pick .acc-shared { position: absolute; left: -4px; top: -4px; width: 16px; height: 16px; border-radius: 50%; background: #023197; font-size: 10px; display: grid; place-items: center; color: #fff; }
+.picked-names { margin: 0.35rem 0 0.6rem; }
+
+.composer { border: 1px solid rgba(91, 140, 255, 0.45); border-radius: 14px; background: rgba(2, 6, 28, 0.55); overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
+.composer:focus-within { border-color: #3b6cff; box-shadow: 0 0 0 3px rgba(59, 108, 255, 0.18); }
+.composer > #text { border: 0; border-radius: 0; background: transparent; box-shadow: none; min-height: 9rem; }
+.composer > #text:focus { outline: none; box-shadow: none; }
+.composer > .net-texts { padding: 0.6rem; }
+.composer-bar { display: flex; align-items: center; gap: 0.2rem; padding: 0.3rem 0.45rem; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.cbar-space { flex: 1; }
+.cbtn { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px; background: none; color: #b9c8ee; cursor: pointer; }
+.cbtn .tool-ico { width: 20px; height: 20px; display: block; }
+.cbtn .tool-ico svg { width: 100%; height: 100%; }
+.cbtn:hover { background: rgba(59, 108, 255, 0.16); color: #fff; }
+.cbtn.on { background: #023197; color: #fff; }
+.cbtn.dim { opacity: 0.45; }
+
+.poll-box { display: grid; gap: 0.4rem; margin-top: 0.6rem; padding: 0.7rem; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; background: rgba(2, 8, 40, 0.35); }
+.poll-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+.poll-head .linklike { margin-left: auto; }
+.poll-box > .linklike { justify-self: start; }
+
+.mention-chip-wrap { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.mention-targets { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.75rem; opacity: 0.85; }
+.mention-targets .mt { display: inline-flex; align-items: center; gap: 0.2rem; }
+.mention-targets .mt.none { opacity: 0.5; }
