@@ -76,7 +76,7 @@ async function publishTarget(targetId: number): Promise<void> {
     const result = await pub.publish({ account: acc, text, title: t.title, media, options, progress });
     // Premier commentaire : le post est déjà en ligne, un échec ici ne doit jamais le republier.
     let note: string | null = null;
-    if (options.firstComment && pub.comment && result.id) {
+    if (options.firstComment && pub.comment && result.id && !result.id.startsWith("story:")) {
       try {
         step(0.96, 1, "1er commentaire");
         await pub.comment({ account: acc, postId: result.id, text: resolveMentions(options.firstComment, account.provider, t.mention_owner) });

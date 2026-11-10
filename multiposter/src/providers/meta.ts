@@ -158,12 +158,14 @@ async function igWaitReady(containerId: string, token: string) {
   );
 }
 
-async function publishStory(igId: string, token: string, m: MediaFile) {
+/** Publie une story et renvoie son identifiant (pour ses statistiques). */
+async function publishStory(igId: string, token: string, m: MediaFile): Promise<string> {
   const params: Record<string, string> =
     m.kind === "image" ? { media_type: "STORIES", image_url: m.publicUrl } : { media_type: "STORIES", video_url: m.publicUrl };
   const id = await igContainer(igId, token, params);
   await igWaitReady(id, token);
-  await json(`${G}/${igId}/media_publish`, form({ creation_id: id, access_token: token }));
+  const pub = await json(`${G}/${igId}/media_publish`, form({ creation_id: id, access_token: token }));
+  return String(pub.id);
 }
 
 function igItemParams(m: MediaFile, carousel: boolean): Record<string, string> {
@@ -203,11 +205,13 @@ export const instagram: Publisher = {
     const p = progress ?? (() => {});
     const storiesUrl = `https://www.instagram.com/stories/${account.meta.username ?? ""}/`;
     if (options.format === "story") {
+      const ids: string[] = [];
       for (const [i, m] of media.entries()) {
         p(i / media.length, (i + 1) / media.length, media.length > 1 ? `Story ${i + 1}/${media.length}` : "Story");
-        await publishStory(igId, token, m);
+        ids.push(await publishStory(igId, token, m));
       }
-      return { url: storiesUrl };
+      // « story:id1,id2 » : les stats additionnent chaque story publiée.
+      return { url: storiesUrl, id: `story:${ids.join(",")}` };
     }
     let creationId: string;
     if (media.length === 1) {

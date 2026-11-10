@@ -7,6 +7,10 @@ Numéro MAJEUR.MINEUR.CORRECTIF :
 
 Une section par version, la plus récente en haut. L'app affiche ces lignes avant d'installer une mise à jour.
 
+## 1.2.1 — 10/11/2026
+- Stats des stories Instagram : vues, réponses, partages et réactions (relevés dans les 24 h, Instagram ne les garde pas plus longtemps).
+- Filtre « Stories » : message explicatif quand il n'y a rien.
+
 ## 1.2.0 — 10/11/2026
 - Nouvel onglet Stats : périodes (7 j, 30 j, 90 j, 12 mois, ce mois, mois dernier, perso), comparées à la période précédente.
 - Filtres par réseau, profil et format.

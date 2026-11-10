@@ -27,6 +27,20 @@ db.exec("CREATE INDEX IF NOT EXISTS stats_history_target ON stats_history (targe
 export const FETCHERS: Record<string, (a: Account, id: string) => Promise<PostStats>> = {
   async instagram(a, id) {
     const t = enc(a.accessToken!);
+    // Stories : statistiques à part (vues, réponses, partages), disponibles environ 24 h après la fin.
+    if (id.startsWith("story:")) {
+      const out: PostStats = { views: 0, likes: 0, comments: 0, shares: 0 };
+      for (const sid of id.slice(6).split(",").filter(Boolean)) {
+        const ins = await json(`${META}/${sid}/insights?metric=views,replies,shares,total_interactions&access_token=${t}`);
+        const get = (n: string) => { const m = (ins.data ?? []).find((x: any) => x.name === n); return num(m?.values?.[0]?.value ?? m?.total_value?.value) ?? 0; };
+        out.views! += get("views");
+        out.comments! += get("replies");
+        out.shares! += get("shares");
+        // Interactions = réponses + partages + autres réactions (j'aime de story…).
+        out.likes! += Math.max(0, get("total_interactions") - get("replies") - get("shares"));
+      }
+      return out;
+    }
     const base = await json(`${META}/${id}?fields=like_count,comments_count&access_token=${t}`);
     const out: PostStats = { likes: num(base.like_count), comments: num(base.comments_count) };
     // Vues et partages : demande l'autorisation « insights » (reconnexion) ; sinon on s'en passe.
