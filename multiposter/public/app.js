@@ -3533,7 +3533,7 @@ async function init() {
 // Onglet Stats : période fixe ou personnalisée (comparée à la précédente), filtres, graphiques
 // (bibliothèque ECharts, hébergée sur le serveur et chargée seulement à l'ouverture de l'onglet).
 
-const ST = { period: "30", nets: new Set(), profile: "", format: "", metric: "views", sort: "interactions", data: null, seq: 0 };
+const ST = { period: "30", nets: new Set(), profile: "", format: "", external: true, metric: "views", sort: "interactions", data: null, seq: 0 };
 const ST_PERIODS = [["7", "7 j"], ["30", "30 j"], ["90", "90 j"], ["365", "12 mois"], ["month", "Ce mois"], ["lastmonth", "Mois dernier"], ["custom", "Perso"]];
 const ST_METRICS = [["views", "Vues"], ["interactions", "Interactions"], ["posts", "Posts"]];
 const KIND_LABEL = { carrousel: "Carrousel", video: "Vidéo / Reel", photo: "Photo", texte: "Texte", story: "Story" };
@@ -3609,6 +3609,7 @@ async function loadStats() {
   if (ST.nets.size) q.set("providers", [...ST.nets].join(","));
   if (ST.profile) q.set("profile", ST.profile);
   if (ST.format) q.set("format", ST.format);
+  if (!ST.external) q.set("external", "0");
   const seq = ++ST.seq;
   $("#view-stats").classList.add("loading");
   try {
@@ -3642,11 +3643,13 @@ function paintStats() {
     tile("Vues", t.views, p.views, fmtNum, false, true),
     tile("Interactions", t.interactions, p.interactions, fmtNum, false, true),
     tile("Engagement", t.engagement, p.engagement, (v) => `${String(v).replace(".", ",")} %`, true, true),
+    followersTile(d.followers),
     tile("Posts publiés", t.posts, p.posts),
     tile("J'aime", t.likes, p.likes),
     tile("Commentaires", t.comments, p.comments),
     tile("Partages", t.shares, p.shares),
   );
+  paintFollowers(d);
   const empty = !t.posts;
   for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) $(`#${id}`).closest(".st-chart").classList.toggle("empty", empty);
   if (empty) {
@@ -3661,6 +3664,39 @@ function paintStats() {
   paintFormats(d);
   paintHeat(d);
   paintRanking(d);
+}
+
+/** Abonnés : total actuel et gain sur la période (comparé au gain de la période précédente). */
+function followersTile(f) {
+  const gained = f?.gained;
+  return h("div", { class: "card st-kpi big" }, h("small", {}, "Abonnés"), h("strong", {}, f?.now == null ? "—" : fmtNum(f.now)),
+    gained == null ? h("span", { class: "st-delta" }, "relevé chaque jour")
+      : h("span", { class: `st-delta ${gained > 0 ? "up" : gained < 0 ? "down" : ""}`, title: f.prevGained != null ? `Période précédente : ${f.prevGained >= 0 ? "+" : ""}${f.prevGained}` : "" },
+        `${gained >= 0 ? "+" : ""}${fmtNum(gained)} sur la période`));
+}
+
+function paintFollowers(d) {
+  const accs = d.followers?.accounts ?? [];
+  const card = $("#ch-followers").closest(".st-chart");
+  card.classList.toggle("empty", !accs.length);
+  let note = card.querySelector(".st-note");
+  if (!accs.length) {
+    chart("ch-followers").clear();
+    if (!note) card.append(note = h("p", { class: "muted small st-note" }));
+    note.textContent = "Le nombre d'abonnés est relevé chaque jour à partir de cette version : la courbe se remplit au fil des jours. TikTok : reconnecte le compte pour l'activer.";
+    return;
+  }
+  note?.remove();
+  chart("ch-followers").setOption({
+    ...baseOpt(),
+    tooltip: { ...baseOpt().tooltip, trigger: "axis", valueFormatter: (v) => (v == null ? "—" : fmtNum(v)) },
+    legend: { top: 0, textStyle: { color: CH_TEXT }, icon: "circle" },
+    grid: { left: 8, right: 12, top: 34, bottom: 8, containLabel: true },
+    xAxis: { type: "category", boundaryGap: false, data: d.buckets.map((b) => bucketLabel(b, d.step)), ...axisStyle, splitLine: { show: false } },
+    yAxis: { type: "value", scale: true, ...axisStyle, axisLabel: { color: CH_TEXT, formatter: (v) => fmtNum(v) } },
+    series: accs.map((a) => ({ name: `${a.name} · ${PROVIDER[a.provider]?.label ?? a.provider}`, type: "line", smooth: true, showSymbol: false, connectNulls: true,
+      lineStyle: { width: 2.5, color: netColor(a.provider) }, itemStyle: { color: netColor(a.provider) }, data: a.points })),
+  }, true);
 }
 
 function chart(id) {
@@ -3761,7 +3797,7 @@ function paintRanking(d) {
       h("span", { class: "st-post" },
         h("span", { class: "st-rank" }, String(i + 1)),
         p.thumb ? h("img", { class: "st-thumb", src: p.thumb, alt: "", loading: "lazy" }) : h("span", { class: "st-thumb ph" }, (KIND_LABEL[p.kind] ?? "?")[0]),
-        h("span", { class: "st-post-txt" }, h("strong", {}, p.label),
+        h("span", { class: "st-post-txt" }, h("strong", {}, p.external ? h("span", { class: "st-ext-tag", title: "Publié directement dans l'appli du réseau" }, "hors app") : null, p.label),
           h("small", { class: "muted" }, `${new Date(p.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · ${KIND_LABEL[p.kind] ?? ""} `,
             ...p.targets.map((t) => t.url
               ? h("a", { href: t.url, target: "_blank", rel: "noopener", title: `${t.account} : ${fmtNum(t.stats.views ?? 0)} vues, ${fmtNum((t.stats.likes ?? 0) + (t.stats.comments ?? 0) + (t.stats.shares ?? 0))} interactions` }, netIcon(t.provider))
@@ -3773,12 +3809,13 @@ function paintRanking(d) {
 
 window.addEventListener("resize", () => {
   if (!window.echarts) return;
-  for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat"]) echarts.getInstanceByDom($(`#${id}`))?.resize();
+  for (const id of ["ch-trend", "ch-nets", "ch-formats", "ch-heat", "ch-followers"]) echarts.getInstanceByDom($(`#${id}`))?.resize();
 });
 $("#st-from").addEventListener("change", () => void loadStats());
 $("#st-to").addEventListener("change", () => void loadStats());
 $("#st-profile").addEventListener("change", (e) => { ST.profile = e.target.value; void loadStats(); });
 $("#st-format").addEventListener("change", (e) => { ST.format = e.target.value; void loadStats(); });
+$("#st-external").addEventListener("change", (e) => { ST.external = e.target.checked; void loadStats(); });
 $("#st-sort").addEventListener("change", (e) => { ST.sort = e.target.value; if (ST.data) paintRanking(ST.data); });
 
 init().catch((e) => toast(e.message, "err"));

@@ -7,6 +7,12 @@ Numéro MAJEUR.MINEUR.CORRECTIF :
 
 Une section par version, la plus récente en haut. L'app affiche ces lignes avant d'installer une mise à jour.
 
+## 0.3.0 — 10/11/2026
+- Stats de tout le compte : posts, carrousels, Reels, stories et vidéos publiés directement dans les applis (Instagram, Facebook, Threads, YouTube, TikTok), marqués « hors app ».
+- Abonnés relevés chaque jour : tuile (total + gain sur la période) et courbe par compte.
+- Case « Publié hors app » pour les inclure ou non.
+- TikTok : reconnecte le compte (nouvelle autorisation pour les abonnés).
+
 ## 0.2.2 — 10/11/2026
 - Stats des vidéos Facebook (réactions, commentaires, vues) : elles n'étaient pas relevées.
 - Stats TikTok des vidéos pas encore publiques à la publication : retrouvées dès que TikTok les rend disponibles.

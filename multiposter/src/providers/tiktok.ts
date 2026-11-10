@@ -20,7 +20,7 @@ export const tiktokFlow: OAuthFlow = {
     "https://www.tiktok.com/v2/auth/authorize/?" +
     new URLSearchParams({
       client_key: config.tiktok.clientKey!,
-      scope: "user.info.basic,video.publish,video.list",
+      scope: "user.info.basic,user.info.stats,video.publish,video.list",
       response_type: "code",
       redirect_uri: callbackUrl("tiktok"),
       state,

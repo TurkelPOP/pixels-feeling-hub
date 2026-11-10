@@ -25,6 +25,7 @@ import { registerMaintenanceApi, startBackups } from "./maintenance.ts";
 import { notify, registerPushApi } from "./push.ts";
 import { registerPresetApi } from "./presets.ts";
 import { registerStatsApi, startStats } from "./stats.ts";
+import { startAccountStats } from "./accountstats.ts";
 import { registerRecapApi, sendDueRecaps, startRecaps } from "./recap.ts";
 import { musicFile, registerMusicApi } from "./music.ts";
 import { currentUser, isLogged, oauthCallerOk, ownerId, registerAuth, registerUserApi, requireAuth, securityEvents, securityStatus } from "./auth.ts";
@@ -781,6 +782,7 @@ startCleanup();
 startBackups();
 startRecaps();
 startStats();
+startAccountStats();
 // Par défaut, l'app n'écoute que sur ce PC (127.0.0.1) : elle n'est pas visible depuis les
 // autres appareils du Wi-Fi. HOST=0.0.0.0 seulement pour Docker ou un serveur.
 serve({ fetch: app.fetch, port: config.port, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {

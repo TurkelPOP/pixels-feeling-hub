@@ -8,6 +8,7 @@ import { currentUser } from "./auth.ts";
 import { config } from "./config.ts";
 import { db, getAccount, type Account } from "./db.ts";
 import { getMediaList } from "./media.ts";
+import { externalRows, followerRows } from "./accountstats.ts";
 import { json, postJson } from "./http.ts";
 import type { PostStats } from "./providers/types.ts";
 import { freshAccount } from "./scheduler.ts";
@@ -156,7 +157,7 @@ const localParts = (t: number) => {
   return { wd: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p.weekday), hour: Number(p.hour) % 24 };
 };
 
-interface Row { id: number; post_id: number; provider: string; account_name: string; avatar_url: string | null; published_at: number; stats: string | null; kind: string | null;
+interface Row { thumb_url?: string | null; external?: boolean; id: number; post_id: number; provider: string; account_name: string; avatar_url: string | null; published_at: number; stats: string | null; kind: string | null;
   media_ids: string; text: string; title: string; source: string | null; external_url: string | null; options: string | null }
 type Totals = { posts: number; views: number; likes: number; comments: number; shares: number; interactions: number; engagement: number | null };
 
@@ -226,6 +227,11 @@ export function registerStatsApi(api: Hono) {
        FROM post_targets t JOIN posts p ON p.id = t.post_id JOIN accounts a ON a.id = t.account_id
        WHERE p.owner_id = ? AND t.status = 'done' AND t.published_at >= ? AND t.published_at <= ?`,
     ).all(owner, from - len, to) as unknown as (Row & { account_id: number })[];
+    // Contenus publiés directement dans les applis (hors PTZ Posting), sauf si on les exclut.
+    if (c.req.query("external") !== "0")
+      for (const e of externalRows(owner, from - len, to))
+        all.push({ id: -e.id, post_id: -e.id, account_id: e.account_id, provider: e.provider, account_name: e.account_name, avatar_url: e.avatar_url, published_at: e.published_at,
+          stats: e.stats, kind: e.kind, media_ids: "[]", text: e.caption ?? "", title: "", source: null, external_url: e.permalink, options: null, thumb_url: e.thumb, external: true });
     const rows = all.filter((r) => (!providers.size || providers.has(r.provider)) && (!profileAccs || profileAccs.has(r.account_id)) && (!format || kindOf(r) === format));
     const cur = rows.filter((r) => r.published_at >= from);
     const prev = rows.filter((r) => r.published_at < from);
@@ -279,7 +285,7 @@ export function registerStatsApi(api: Hono) {
       const s: PostStats = r.stats ? JSON.parse(r.stats) : {};
       const e = posts.get(r.post_id) ?? {
         id: r.post_id, label: (r.title || r.text.split("\n")[0] || r.source || "(sans texte)").slice(0, 90), at: r.published_at, kind: kindOf(r),
-        thumb: getMediaList(JSON.parse(r.media_ids))[0]?.localUrl ?? null, targets: [], views: 0, likes: 0, comments: 0, shares: 0,
+        thumb: r.thumb_url ?? getMediaList(JSON.parse(r.media_ids))[0]?.localUrl ?? null, external: !!r.external, targets: [], views: 0, likes: 0, comments: 0, shares: 0,
       };
       e.targets.push({ provider: r.provider, account: r.account_name, url: r.external_url, stats: s });
       e.views += s.views ?? 0; e.likes += s.likes ?? 0; e.comments += s.comments ?? 0; e.shares += s.shares ?? 0;
@@ -289,7 +295,24 @@ export function registerStatsApi(api: Hono) {
     const ranking = [...posts.values()].map((p) => ({ ...p, interactions: p.likes + p.comments + p.shares, engagement: p.views ? Math.round(((p.likes + p.comments + p.shares) / p.views) * 1000) / 10 : null }))
       .sort((a, b) => b.interactions - a.interactions || b.views - a.views).slice(0, 100);
 
-    return c.json({ from, to, step, buckets, series, total: totals(cur), previous: totals(prev), byProvider, byFormat, heatmap, ranking });
+    // Abonnés : courbe par compte (dernier relevé de chaque période), gain sur la période et la précédente.
+    const fRows = followerRows(owner, dayKey(from - len), dayKey(to)).filter((r) => r.followers != null
+      && (!providers.size || providers.has(r.provider)) && (!profileAccs || profileAccs.has(r.account_id)));
+    const dayTs = (d: string) => Date.parse(`${d}T12:00:00Z`);
+    const lastAt = (rows: typeof fRows, t: number) => { let v: number | null = null; for (const r of rows) if (dayTs(r.day) <= t) v = r.followers; return v; };
+    const firstIn = (rows: typeof fRows, a: number, b: number) => rows.find((r) => dayTs(r.day) >= a && dayTs(r.day) <= b)?.followers ?? null;
+    const fAccounts = [...new Set(fRows.map((r) => r.account_id))].map((id) => {
+      const rows = fRows.filter((r) => r.account_id === id);
+      let carry: number | null = null;
+      const points = buckets.map((b) => { for (const r of rows) if (bucketOf(dayTs(r.day)) === b) carry = r.followers; return carry; });
+      const now = lastAt(rows, to), start = lastAt(rows, from) ?? firstIn(rows, from, to);
+      const pStart = lastAt(rows, from - len) ?? firstIn(rows, from - len, from), pEnd = lastAt(rows, from);
+      return { id, provider: rows[0].provider, name: rows[0].name, points, now, gained: now != null && start != null ? now - start : null, prevGained: pEnd != null && pStart != null ? pEnd - pStart : null };
+    });
+    const sumOrNull = (k: "now" | "gained" | "prevGained") => (fAccounts.some((a) => a[k] != null) ? fAccounts.reduce((s, a) => s + (a[k] ?? 0), 0) : null);
+    const followers = { accounts: fAccounts, now: sumOrNull("now"), gained: sumOrNull("gained"), prevGained: sumOrNull("prevGained") };
+
+    return c.json({ from, to, step, buckets, series, total: totals(cur), previous: totals(prev), byProvider, byFormat, heatmap, ranking, followers });
   });
 
   /** Meilleurs posts sur une période (somme des interactions, tous réseaux). */

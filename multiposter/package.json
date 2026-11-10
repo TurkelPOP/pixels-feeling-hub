@@ -1,7 +1,7 @@
 {
   "name": "ptz-posting",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "PTZ Posting (PTZ Corp) : programmation et publication multi-réseaux auto-hébergée.",
   "type": "module",
   "engines": {

@@ -361,6 +361,8 @@ ${networks[id].owner}`,
   <li>Les posts comptent <strong>au jour de leur publication</strong>, avec leurs derniers chiffres. <strong>Engagement</strong> = (j'aime + commentaires + partages) ÷ vues, là où le réseau donne les vues.</li>
   <li><strong>Meilleurs créneaux</strong> : plus la case est claire, plus les posts publiés ce jour-là à cette heure ont fait réagir.</li>
   <li>Les chiffres sont relevés souvent les 2 premiers jours, puis de plus en plus espacés, jusqu'à 90 jours. Facebook ne donne pas toujours les vues.</li>
+  <li><strong>Publié hors app</strong> : ce que tu publies directement dans Instagram, Facebook, Threads, YouTube ou TikTok est aussi compté (relevé toutes les 3 h, 90 derniers jours). Les stories Instagram ne sont visibles que pendant leurs 24 h.</li>
+  <li><strong>Abonnés</strong> : relevés une fois par jour, la courbe se remplit au fil des jours. TikTok : reconnecte le compte une fois pour l'activer.</li>
 </ul>`,
     },
     {
