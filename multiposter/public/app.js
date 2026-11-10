@@ -1230,18 +1230,24 @@ function renderAccounts() {
   $("#flows").replaceChildren(
     canvaCard(),
     driveCard(),
-    ...state.meta.flows.map((f) =>
-      h(
+    ...state.meta.flows.map((f) => {
+      // Comptes déjà connectés via ce réseau : leur photo, et l'état de la connexion.
+      const mine = state.accounts.filter((a) => !a.shared && f.providers.includes(a.provider));
+      return h(
         "div",
-        { class: "card flow" },
-        h("div", { class: "flow-head" }, ...f.providers.map(badge), helpQ(`net-${f.id}`, `Tuto ${f.label}`)),
+        { class: `card flow${mine.length ? " connected" : ""}` },
+        h("div", { class: "flow-head" },
+          h("span", { class: "flow-logos", title: f.label }, ...f.providers.map((p) => h("span", { style: `--c:${PROVIDER[p]?.color}` }, netIcon(p, "1.9rem")))),
+          h("span", { class: `flow-state ${mine.length ? "on" : ""}` }, mine.length ? "✓ Connecté" : f.configured ? "Pas connecté" : "À activer"),
+          helpQ(`net-${f.id}`, `Tuto ${f.label}`)),
+        mine.length ? h("div", { class: "flow-accs" }, ...mine.map(accAvatar)) : null,
         f.configured
-          ? h("a", { class: "btn primary small", href: `/oauth/${f.id}/start` }, `Connecter ${f.label}`)
+          ? h("a", { class: `btn ${mine.length ? "ghost" : "primary"} small`, href: `/oauth/${f.id}/start`, title: mine.length ? "Ajouter un compte ou renouveler l'accès" : `Connecter ${f.label}` }, mine.length ? "Reconnecter / ajouter" : "Connecter")
           : notReady(f.id),
         f.configured ? userTuto(f.id) : null,
         f.configured && state.me?.role === "owner" ? setupPanel(f.id, true) : null,
-      ),
-    ),
+      );
+    }),
   );
   const list = state.accounts.filter((a) => !a.shared).map((a) => {
     const expiring = a.expiresAt && !a.canRefresh && a.expiresAt < Date.now() + 7 * 86400e3;

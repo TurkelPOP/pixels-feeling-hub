@@ -1134,3 +1134,11 @@ dialog.lightbox::backdrop { background: rgba(2, 6, 24, 0.8); }
 .tinline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem; }
 .tinline-row select { width: auto; flex: 0 1 15rem; }
 .tinline-row label { margin: 0; }
+
+/* Cartes de connexion : gros logos, état, photos des comptes connectés */
+.flow-head { display: flex; align-items: center; gap: 0.6rem; }
+.flow-logos { display: inline-flex; gap: 0.45rem; }
+.flow-state { margin-left: auto; font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 99px; background: rgba(255, 255, 255, 0.07); color: #9fb0d8; white-space: nowrap; }
+.flow-state.on { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.flow-accs { display: flex; flex-wrap: wrap; gap: 0.7rem; padding: 0.2rem 0.1rem 0.3rem; }
+.card.flow.connected { border-color: rgba(74, 222, 128, 0.3); }
