@@ -35,6 +35,14 @@ Exemple en ligne de commande (remplacez `compte` par votre identifiant alwaysdat
 scp -r .output start.mjs compte@ssh-compte.alwaysdata.net:pixels-perspective/
 ```
 
+**Sans mot de passe, avec une clé dédiée** (la clé privée ne quitte jamais votre ordinateur) :
+
+1. `ssh-keygen -t ed25519 -f ~/.ssh/alwaysdata_pp -N ""`
+2. Collez le contenu de `~/.ssh/alwaysdata_pp.pub` dans *Accès distant > SSH/SFTP > Clés SSH* de l'administration, et vérifiez que l'utilisateur SSH est activé.
+3. Ajoutez `-i ~/.ssh/alwaysdata_pp` aux commandes `ssh` et `scp`.
+
+Pour révoquer l'accès, supprimez la clé publique dans l'administration.
+
 ## 4. Créer le site dans l'administration
 
 *Web > Sites > Ajouter un site* :
@@ -72,11 +80,19 @@ Les visiteurs déjà connectés avant l'activation de la synchronisation voient 
 
 ## 7. Mettre à jour le site
 
-1. `bun run build:node`
+1. `VITE_SITE_URL=https://votre-domaine bun run build:node` (l'adresse est intégrée au code : sans elle, canonical, sitemap et `robots.txt` perdent leurs URLs absolues).
 2. Renvoyer `.output/` (et `start.mjs` s'il a changé).
 3. Redémarrer le site depuis l'administration (*Web > Sites*).
 
 La base de synchronisation (`SYNC_DB_PATH`) n'est pas touchée.
+
+> Le serveur lit la liste de ses fichiers statiques **au démarrage**. Tout fichier ajouté dans `public/` (image, fichier de validation Google…) exige donc un nouveau build, un renvoi **et** un redémarrage ; sans cela il répond 404. Les pages d'épisodes, elles, se mettent à jour seules avec le flux Acast.
+
+## 8. HTTPS et référencement
+
+- Onglet **SSL** du site : activez « Forcer HTTPS ». Sans cela l'adresse `http://` répond au lieu de rediriger, et le cookie de session n'est `Secure` qu'en HTTPS.
+- **Google Search Console** : choisissez la propriété « **Préfixe de l'URL** » (`https://votre-domaine/`). Le type « Domaine » exige un accès aux DNS, impossible sur une adresse `*.alwaysdata.net`. Validez par **fichier HTML** : placez le fichier `googleXXXX.html` fourni par Google dans `public/`, reconstruisez, renvoyez et redémarrez (voir ci-dessus), puis cliquez sur « Valider ». Ne le supprimez pas : Google le revérifie.
+- Dans *Sitemaps*, envoyez `sitemap.xml`. L'état « Impossible de récupérer le sitemap » est fréquent juste après l'envoi sur une propriété neuve ; réessayez après 24 à 48 heures.
 
 ## Données personnelles de la synchronisation
 
