@@ -38,6 +38,24 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+// Content-Security-Policy. TanStack Start inlines its hydration scripts, hence 'unsafe-inline'
+// for scripts; the policy still blocks external scripts, plugins, <base> hijacking and
+// cross-origin form posts. Images and audio come from third-party feeds (Acast, YouTube,
+// Twitch), so they are allowed over https. No frame-ancestors: see below.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: https:",
+  "media-src 'self' https:",
+  "connect-src 'self'",
+  "frame-src https://www.youtube-nocookie.com https://player.twitch.tv",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 // Baseline hardening headers applied to every response that doesn't set its own.
 // No X-Frame-Options / frame-ancestors: the Lovable editor previews the site in an iframe.
 const SECURITY_HEADERS: Record<string, string> = {
@@ -46,6 +64,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "Cross-Origin-Opener-Policy": "same-origin",
+  // The Vite dev server needs inline/eval scripts and a websocket, so only enforce in production.
+  ...(process.env.NODE_ENV === "production" ? { "Content-Security-Policy": CSP } : {}),
 };
 
 function withSecurityHeaders(response: Response): Response {

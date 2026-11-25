@@ -6,7 +6,12 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// DEPLOY_TARGET=node (script `build:node`) produit un serveur Node autonome dans .output/, pour un hébergeur
+// comme alwaysdata. Sans elle, le build garde le comportement par défaut de la config Lovable.
+const nodeTarget = process.env.DEPLOY_TARGET === "node";
+
 export default defineConfig({
+  ...(nodeTarget ? { nitro: { preset: "node-server" } } : {}),
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
