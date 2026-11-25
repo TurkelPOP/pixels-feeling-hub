@@ -3,8 +3,9 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, ListVideo, AlertCircle, ExternalLink } from "lucide-react";
+import { Play, ListVideo, AlertCircle, ExternalLink, CheckCircle2, Clock } from "lucide-react";
 import { getPlaylists } from "@/lib/youtube.functions";
+import { useMediaHistory } from "@/lib/userHistory";
 
 export function YouTubeSection() {
   const fetchPlaylists = useServerFn(getPlaylists);
@@ -20,6 +21,8 @@ export function YouTubeSection() {
   // Until the user picks a video, show the latest one (first in the list).
   const activeId = pickedId ?? data?.playlists[0]?.id ?? "";
 
+  const { getStatus, markStarted } = useMediaHistory();
+
   const activeVideo = data?.playlists?.find((p) => p.id === activeId);
   const thumbnail =
     activeVideo?.thumbnail ||
@@ -28,10 +31,12 @@ export function YouTubeSection() {
   const handleSelectVideo = (id: string) => {
     setPickedId(id);
     setPlaying(true); // Auto-play when selecting from list
+    markStarted(id, "youtube");
   };
 
   const handlePlay = () => {
     setPlaying(true);
+    if (activeId) markStarted(activeId, "youtube");
   };
 
   const embedSrc = activeId
@@ -184,6 +189,9 @@ export function YouTubeSection() {
                     </div>
                   ) : data?.playlists.map((pl, i) => {
                     const isActive = pl.id === activeId;
+                    const plHistory = getStatus(pl.id);
+                    const isCompleted = plHistory?.status === "completed";
+                    const isStarted = plHistory?.status === "started";
                     const handleClick = (e: React.MouseEvent) => {
                       // Keep the real link for middle-click / new tab, play inline otherwise.
                       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
@@ -239,6 +247,16 @@ export function YouTubeSection() {
                           <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/70 backdrop-blur text-white font-mono">
                             {pl.itemCount}
                           </span>
+                          {/* History badge on thumbnail */}
+                          {(isCompleted || isStarted) && (
+                            <span
+                              className={`absolute top-1 left-1 rounded-full p-0.5 ${
+                                isCompleted ? "bg-green-500/90 text-white" : "bg-amber-500/90 text-white"
+                              }`}
+                            >
+                              {isCompleted ? <CheckCircle2 className="size-2.5" /> : <Clock className="size-2.5" />}
+                            </span>
+                          )}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span
@@ -250,8 +268,12 @@ export function YouTubeSection() {
                           >
                             {pl.title}
                           </span>
-                          <span className="block text-xs text-muted-foreground mt-1 line-clamp-1">
+                          <span className="text-xs text-muted-foreground mt-1 line-clamp-1 flex items-center gap-1.5">
                             {pl.description || "Pixels Perspective"}
+                            {isCompleted && <span className="text-green-400 font-medium">· Vu</span>}
+                            {isStarted && !isCompleted && (
+                              <span className="text-amber-400 font-medium">· En cours</span>
+                            )}
                           </span>
                         </span>
                       </motion.a>

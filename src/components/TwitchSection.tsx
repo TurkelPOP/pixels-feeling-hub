@@ -1,10 +1,12 @@
 /* eslint-disable prettier/prettier */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, Play, Tv, ExternalLink, Radio, Calendar, Clock } from "lucide-react";
+import { AlertCircle, Play, Tv, ExternalLink, Radio, Calendar, Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { getTwitchData, type TwitchVideo } from "@/lib/twitch.functions";
+import { useTwitchAuth } from "@/lib/useTwitchAuth";
+import { useMediaHistory } from "@/lib/userHistory";
 
 function TwitchIcon({ className }: { className?: string }) {
   return (
@@ -31,6 +33,8 @@ function formatDate(d: string): string {
 }
 
 export function TwitchSection() {
+  const { user } = useTwitchAuth();
+  const { getStatus, markStarted } = useMediaHistory();
   const fetchTwitch = useServerFn(getTwitchData);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["twitch-data"],
@@ -38,7 +42,7 @@ export function TwitchSection() {
     staleTime: 2 * 60_000,
   });
 
-  const videos = data?.videos ?? [];
+  const videos = useMemo(() => data?.videos ?? [], [data?.videos]);
   const isLive = data?.stream?.isLive ?? false;
   const isEmpty = !isLoading && !isError && !isLive && videos.length === 0;
   const channelName = data?.channelName || "turkelpop";
@@ -94,7 +98,7 @@ export function TwitchSection() {
           className="mb-10 flex items-end justify-between flex-wrap gap-4"
         >
           <div>
-            <div className="flex items-center gap-2.5 mb-2">
+            <div className="flex items-center gap-2.5 mb-2 flex-wrap">
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-white"
                 style={{ background: "var(--twitch)" }}
@@ -106,6 +110,12 @@ export function TwitchSection() {
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/90 text-white animate-pulse">
                   <span className="size-2 rounded-full bg-white animate-ping" />
                   En Direct
+                </span>
+              )}
+              {user && (
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-purple-950/80 border border-purple-400/40 text-purple-200 shadow-sm">
+                  <Sparkles className="size-3.5 text-yellow-300 fill-yellow-300" />
+                  Ravi de vous revoir, <strong className="text-white">{user.displayName}</strong> !
                 </span>
               )}
             </div>
@@ -202,7 +212,10 @@ export function TwitchSection() {
                 /* Lite embed: Thumbnail + Play trigger */
                 <button
                   type="button"
-                  onClick={() => setIsPlaying(true)}
+                  onClick={() => {
+                    setIsPlaying(true);
+                    if (activeVideo?.id) markStarted(activeVideo.id, "twitch");
+                  }}
                   className="relative size-full group cursor-pointer text-left"
                   aria-label={`Lire la diffusion : ${activeVideo?.title || "Diffusion Twitch"}`}
                 >
@@ -342,6 +355,9 @@ export function TwitchSection() {
                     </div>
                   ) : videos.map((video, i) => {
                     const isActive = video.id === activeVideo?.id && !playLive;
+                    const videoHistory = getStatus(video.id);
+                    const isCompleted = videoHistory?.status === "completed";
+                    const isStarted = videoHistory?.status === "started";
                     return (
                       <motion.button
                         key={video.id}
@@ -387,6 +403,14 @@ export function TwitchSection() {
                             />
                           )}
 
+                          {(isCompleted || isStarted) && (
+                            <span className={`absolute top-1 left-1 rounded-full p-0.5 ${
+                              isCompleted ? "bg-green-500/90 text-white" : "bg-amber-500/90 text-white"
+                            }`}>
+                              {isCompleted ? <CheckCircle2 className="size-2.5" /> : <Clock className="size-2.5" />}
+                            </span>
+                          )}
+
                           {/* Hover Play Indicator */}
                           <span
                             className={`absolute inset-0 flex items-center justify-center transition-opacity ${
@@ -429,6 +453,8 @@ export function TwitchSection() {
                                 </span>
                               </>
                             )}
+                            {isCompleted && <span className="text-green-400 font-medium">· Vu</span>}
+                            {isStarted && !isCompleted && <span className="text-amber-400 font-medium">· En cours</span>}
                           </span>
                         </span>
                       </motion.button>
